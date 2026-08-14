@@ -1,0 +1,4 @@
+{
+  "extends": "@noto/tsconfig/library.json",
+  "include": ["src", "eslint.config.mjs"]
+}

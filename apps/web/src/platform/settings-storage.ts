@@ -1,0 +1,47 @@
+import { DEFAULT_SETTINGS, STORAGE_KEYS } from '@noto/config';
+import { useSettingsStore } from '@noto/core';
+import type { Settings } from '@noto/types';
+
+/**
+ * Persists settings to localStorage.
+ *
+ * The store itself is platform-agnostic, so the read/write pair lives here —
+ * desktop and mobile provide their own equivalents against the same store.
+ */
+
+function readSettings(): Settings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.settings);
+    if (!raw) return DEFAULT_SETTINGS;
+
+    const parsed = JSON.parse(raw) as Partial<Settings>;
+
+    // Merged rather than used as-is, so settings added in a later release get
+    // their defaults instead of arriving as undefined.
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      appearance: { ...DEFAULT_SETTINGS.appearance, ...parsed.appearance },
+      editor: { ...DEFAULT_SETTINGS.editor, ...parsed.editor },
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function writeSettings(settings: Settings): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
+  } catch {
+    // A full or blocked storage quota must not take the editor down.
+  }
+}
+
+/** Hydrates the settings store and keeps localStorage in step with it. */
+export function initSettingsPersistence(): () => void {
+  useSettingsStore.getState().replace(readSettings());
+
+  return useSettingsStore.subscribe((state) => {
+    writeSettings(state.settings);
+  });
+}

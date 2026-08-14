@@ -1,0 +1,84 @@
+/*
+ * Noto design tokens for Tailwind CSS v4 (web + desktop).
+ *
+ * The values here mirror `tokens.ts` / `theme.ts`, which React Native consumes
+ * directly. `@theme inline` maps Tailwind's colour utilities onto the semantic
+ * custom properties below, so switching theme is a variable swap on :root and
+ * every `bg-surface` / `text-muted` utility follows automatically.
+ */
+
+@theme inline {
+  --color-surface: var(--noto-surface);
+  --color-surface-raised: var(--noto-surface-raised);
+  --color-surface-sunken: var(--noto-surface-sunken);
+  --color-border-subtle: var(--noto-border);
+  --color-border-strong: var(--noto-border-strong);
+  --color-content: var(--noto-text);
+  --color-muted: var(--noto-text-muted);
+  --color-subtle: var(--noto-text-subtle);
+  --color-inverted: var(--noto-text-inverted);
+  --color-accent: var(--noto-accent);
+  --color-accent-hover: var(--noto-accent-hover);
+  --color-accent-content: var(--noto-accent-text);
+  --color-accent-subtle: var(--noto-accent-subtle);
+  --color-success: var(--noto-success);
+  --color-warning: var(--noto-warning);
+  --color-danger: var(--noto-danger);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --spacing-sidebar: 260px;
+  --spacing-title-bar: 38px;
+  --spacing-editor: 720px;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Source Serif 4', ui-serif, Georgia, Cambria, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --noto-surface: #ffffff;
+  --noto-surface-raised: #ffffff;
+  --noto-surface-sunken: #f7f7f8;
+  --noto-border: #dcdce2;
+  --noto-border-strong: #bfbfc9;
+  --noto-text: #18181b;
+  --noto-text-muted: #55555f;
+  --noto-text-subtle: #9494a1;
+  --noto-text-inverted: #ffffff;
+  --noto-accent: #4f6bed;
+  --noto-accent-hover: #3d55d1;
+  --noto-accent-text: #ffffff;
+  --noto-accent-subtle: #e0e9ff;
+  --noto-success: #2f9e5f;
+  --noto-warning: #c98a1a;
+  --noto-danger: #d0453c;
+  --noto-scrim: rgba(13, 13, 15, 0.45);
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --noto-surface: #0d0d0f;
+  --noto-surface-raised: #18181b;
+  --noto-surface-sunken: #18181b;
+  --noto-border: #27272c;
+  --noto-border-strong: #3f3f47;
+  --noto-text: #f7f7f8;
+  --noto-text-muted: #9494a1;
+  --noto-text-subtle: #6f6f7e;
+  --noto-text-inverted: #0d0d0f;
+  --noto-accent: #4f6bed;
+  --noto-accent-hover: #a3bcff;
+  --noto-accent-text: #ffffff;
+  --noto-accent-subtle: #2f41a8;
+  --noto-success: #2f9e5f;
+  --noto-warning: #c98a1a;
+  --noto-danger: #d0453c;
+  --noto-scrim: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+}

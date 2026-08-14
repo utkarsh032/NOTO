@@ -1,0 +1,6 @@
+{
+  "//": "Editor-facing root config. Every app and package owns its own tsconfig.json; `pnpm typecheck` runs them through Turborepo.",
+  "extends": "./tooling/typescript/base.json",
+  "include": ["*.mjs", "*.js"],
+  "exclude": ["node_modules", "apps", "packages", "tooling", "R&D"]
+}

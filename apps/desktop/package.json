@@ -1,0 +1,52 @@
+{
+  "name": "@noto/desktop",
+  "productName": "Noto",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Noto for desktop — a local-first notes and document workspace.",
+  "author": "Noto",
+  "license": "UNLICENSED",
+  "//": "Deliberately CommonJS. Vite emits the main and preload bundles as CJS, and an Electron preload script must be CommonJS while `sandbox: true` is set — ESM preload requires disabling the sandbox.",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "dev": "electron-forge start",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noto/config": "workspace:*",
+    "@noto/core": "workspace:*",
+    "@noto/database": "workspace:*",
+    "@noto/editor": "workspace:*",
+    "@noto/sync": "workspace:*",
+    "@noto/types": "workspace:*",
+    "@noto/ui": "workspace:*",
+    "electron-squirrel-startup": "^1.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-rpm": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-vite": "^7.11.2",
+    "@electron-forge/shared-types": "^7.11.2",
+    "@noto/eslint-config": "workspace:*",
+    "@noto/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "electron": "^43.4.0",
+    "eslint": "^9.39.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.1"
+  }
+}

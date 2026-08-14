@@ -1,0 +1,48 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'tooling/*'
+
+# Noto uses a flat (hoisted) node_modules layout. Electron Forge, React Native
+# and Metro all resolve modules by walking node_modules directories and do not
+# reliably understand pnpm's default symlinked layout inside a monorepo.
+nodeLinker: hoisted
+
+# Workspace packages always win over registry versions of the same name.
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+
+# React Native and Expo ship loose peer ranges; do not fail installs on them.
+strictPeerDependencies: false
+autoInstallPeers: true
+
+# Electron Forge pulls in @electron/rebuild, which depends on @electron/node-gyp
+# from a git repository. pnpm blocks git-sourced transitive dependencies by
+# default; Forge cannot be installed without allowing them.
+blockExoticSubdeps: false
+
+# pnpm blocks dependency lifecycle scripts by default. These are the packages
+# that legitimately need to build or download binaries at install time.
+allowBuilds:
+  '@tailwindcss/oxide': true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+
+# TypeScript and ESLint are pinned workspace-wide so every package typechecks
+# and lints against the same compiler.
+#
+# TypeScript 6.0.3 rather than 7.x: it is what Expo SDK 57 targets (React Native
+# 0.87's generated types do not resolve under 5.9), and it is the newest major
+# typescript-eslint supports (its peer range is <6.1).
+#
+# ESLint 9 rather than 10: eslint-plugin-react peers on <10.
+#
+# Revisit both once typescript-eslint and eslint-plugin-react catch up.
+overrides:
+  typescript: '6.0.3'
+  eslint: '9.39.5'
+
+minimumReleaseAgeExclude:
+  - react-native-safe-area-context@5.9.0
+  - zustand@5.0.15

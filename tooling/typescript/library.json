@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Noto Library (platform-agnostic)",
+  "//": "Noto shared packages are 'internal packages': they export TypeScript source and are compiled by the consuming bundler (Vite / Metro). They never emit build output of their own.",
+  "extends": "./base.json"
+}

@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Noto",
+    "slug": "noto",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "scheme": "noto",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.noto.app"
+    },
+    "android": {
+      "package": "com.noto.app",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+@import '@noto/config/tokens.css';
+@import '@noto/ui/styles.css';
+
+/*
+ * Tailwind v4 scans the files it is imported from. The shared packages live
+ * outside this app, so their sources are registered explicitly or their
+ * utility classes would be stripped from the production build.
+ */
+@source '../../../packages/ui/src';
+@source '../../../packages/editor/src';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--noto-surface);
+  color: var(--noto-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
