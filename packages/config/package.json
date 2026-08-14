@@ -1,0 +1,24 @@
+{
+  "name": "@noto/config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noto/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@noto/eslint-config": "workspace:*",
+    "@noto/tsconfig": "workspace:*",
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.3"
+  }
+}

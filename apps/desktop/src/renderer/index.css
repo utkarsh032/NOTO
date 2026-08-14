@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import '@noto/config/tokens.css';
+@import '@noto/ui/styles.css';
+
+/* Tailwind v4 scans from the importing file; shared package sources are outside
+   this app and must be registered explicitly. */
+@source '../../../../packages/ui/src';
+@source '../../../../packages/editor/src';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--noto-surface);
+  color: var(--noto-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Desktop chrome should not feel like a web page. */
+  overflow: hidden;
+  user-select: none;
+}
+
+input,
+textarea,
+.noto-prose {
+  user-select: text;
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "@noto/tsconfig/library.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "eslint.config.mjs", "vitest.config.ts"]
+}

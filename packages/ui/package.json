@@ -1,0 +1,35 @@
+{
+  "name": "@noto/ui",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noto/config": "workspace:*",
+    "@noto/core": "workspace:*",
+    "@noto/database": "workspace:*",
+    "@noto/editor": "workspace:*",
+    "@noto/types": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@noto/eslint-config": "workspace:*",
+    "@noto/tsconfig": "workspace:*",
+    "@types/react": "^19.2.18",
+    "eslint": "^9.39.5",
+    "react": "^19.2.8",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "@noto/tsconfig/vite-app.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "src",
+    "forge.config.ts",
+    "vite.main.config.ts",
+    "vite.preload.config.ts",
+    "vite.renderer.config.ts",
+    "eslint.config.mjs"
+  ]
+}
