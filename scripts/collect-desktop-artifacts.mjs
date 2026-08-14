@@ -4,7 +4,7 @@
  * canonical Noto release names.
  *
  *   node scripts/collect-desktop-artifacts.mjs \
- *     --platform win32 --arch x64 --version 1.0.0 --out dist/release
+ *     --platform win32 --arch x64 --version 1.0.0 --out build
  *
  * Forge writes each maker's output to its own nested directory with a name of
  * that maker's choosing. Release assets, by contrast, all sit in one flat list
@@ -21,7 +21,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const MAKE_DIR = path.join(root, 'apps', 'desktop', 'out', 'make');
+
+// Mirrors `outDir` in apps/desktop/forge.config.ts: when a build had to be
+// redirected to a fresh output directory, collection has to follow it there.
+const FORGE_OUT = process.env.NOTO_FORGE_OUT
+  ? path.resolve(root, 'apps', 'desktop', process.env.NOTO_FORGE_OUT)
+  : path.join(root, 'apps', 'desktop', 'out');
+
+const MAKE_DIR = path.join(FORGE_OUT, 'make');
 
 const PLATFORM_LABEL = { win32: 'win', darwin: 'mac', linux: 'linux' };
 

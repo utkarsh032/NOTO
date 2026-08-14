@@ -29,6 +29,13 @@ const signWindows =
   signingRequested && Boolean(windowsCertificateFile && windowsCertificatePassword);
 
 const config: ForgeConfig = {
+  // Defaults to ./out. Overridable because Windows will sometimes hold a lock on
+  // a previously packaged binary — Defender scanning a 200 MB executable is the
+  // usual culprit — and Forge cannot start until it has cleared its output
+  // directory. Building into a fresh one is a way past that without waiting on
+  // a handle nobody owns. `noto-release.ps1` sets this only when it has to.
+  outDir: process.env.NOTO_FORGE_OUT || undefined,
+
   packagerConfig: {
     // Set explicitly: the workspace package is named `@noto/desktop`, and a
     // scoped name is not a valid application or executable name.

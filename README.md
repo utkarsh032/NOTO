@@ -97,7 +97,8 @@ Run from the repository root:
 | `pnpm test`                  | Vitest unit tests                             |
 | `pnpm test:e2e`              | Playwright end-to-end tests (web)             |
 | `pnpm format`                | Prettier write                                |
-| `pnpm package:desktop`       | Build installers for this machine's platform  |
+| `.\noto-release.ps1`         | Windows: full build into `build\` (see below) |
+| `pnpm package:desktop`       | macOS/Linux: package for this platform        |
 | `pnpm release:prepare 1.0.0` | Set the version and stub the release notes    |
 
 Playwright needs its browser once: `pnpm --filter @noto/web exec playwright install chromium`.
@@ -105,6 +106,34 @@ Playwright needs its browser once: `pnpm --filter @noto/web exec playwright inst
 ---
 
 ## Build and release
+
+### Building the installer locally (Windows)
+
+```powershell
+.\noto-release.ps1
+```
+
+Artifacts land in **`build\`**:
+
+```text
+build\
+├── Noto-<version>-win-x64.exe     the installer
+├── noto-<version>-full.nupkg      Squirrel update payload
+├── RELEASES                       Squirrel update manifest
+└── SHA256SUMS.txt
+```
+
+Run it elevated where you can — administrator is not required, but it lets the
+script add a Defender exclusion for the output folder, which is what stops
+Squirrel's `rcedit` step failing intermittently while Defender scans the freshly
+written binaries. The script also switches to Node 22 (see the packaging note
+below), stops leftover Noto instances that would lock the output directory, and
+refuses to collect any artifact older than the run that produced it.
+
+`-SkipVerify` skips lint/typecheck/tests, `-Arch arm64` builds the other slice,
+`-Version 1.0.0` stamps a version across every manifest first.
+
+### Releasing
 
 Noto releases from one tag:
 

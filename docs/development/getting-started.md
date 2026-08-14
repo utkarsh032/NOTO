@@ -48,16 +48,60 @@ pnpm build
 
 ## Packaging the desktop application locally
 
+On Windows, use the release script — it handles the Node version, the leftover
+processes and the Defender lock that otherwise make this fail intermittently:
+
+```powershell
+.\noto-release.ps1                 # current version, x64
+.\noto-release.ps1 -Version 1.0.0  # stamp a version first
+.\noto-release.ps1 -Arch arm64
+```
+
+Run it from an elevated PowerShell where you can. Administrator is not required,
+but it lets the script add a Defender exclusion for the output folder, which is
+what stops Squirrel's `rcedit` step failing with "Unable to commit changes"
+while Defender is still scanning the freshly written binaries.
+
+The finished artifacts land in **`build/`**:
+
+```text
+build/
+├── Noto-<version>-win-x64.exe     the installer
+├── noto-<version>-full.nupkg      Squirrel update payload
+├── RELEASES                       Squirrel update manifest
+└── SHA256SUMS.txt
+```
+
+The unpacked application is left at `apps/desktop/out/Noto-win32-x64/noto.exe`
+if you want to run it without installing.
+
+On macOS and Linux, invoke Forge directly:
+
 ```bash
 pnpm package:desktop
 ```
 
-This produces packages for the platform you are on, in
-`apps/desktop/out/make/`. Cross-platform packaging is the release pipeline's
-job — Windows installers need Windows, and macOS signing needs macOS.
+Either way you get packages for the platform you are on. Cross-platform
+packaging is the release pipeline's job — Windows installers need Windows, and
+macOS signing needs macOS.
 
 Local packages are unsigned. That is deliberate: development should never need
 production certificates. See [code signing](../deployment/code-signing.md).
+
+### Node 22
+
+Packaging needs Node 22. Electron Forge 7.11 pins `@electron/packager` 18.4.4,
+which exits silently with status 0 on Node 24 while extracting the Electron
+archive — no `out/` directory and no error. `noto-release.ps1` finds an
+fnm-installed Node 22 automatically; if you have none:
+
+```powershell
+winget install --id Schniz.fnm -e
+fnm install 22
+```
+
+This does not disturb the Node on your PATH. CI pins the same version in
+`.github/workflows/desktop.yml`.
 
 ## Repository layout
 

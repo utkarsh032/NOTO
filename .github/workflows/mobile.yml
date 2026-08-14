@@ -111,19 +111,19 @@ jobs:
 
       - name: Rename outputs
         run: |
-          mkdir -p dist/release
+          mkdir -p build
           v="${{ steps.version.outputs.value }}"
           find apps/mobile/android -name '*.apk' -path '*release*' \
-            -exec cp {} "dist/release/Noto-$v-android.apk" \;
+            -exec cp {} "build/Noto-$v-android.apk" \;
           find apps/mobile/android -name '*.aab' -path '*release*' \
-            -exec cp {} "dist/release/Noto-$v-android.aab" \;
-          ls -l dist/release
+            -exec cp {} "build/Noto-$v-android.aab" \;
+          ls -l build
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mobile-android
-          path: dist/release
+          path: build
           retention-days: 14
           if-no-files-found: error
 
