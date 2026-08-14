@@ -1,0 +1,33 @@
+{
+  "name": "@noto/website",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "The public Noto website — the entry point for downloads, documentation and releases.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noto/config": "workspace:*",
+    "@noto/types": "workspace:*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@noto/eslint-config": "workspace:*",
+    "@noto/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^9.39.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.1"
+  }
+}

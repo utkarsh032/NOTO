@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/utkarsh032/NOTO/discussions
+    about: Ask about usage, propose an idea, or discuss the roadmap.
+  - name: Security report
+    url: https://github.com/utkarsh032/NOTO/security/advisories/new
+    about: Report a vulnerability privately. Do not open a public issue.

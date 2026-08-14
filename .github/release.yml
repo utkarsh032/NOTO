@@ -1,0 +1,35 @@
+# Configures GitHub's automatically generated release notes. The release
+# workflow prepends a handwritten "Highlights" section and appends downloads
+# and system requirements; everything between is generated from merged PRs.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - duplicate
+      - invalid
+    authors:
+      - dependabot
+      - github-actions
+  categories:
+    - title: Features
+      labels:
+        - feature
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - bug
+        - fix
+    - title: Performance
+      labels:
+        - performance
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Build, CI and Dependencies
+      labels:
+        - ci
+        - build
+        - dependencies
+    - title: Other Changes
+      labels:
+        - '*'

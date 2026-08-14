@@ -1,0 +1,180 @@
+name: Release
+
+# One version tag starts the whole process:
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# Everything below — verification, web deployment, desktop packaging, mobile
+# builds, the GitHub Release and its assets — follows from that tag.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build a release from (e.g. v1.0.0).
+        type: string
+        required: true
+      draft:
+        description: Create the release as a draft.
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      channel: ${{ steps.meta.outputs.channel }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      sign: ${{ steps.meta.outputs.sign }}
+      mobile: ${{ steps.meta.outputs.mobile }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Derive release metadata
+        id: meta
+        env:
+          # Set the repository variable NOTO_RELEASE_SIGN to `true` once the
+          # signing secrets exist, and NOTO_RELEASE_MOBILE once mobile joins
+          # the release train. Both default to off.
+          SIGN: ${{ vars.NOTO_RELEASE_SIGN }}
+          MOBILE: ${{ vars.NOTO_RELEASE_MOBILE }}
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          node scripts/release-metadata.mjs "$tag" >> "$GITHUB_OUTPUT"
+          echo "sign=${SIGN:-false}" >> "$GITHUB_OUTPUT"
+          echo "mobile=${MOBILE:-false}" >> "$GITHUB_OUTPUT"
+
+      # A production tag must describe code that is already on main. This is the
+      # last automated check before assets are published publicly.
+      - name: Verify the tag is reachable from main
+        if: steps.meta.outputs.prerelease == 'false'
+        run: |
+          if ! git merge-base --is-ancestor "${{ steps.meta.outputs.tag }}" origin/main; then
+            echo "::error::${{ steps.meta.outputs.tag }} is not an ancestor of origin/main. Stable releases are cut from main."
+            exit 1
+          fi
+
+      - name: Verify the tag is not already released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::error::A release already exists for ${{ steps.meta.outputs.tag }}. Release versions are immutable; cut a new version instead."
+            exit 1
+          fi
+
+  verify:
+    name: Verify
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  desktop:
+    name: Desktop
+    needs: [prepare, verify]
+    uses: ./.github/workflows/desktop.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      sign: ${{ needs.prepare.outputs.sign == 'true' }}
+
+  web:
+    name: Web
+    needs: [prepare, verify]
+    uses: ./.github/workflows/web.yml
+    secrets: inherit
+    with:
+      environment: production
+      version: ${{ needs.prepare.outputs.version }}
+
+  mobile:
+    name: Mobile
+    needs: [prepare, verify]
+    if: needs.prepare.outputs.mobile == 'true'
+    uses: ./.github/workflows/mobile.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      android: true
+      ios: false
+
+  publish:
+    name: Publish GitHub Release
+    needs: [prepare, desktop, web]
+    # `mobile` is intentionally absent from `needs`: it is optional, and a
+    # skipped job would otherwise block the release.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Download desktop assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: staging
+          merge-multiple: true
+
+      - name: Download mobile assets
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mobile-android
+          path: staging
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: staging
+        run: |
+          shopt -s nullglob
+          # RELEASES is Squirrel's own manifest and must stay byte-identical, so
+          # it is listed for users but not folded into the checksum file.
+          sha256sum $(ls -A | grep -v '^SHA256SUMS.txt$') > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Compose release notes
+        id: notes
+        run: |
+          node scripts/release-notes.mjs \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --channel "${{ needs.prepare.outputs.channel }}" \
+            --repository "${{ github.repository }}" \
+            --assets staging \
+            --out "$RUNNER_TEMP/release-notes.md"
+          echo "path=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: NOTO ${{ needs.prepare.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
+          # GitHub's generated notes are appended below the composed body.
+          generate_release_notes: true
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
+          draft: ${{ inputs.draft || false }}
+          make_latest: ${{ needs.prepare.outputs.prerelease == 'false' }}
+          files: staging/*
+          fail_on_unmatched_files: true
