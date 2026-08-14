@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+out/
+coverage/
+.turbo/
+.vite/
+.expo/
+pnpm-lock.yaml
+playwright-report/
+test-results/
+R&D/
