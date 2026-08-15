@@ -10,8 +10,11 @@
 
 const env = import.meta.env;
 
-/** Version baked in at build time; the fallback keeps `pnpm dev` working. */
-export const BUILD_VERSION: string = env.VITE_NOTO_VERSION || '0.0.0';
+/** Injected by `define` in vite.config.ts, read from the workspace manifest. */
+declare const __NOTO_VERSION__: string;
+
+/** Version this bundle was built from. Always the real manifest version. */
+export const BUILD_VERSION: string = __NOTO_VERSION__;
 
 /** `production`, `staging`, or `development` when running locally. */
 export const BUILD_ENV: string = env.VITE_NOTO_ENV || (env.DEV ? 'development' : 'production');

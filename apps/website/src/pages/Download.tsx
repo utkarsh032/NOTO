@@ -6,9 +6,17 @@ import { useDetectedPlatform } from '../hooks/use-detected-platform';
 import { useLatestRelease } from '../hooks/use-latest-release';
 import { Link } from '../router';
 
-/** Nothing has been published yet while the version is still the 0.0.0 seed. */
-function isUnreleased(version: string): boolean {
-  return version === '0.0.0';
+/**
+ * Whether GitHub confirmed a published release.
+ *
+ * The build-time version is not evidence of one: the site is deployed from the
+ * same commit that a release is cut from, so it always knows a version number
+ * whether or not installers exist for it. Only a successful API response means
+ * there is something to download — anything else and the page must say so
+ * rather than link at files that were never published.
+ */
+function hasPublishedRelease(release: { loading: boolean; stale: boolean }): boolean {
+  return !release.loading && !release.stale;
 }
 
 function formatDate(iso: string | null): string | null {
@@ -163,13 +171,13 @@ export function Download() {
         lead={
           release.loading
             ? 'Looking up the latest version…'
-            : isUnreleased(release.version)
-              ? 'Noto is still working towards its first release.'
-              : `Version ${release.version}${published ? `, released ${published}` : ''}.`
+            : hasPublishedRelease(release)
+              ? `Version ${release.version}${published ? `, released ${published}` : ''}.`
+              : 'Noto is still working towards its first release.'
         }
       />
 
-      {isUnreleased(release.version) ? (
+      {!hasPublishedRelease(release) ? (
         <NothingReleasedYet />
       ) : (
         <>
