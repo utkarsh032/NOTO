@@ -83,8 +83,22 @@ variable or in the workflow once the web application has a real URL, or every
 
 ## Client-side routing
 
-The website routes in the browser, so `public/_redirects` serves `index.html`
-for every unmatched path. Without it, refreshing `/download` returns a 404.
+The website routes in the browser, so `wrangler.jsonc` sets
+`not_found_handling: "single-page-application"`, which serves `index.html` for
+every unmatched path. Without it, refreshing `/download` returns a 404.
+
+Do **not** add a `_redirects` file with a `/* /index.html 200` catch-all. That
+is the Cloudflare Pages idiom; Workers Assets rejects it at upload time:
+
+```text
+Invalid _redirects configuration:
+Line 3: Infinite loop detected in this rule.
+```
+
+Workers Assets normalizes `/index.html` back to `/`, which re-matches `/*`, so
+the rule loops. `not_found_handling` is the supported mechanism and does the
+same job. Note that `_redirects` is validated only server-side at upload, so
+`wrangler deploy --dry-run` will not catch this.
 
 `public/_headers` sets the security headers and caches the fingerprinted assets
 under `/assets/*` indefinitely.

@@ -1,3 +1,0 @@
-# Cloudflare Pages. The website routes on the client, so every unmatched path
-# must be served the application shell rather than a 404.
-/*    /index.html   200
