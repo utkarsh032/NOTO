@@ -1,0 +1,4 @@
+{
+  "extends": "@noto/tsconfig/vite-app.json",
+  "include": ["src", "vite.config.ts", "eslint.config.mjs"]
+}

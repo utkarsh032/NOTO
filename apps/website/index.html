@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Noto — Your notes. Your workspace.</title>
+    <meta
+      name="description"
+      content="Noto is a local-first notes and document workspace for Windows, macOS, Linux, Android, iOS and the browser. Free, offline, and yours."
+    />
+    <meta name="theme-color" content="#18181b" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Noto — Your notes. Your workspace." />
+    <meta
+      property="og:description"
+      content="A local-first notes and document workspace for every platform. Works offline, needs no account."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script>
+      // Applied before first paint so a dark-theme visitor never sees a light
+      // flash. The website keeps its own preference key: it is a separate
+      // deployment from the application and has no access to its settings.
+      (() => {
+        try {
+          const stored = localStorage.getItem('noto.website.theme');
+          const dark =
+            stored === 'dark' ||
+            (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        } catch {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

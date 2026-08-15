@@ -2,12 +2,33 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
   "globalDependencies": ["tsconfig.json", "pnpm-workspace.yaml", "tooling/**"],
-  "globalEnv": ["NODE_ENV", "CI"],
+  "globalEnv": [
+    "NODE_ENV",
+    "CI",
+    "NOTO_SIGN",
+    "NOTO_VERSION",
+    "NOTO_FORGE_OUT",
+    "NOTO_UPDATE_CHANNEL",
+    "NOTO_UPDATE_FEED_URL",
+    "APPLE_ID",
+    "APPLE_IDENTITY",
+    "APPLE_TEAM_ID",
+    "APPLE_APP_SPECIFIC_PASSWORD",
+    "WINDOWS_CERTIFICATE_FILE",
+    "WINDOWS_CERTIFICATE_PASSWORD"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!**/*.spec.*"],
-      "outputs": ["dist/**", "out/**", ".vite/**", "build/**"]
+      "outputs": ["dist/**", "out/**", ".vite/**", "build/**"],
+      "env": [
+        "VITE_NOTO_VERSION",
+        "VITE_NOTO_ENV",
+        "VITE_NOTO_COMMIT",
+        "VITE_NOTO_REPOSITORY",
+        "VITE_NOTO_WEB_APP_URL"
+      ]
     },
     "dev": {
       "cache": false,

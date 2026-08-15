@@ -1,0 +1,181 @@
+name: Mobile
+
+# Mobile is a later phase than web and desktop, so nothing here runs on an
+# ordinary push. It is triggered by hand or by the release workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to stamp into the builds (defaults to the workspace version).
+        type: string
+        required: false
+        default: ''
+      android:
+        description: Build Android.
+        type: boolean
+        default: true
+      ios:
+        description: Build iOS.
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
+        default: ''
+      android:
+        type: boolean
+        required: false
+        default: false
+      ios:
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: mobile-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android
+    if: inputs.android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      # React Native 0.86 targets JDK 17.
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            node scripts/version.mjs set "${{ inputs.version }}"
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `apps/mobile/android` is generated, not committed, so the native project
+      # is regenerated from app.json on every run.
+      - name: Generate native Android project
+        run: pnpm --filter @noto/mobile exec expo prebuild --platform android --no-install --clean
+
+      - name: Decode upload keystore
+        id: keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; producing a debug-signed build that cannot be uploaded to Google Play."
+          fi
+
+      - name: Build APK (testing)
+        working-directory: apps/mobile/android
+        env:
+          NOTO_UPLOAD_STORE_FILE: ${{ steps.keystore.outputs.available == 'true' && format('{0}/upload.keystore', runner.temp) || '' }}
+          NOTO_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NOTO_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NOTO_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Build AAB (Play Store)
+        working-directory: apps/mobile/android
+        env:
+          NOTO_UPLOAD_STORE_FILE: ${{ steps.keystore.outputs.available == 'true' && format('{0}/upload.keystore', runner.temp) || '' }}
+          NOTO_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NOTO_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NOTO_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Rename outputs
+        run: |
+          mkdir -p build
+          v="${{ steps.version.outputs.value }}"
+          find apps/mobile/android -name '*.apk' -path '*release*' \
+            -exec cp {} "build/Noto-$v-android.apk" \;
+          find apps/mobile/android -name '*.aab' -path '*release*' \
+            -exec cp {} "build/Noto-$v-android.aab" \;
+          ls -l build
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android
+          path: build
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Remove signing material
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/upload.keystore"
+
+  ios:
+    name: iOS
+    if: inputs.ios
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            node scripts/version.mjs set "${{ inputs.version }}"
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate native iOS project
+        run: pnpm --filter @noto/mobile exec expo prebuild --platform ios --no-install --clean
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install
+
+      # Without an Apple Developer team this produces an unsigned archive, which
+      # is enough to prove the project builds. TestFlight and App Store uploads
+      # require enrollment and are handled by a signed run.
+      - name: Build archive
+        working-directory: apps/mobile/ios
+        run: |
+          workspace=$(ls -d *.xcworkspace | head -n 1)
+          scheme="${workspace%.xcworkspace}"
+          xcodebuild -workspace "$workspace" -scheme "$scheme" \
+            -configuration Release -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/Noto.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Upload iOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios
+          path: ${{ runner.temp }}/Noto.xcarchive
+          retention-days: 14
+          if-no-files-found: error

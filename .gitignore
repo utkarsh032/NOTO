@@ -38,6 +38,8 @@ ios/
 # Electron
 .vite/
 release/
+# Fallback packaging directories, used when Windows holds a lock on out/
+apps/desktop/out-*/
 
 # Editors
 .vscode/*

@@ -1,0 +1,28 @@
+{
+  // Cloudflare Workers configuration for the public Noto website.
+  //
+  // There is no `main` here: this is a static-assets Worker, so Cloudflare
+  // serves `dist/` directly with no Worker code in the request path.
+  //
+  // Deployed by Workers Builds from the repository root:
+  //   build:  pnpm build:website
+  //   deploy: npx wrangler deploy --config apps/website/wrangler.jsonc
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "noto",
+  "compatibility_date": "2026-08-15",
+
+  "assets": {
+    "directory": "./dist",
+    // The website routes on the client, so any unmatched path must be served
+    // the application shell. Without this, refreshing /download returns a 404.
+    "not_found_handling": "single-page-application"
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  "vars": {
+    "NOTO_ENV": "production"
+  }
+}

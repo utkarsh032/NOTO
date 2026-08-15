@@ -9,11 +9,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.noto.app"
+      "bundleIdentifier": "com.noto.app",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.noto.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "versionCode": 1
     },
     "plugins": ["expo-router"],
     "experiments": {

@@ -6,6 +6,7 @@ import squirrelStartup from 'electron-squirrel-startup';
 
 import { registerSqlHandlers } from './ipc';
 import { closeConnection, openConnection } from './sqlite';
+import { initialiseUpdates } from './updater';
 
 // The Windows Squirrel installer launches the app to create shortcuts; quit
 // immediately in that case rather than flashing a window at the user.
@@ -56,6 +57,7 @@ void app.whenReady().then(() => {
   openConnection(app.getPath('userData'));
   registerSqlHandlers();
   createWindow();
+  initialiseUpdates();
 
   app.on('activate', () => {
     // macOS keeps the app running with no windows; re-open one on dock click.

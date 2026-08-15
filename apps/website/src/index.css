@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+@import '@noto/config/tokens.css';
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--noto-surface);
+  color: var(--noto-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect a visitor who has asked their system to stop animating things. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
