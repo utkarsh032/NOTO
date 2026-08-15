@@ -6,8 +6,9 @@
  * problem needs, so this is the whole of it: a pathname in state, `pushState`
  * to change it, and a `popstate` listener for the back button.
  *
- * `public/_redirects` serves index.html for every path so a deep link and a
- * refresh both reach this code rather than a 404.
+ * `not_found_handling: "single-page-application"` in wrangler.jsonc serves
+ * index.html for every unmatched path, so a deep link and a refresh both reach
+ * this code rather than a 404.
  */
 
 import {
