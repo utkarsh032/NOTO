@@ -2,7 +2,7 @@
   "name": "@noto/website",
   "version": "0.1.0-beta.1",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "The public Noto website — the entry point for downloads, documentation and releases.",
   "type": "module",
   "scripts": {

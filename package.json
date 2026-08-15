@@ -3,7 +3,7 @@
   "version": "0.1.0-beta.1",
   "private": true,
   "description": "Noto — a local-first notes and document workspace for Web, Desktop and Mobile.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=20.19.0",
