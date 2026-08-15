@@ -35,15 +35,21 @@ function Hero() {
         <p className="text-subtle mt-6 text-sm">
           {release.loading ? (
             'Checking for the latest version…'
+          ) : release.stale ? (
+            // No published release to point at, so say that rather than
+            // present the build-time version as if it were downloadable.
+            <>
+              In development ·{' '}
+              <Link href="/changelog" className="text-accent hover:underline">
+                See what is being built
+              </Link>
+            </>
           ) : (
             <>
-              Latest version {release.version}
-              {release.stale ? '' : ' · '}
-              {release.stale ? null : (
-                <Link href="/changelog" className="text-accent hover:underline">
-                  See what changed
-                </Link>
-              )}
+              Latest version {release.version} ·{' '}
+              <Link href="/changelog" className="text-accent hover:underline">
+                See what changed
+              </Link>
             </>
           )}
         </p>
