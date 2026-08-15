@@ -1,6 +1,6 @@
 {
   "name": "@noto/website",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
   "description": "The public Noto website — the entry point for downloads, documentation and releases.",

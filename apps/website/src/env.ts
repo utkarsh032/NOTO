@@ -18,8 +18,16 @@ export const BUILD_ENV: string = env.VITE_NOTO_ENV || (env.DEV ? 'development' :
 
 export const BUILD_COMMIT: string = env.VITE_NOTO_COMMIT || '';
 
-/** Where the web application is deployed, so "Open Noto" can link to it. */
-export const WEB_APP_URL: string = env.VITE_NOTO_WEB_APP_URL || 'https://app.noto.example.com';
+/**
+ * Where the web application is deployed, so "Open Noto" can link to it.
+ *
+ * The default is the current deployment rather than a placeholder, so the
+ * button works without any dashboard configuration. Override it with
+ * `VITE_NOTO_WEB_APP_URL` at build time — which is what a custom domain will
+ * eventually want.
+ */
+export const WEB_APP_URL: string =
+  env.VITE_NOTO_WEB_APP_URL || 'https://noto-app.utkarshraj525.workers.dev';
 
 /** True on any deployment that is not the public production site. */
 export const IS_PREVIEW = BUILD_ENV !== 'production';
