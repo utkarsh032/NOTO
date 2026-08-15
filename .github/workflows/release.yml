@@ -66,6 +66,11 @@ jobs:
       - name: Verify the tag is reachable from main
         if: steps.meta.outputs.prerelease == 'false'
         run: |
+          # The checkout is of a tag, so main is not necessarily a local
+          # remote-tracking ref yet. Fetch it explicitly rather than assume.
+          git fetch --no-tags --depth=0 origin main:refs/remotes/origin/main || \
+            git fetch --no-tags origin main:refs/remotes/origin/main
+
           if ! git merge-base --is-ancestor "${{ steps.meta.outputs.tag }}" origin/main; then
             echo "::error::${{ steps.meta.outputs.tag }} is not an ancestor of origin/main. Stable releases are cut from main."
             exit 1

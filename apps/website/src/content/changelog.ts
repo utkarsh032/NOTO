@@ -28,27 +28,39 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'Unreleased',
-    date: null,
-    summary: 'Work towards the first public release.',
+    version: '0.1.0',
+    date: '2026-08-15',
+    summary: 'The first published release of Noto.',
     changes: [
       {
         kind: 'added',
         description:
-          'The monorepo foundation: shared packages for the editor, storage, design system and domain types.',
-      },
-      {
-        kind: 'added',
-        description: 'Web, desktop and mobile applications built on that shared core.',
+          'Desktop applications for Windows, macOS and Linux, with automatic updates on Windows and macOS.',
       },
       {
         kind: 'added',
         description:
-          'The build and release pipeline: continuous integration, packaged desktop installers, and tag-driven GitHub Releases.',
+          'A web application that runs in the browser with nothing to install, and keeps working offline once loaded.',
       },
       {
         kind: 'added',
-        description: 'This website, with download, documentation and release pages.',
+        description:
+          'Local-first storage on every platform — SQLite on the desktop, IndexedDB in the browser. No account and no telemetry.',
+      },
+      {
+        kind: 'added',
+        description:
+          'A rich text editor built on ProseMirror: headings, lists, quotes, code blocks and inline formatting, with autosave.',
+      },
+      {
+        kind: 'added',
+        description:
+          'This website, with download, documentation and release pages, and a download page that resolves the latest release live.',
+      },
+      {
+        kind: 'added',
+        description:
+          'The build and release pipeline: continuous integration, packaged installers for every desktop platform, and tag-driven GitHub Releases with checksums.',
       },
     ],
   },
