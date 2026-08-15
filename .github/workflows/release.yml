@@ -105,6 +105,12 @@ jobs:
     needs: [prepare, verify]
     uses: ./.github/workflows/web.yml
     secrets: inherit
+    # A called workflow cannot hold more permission than its caller grants it,
+    # and web.yml needs `deployments: write` to record a Pages deployment.
+    # Without this the whole run fails at startup, before any job begins.
+    permissions:
+      contents: read
+      deployments: write
     with:
       environment: production
       version: ${{ needs.prepare.outputs.version }}
