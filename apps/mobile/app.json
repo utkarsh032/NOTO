@@ -2,7 +2,7 @@
   "expo": {
     "name": "Noto",
     "slug": "noto",
-    "version": "0.1.0",
+    "version": "0.1.0-beta.1",
     "orientation": "portrait",
     "scheme": "noto",
     "userInterfaceStyle": "automatic",
