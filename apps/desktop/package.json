@@ -5,7 +5,7 @@
   "private": true,
   "description": "Noto for desktop — a local-first notes and document workspace.",
   "author": "Noto",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "//": "Deliberately CommonJS. Vite emits the main and preload bundles as CJS, and an Electron preload script must be CommonJS while `sandbox: true` is set — ESM preload requires disabling the sandbox.",
   "main": ".vite/build/main.js",
   "scripts": {
