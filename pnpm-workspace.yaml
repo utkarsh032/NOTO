@@ -28,6 +28,12 @@ allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
+  # Native, macOS-only dependencies of `appdmg`, which builds the .dmg. pnpm
+  # treats an ignored build script as an error, not a warning, so without these
+  # `pnpm install --frozen-lockfile` fails outright on macOS — which is exactly
+  # how the first release run lost both macOS jobs before packaging started.
+  fs-xattr: true
+  macos-alias: true
 
 # TypeScript and ESLint are pinned workspace-wide so every package typechecks
 # and lints against the same compiler.

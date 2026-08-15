@@ -100,9 +100,18 @@ const config: ForgeConfig = {
     // Linux: AppImage is the primary, distribution-independent download; deb
     // and rpm exist for users who would rather install through a package
     // manager, which is also how Linux updates are delivered.
-    new MakerAppImage({ options: { name: 'noto', productName: 'Noto', categories: ['Utility'] } }),
-    new MakerDeb({ options: { name: 'noto', productName: 'Noto', categories: ['Utility'] } }),
-    new MakerRpm({ options: { name: 'noto', productName: 'Noto', categories: ['Utility'] } }),
+    // `bin` must match `executableName` above. Left unset, the Linux makers
+    // look for a binary named after the package — `@noto/desktop` — which does
+    // not exist, and the build fails after packaging has already succeeded.
+    new MakerAppImage({
+      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+    }),
+    new MakerDeb({
+      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+    }),
+    new MakerRpm({
+      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+    }),
   ],
 
   plugins: [
