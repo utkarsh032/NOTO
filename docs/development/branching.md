@@ -25,7 +25,7 @@ feature/editor-tabs
    pull request ──▶ CI: lint · typecheck · test · build
         │
         ▼
-       dev  ──▶ staging deployment (Cloudflare Pages preview)
+       dev  ──▶ staging deployment (Cloudflare Workers preview)
         │
         ▼
   release/1.1.0  ──▶ pull request into main

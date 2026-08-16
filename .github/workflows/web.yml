@@ -1,5 +1,20 @@
 name: Web
 
+# Builds the website and the web application and keeps the bundles as
+# artifacts.
+#
+# It deliberately does not deploy. Both applications are Cloudflare Workers
+# projects connected to this repository through Workers Builds, so Cloudflare
+# checks out the commit and runs the build and deploy commands itself on every
+# push. A second deployment path here would race that one, need an API token
+# GitHub does not otherwise require, and drift out of step with the
+# `wrangler.jsonc` each project actually uses.
+#
+# What this job is for is a verdict: the bundles built, at this version, for
+# this commit — visible on a pull request, where Cloudflare's own build is not.
+#
+# See docs/deployment/website.md.
+
 on:
   push:
     branches: [main, dev]
@@ -15,14 +30,14 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Target environment.
+        description: Environment to stamp into the build.
         type: choice
         options: [staging, production]
         default: staging
   workflow_call:
     inputs:
       environment:
-        description: Target environment (staging or production).
+        description: Environment to stamp into the build (staging or production).
         type: string
         required: false
         default: production
@@ -33,16 +48,15 @@ on:
         default: ''
 
 concurrency:
-  group: web-${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+  group: web-${{ github.ref }}-${{ inputs.environment }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  deployments: write
 
 jobs:
-  deploy:
-    name: Build and deploy
+  build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -52,12 +66,10 @@ jobs:
         include:
           - app: '@noto/web'
             dist: apps/web/dist
-            project_var: CLOUDFLARE_PAGES_WEB_PROJECT
-            default_project: noto-web
+            label: web
           - app: '@noto/website'
             dist: apps/website/dist
-            project_var: CLOUDFLARE_PAGES_WEBSITE_PROJECT
-            default_project: noto-website
+            label: website
 
     env:
       # `push` events carry no inputs; derive the environment from the branch.
@@ -85,46 +97,10 @@ jobs:
           VITE_NOTO_REPOSITORY: ${{ github.repository }}
         run: pnpm --filter ${{ matrix.app }}... run build
 
-      - name: Resolve Cloudflare Pages project
-        id: project
-        run: |
-          project="${{ vars[matrix.project_var] }}"
-          if [ -z "$project" ]; then project="${{ matrix.default_project }}"; fi
-          echo "name=$project" >> "$GITHUB_OUTPUT"
-
-      # Cloudflare credentials are optional so that forks and freshly cloned
-      # repositories still get a full build verdict; only the upload is skipped.
-      - name: Check for Cloudflare credentials
-        id: creds
-        env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; skipping deployment of ${{ matrix.app }}."
-          fi
-
-      # Cloudflare Pages treats one branch as production and every other branch
-      # as a preview deployment, so staging is published from `dev`.
-      - name: Deploy to Cloudflare Pages
-        if: steps.creds.outputs.available == 'true'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >-
-            pages deploy ${{ matrix.dist }}
-            --project-name=${{ steps.project.outputs.name }}
-            --branch=${{ env.NOTO_ENV == 'production' && 'main' || 'dev' }}
-            --commit-hash=${{ github.sha }}
-
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app == '@noto/web' && 'web' || 'website' }}-${{ env.NOTO_ENV }}
+          name: ${{ matrix.label }}-${{ env.NOTO_ENV }}
           path: ${{ matrix.dist }}
           retention-days: 14
           if-no-files-found: error

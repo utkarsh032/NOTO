@@ -43,7 +43,7 @@ hotfix/*   ─┘                        │
                                                           │
                         ┌─────────────────────────────────┼─────────────────┐
                         ▼                                 ▼                 ▼
-                  Cloudflare Pages                  Desktop packages     Mobile builds
+                  Cloudflare Workers                Desktop packages     Mobile builds
                   (website + web app)               (win/mac/linux)      (optional)
                         │                                 │
                         └──────────────▶ GitHub Release ◀─┘

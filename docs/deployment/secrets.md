@@ -10,21 +10,19 @@ without asking anyone for credentials.
 
 ## Variables
 
-| Variable                           | Default        | Effect                                        |
-| ---------------------------------- | -------------- | --------------------------------------------- |
-| `NOTO_RELEASE_SIGN`                | `false`        | Sign and notarize desktop packages on release |
-| `NOTO_RELEASE_MOBILE`              | `false`        | Include mobile builds in the release          |
-| `CLOUDFLARE_PAGES_WEB_PROJECT`     | `noto-web`     | Pages project for the web application         |
-| `CLOUDFLARE_PAGES_WEBSITE_PROJECT` | `noto-website` | Pages project for the website                 |
+| Variable              | Default | Effect                                        |
+| --------------------- | ------- | --------------------------------------------- |
+| `NOTO_RELEASE_SIGN`   | `false` | Sign and notarize desktop packages on release |
+| `NOTO_RELEASE_MOBILE` | `false` | Include mobile builds in the release          |
 
 ## Secrets
 
 ### Website and web application
 
-| Secret                  | Needed for                    | Without it                        |
-| ----------------------- | ----------------------------- | --------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Deploying to Cloudflare Pages | Builds run; the upload is skipped |
-| `CLOUDFLARE_ACCOUNT_ID` | Deploying to Cloudflare Pages | Builds run; the upload is skipped |
+**None.** The website and web application are Cloudflare Workers projects
+connected directly to this repository through Workers Builds, so Cloudflare
+checks out the commit and deploys it itself. GitHub never needs a Cloudflare
+credential, and `web.yml` only builds.
 
 See [website deployment](website.md).
 

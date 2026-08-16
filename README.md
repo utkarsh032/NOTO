@@ -143,9 +143,13 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-GitHub Actions then verifies, packages Windows, macOS and Linux, deploys the website and
-web app to Cloudflare Pages, and publishes a GitHub Release with checksums and generated
-notes. Windows and macOS installations update themselves from that release.
+GitHub Actions then verifies, packages Windows, macOS and Linux, and publishes a GitHub
+Release with checksums and generated notes. Windows and macOS installations update
+themselves from that release.
+
+The website and web application deploy separately: both are Cloudflare Workers projects
+connected to this repository, so Cloudflare builds and deploys them on every push to
+`main`. No Cloudflare credentials live in GitHub.
 
 | Document                                                                                 | Covers                                      |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
@@ -153,7 +157,7 @@ notes. Windows and macOS installations update themselves from that release.
 | [docs/releases/update-channels.md](docs/releases/update-channels.md)                     | Auto-update, stable / beta / nightly        |
 | [docs/development/continuous-integration.md](docs/development/continuous-integration.md) | What runs when                              |
 | [docs/development/branching.md](docs/development/branching.md)                           | Branch model and protection                 |
-| [docs/deployment/website.md](docs/deployment/website.md)                                 | Cloudflare Pages, staging and production    |
+| [docs/deployment/website.md](docs/deployment/website.md)                                 | Cloudflare Workers, staging and production  |
 | [docs/deployment/code-signing.md](docs/deployment/code-signing.md)                       | Windows and Apple signing                   |
 | [docs/deployment/secrets.md](docs/deployment/secrets.md)                                 | Every secret and what it unlocks            |
 
@@ -214,7 +218,7 @@ The foundation is in place and verified end to end:
 - 50 unit tests, 3 Playwright end-to-end tests, lint and typecheck all pass.
 - The public website builds, with a download page that resolves the latest release from
   GitHub at runtime.
-- The build and release pipeline is in place: CI on every pull request, Cloudflare Pages
+- The build and release pipeline is in place: CI on every pull request, Cloudflare Workers
   deployments from `dev` and `main`, tag-driven desktop packaging, and GitHub Releases
   with checksums and generated notes.
 
