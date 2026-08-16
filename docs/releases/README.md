@@ -92,7 +92,7 @@ verify       format · lint · typecheck · test · build · e2e
 desktop           web                mobile          (skipped unless
 win x64/arm64   website +          android aab/apk   NOTO_RELEASE_MOBILE
 mac x64/arm64   web app to         ios archive        is set)
-linux x64       Cloudflare Pages
+linux x64       Cloudflare Workers
    │
    ▼
 publish      collect every artifact

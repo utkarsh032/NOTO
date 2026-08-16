@@ -10,7 +10,7 @@ workflows below are shaped around not wasting that.
 | File                            | Trigger                                     | What it does                                              |
 | ------------------------------- | ------------------------------------------- | --------------------------------------------------------- |
 | `.github/workflows/ci.yml`      | Pull requests and pushes to `main` / `dev`  | Format, lint, typecheck, unit tests, build; e2e on demand |
-| `.github/workflows/web.yml`     | Pushes touching web code; called by release | Builds and deploys the website and web app                |
+| `.github/workflows/web.yml`     | Pushes touching web code; called by release | Builds the website and web app (Cloudflare deploys them)  |
 | `.github/workflows/desktop.yml` | Manual; called by release                   | Packages Windows, macOS and Linux                         |
 | `.github/workflows/mobile.yml`  | Manual; called by release (opt-in)          | Builds Android and iOS                                    |
 | `.github/workflows/release.yml` | Pushing a `v*` tag                          | Orchestrates everything and publishes the release         |
@@ -63,12 +63,14 @@ branch gets a real verdict. Release runs are never cancelled.
 
 Set under **Settings → Secrets and variables → Actions → Variables**:
 
-| Variable                           | Default        | Effect                                        |
-| ---------------------------------- | -------------- | --------------------------------------------- |
-| `NOTO_RELEASE_SIGN`                | `false`        | Sign and notarize desktop packages on release |
-| `NOTO_RELEASE_MOBILE`              | `false`        | Include mobile builds in the release          |
-| `CLOUDFLARE_PAGES_WEB_PROJECT`     | `noto-web`     | Cloudflare Pages project for the web app      |
-| `CLOUDFLARE_PAGES_WEBSITE_PROJECT` | `noto-website` | Cloudflare Pages project for the website      |
+| Variable              | Default | Effect                                        |
+| --------------------- | ------- | --------------------------------------------- |
+| `NOTO_RELEASE_SIGN`   | `false` | Sign and notarize desktop packages on release |
+| `NOTO_RELEASE_MOBILE` | `false` | Include mobile builds in the release          |
+
+There are no Cloudflare variables or secrets here. Cloudflare Workers Builds
+deploys the website and web app straight from Git — see
+[deployment/website.md](../deployment/website.md).
 
 Secrets are listed in [deployment/secrets.md](../deployment/secrets.md).
 

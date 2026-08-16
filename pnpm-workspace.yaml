@@ -34,6 +34,9 @@ allowBuilds:
   # how the first release run lost both macOS jobs before packaging started.
   fs-xattr: true
   macos-alias: true
+  # Wrangler's Workers runtime, pulled in by the `deploy:web` / `deploy:website`
+  # scripts. Same rule as above: an ignored build script fails the install.
+  workerd: true
 
 # TypeScript and ESLint are pinned workspace-wide so every package typechecks
 # and lints against the same compiler.

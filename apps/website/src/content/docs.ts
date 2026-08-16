@@ -95,7 +95,7 @@ export const DOC_SECTIONS: DocSection[] = [
       },
       {
         title: 'Website and web app deployment',
-        description: 'Cloudflare Pages, staging and production.',
+        description: 'Cloudflare Workers, staging and production.',
         href: `${DOCS_ROOT}/deployment/website.md`,
       },
       {

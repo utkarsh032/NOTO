@@ -125,6 +125,6 @@ Noto/
 [`R&D/Build&Release.md`](../../R&D/Build&Release.md) specifies Angular and
 Capacitor. The repository is built with **React + Vite**, **Electron Forge** and
 **Expo / React Native** instead. The release architecture in that document —
-GitHub Actions, tag-driven releases, GitHub Releases, Cloudflare Pages,
+GitHub Actions, tag-driven releases, GitHub Releases, Cloudflare Workers,
 Electron's update service — is implemented as written; only the UI framework
 differs.

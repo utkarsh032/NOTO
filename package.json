@@ -18,6 +18,8 @@
     "dev:mobile": "turbo run start --filter=@noto/mobile",
     "build:web": "turbo run build --filter=@noto/web...",
     "build:website": "turbo run build --filter=@noto/website...",
+    "deploy:web": "pnpm build:web && wrangler deploy --config apps/web/wrangler.jsonc",
+    "deploy:website": "pnpm build:website && wrangler deploy --config apps/website/wrangler.jsonc",
     "package:desktop": "pnpm --filter @noto/desktop run make",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint -- --fix",
@@ -40,6 +42,7 @@
     "prettier": "^3.9.6",
     "turbo": "^2.10.9",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
   }
 }
