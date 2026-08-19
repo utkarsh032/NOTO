@@ -11,7 +11,7 @@ git push
 Cloudflare Workers Builds
    │
    ├── noto      →  apps/website  →  https://noto.utkarshraj525.workers.dev
-   └── noto-app  →  apps/web      →  https://noto-app.utkarshraj525.workers.dev
+   └── noto-web  →  apps/web      →  https://noto-web.utkarshraj525.workers.dev
 ```
 
 Initial cost: **₹0**. The first paid item Noto is likely to need is a domain,
@@ -21,7 +21,7 @@ not a server.
 
 Each project is configured in the Cloudflare dashboard as follows.
 
-| Setting           | `noto` (website)                                           | `noto-app` (web application)                           |
+| Setting           | `noto` (website)                                           | `noto-web` (web application)                           |
 | ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | Build command     | `pnpm build:website`                                       | `pnpm build:web`                                       |
 | Deploy command    | `npx wrangler deploy --config apps/website/wrangler.jsonc` | `npx wrangler deploy --config apps/web/wrangler.jsonc` |
@@ -114,7 +114,7 @@ build does not report.
 | `VITE_NOTO_ENV`         | `production` or `staging`                  | `production`                   |
 | `VITE_NOTO_COMMIT`      | Commit the build came from                 | empty — shown as "local build" |
 | `VITE_NOTO_REPOSITORY`  | `owner/repo`                               | —                              |
-| `VITE_NOTO_WEB_APP_URL` | Where "Open Noto" points                   | The `noto-app` deployment      |
+| `VITE_NOTO_WEB_APP_URL` | Where "Open Noto" points                   | The `noto-web` deployment      |
 
 None of these need setting in Cloudflare. The version in particular is read
 from the manifest at build time by a Vite `define` — relying on an environment

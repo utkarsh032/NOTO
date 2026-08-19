@@ -30,7 +30,7 @@ export const BUILD_COMMIT: string = env.VITE_NOTO_COMMIT || '';
  * eventually want.
  */
 export const WEB_APP_URL: string =
-  env.VITE_NOTO_WEB_APP_URL || 'https://noto-app.utkarshraj525.workers.dev';
+  env.VITE_NOTO_WEB_APP_URL || 'https://noto-web.utkarshraj525.workers.dev';
 
 /** True on any deployment that is not the public production site. */
 export const IS_PREVIEW = BUILD_ENV !== 'production';
