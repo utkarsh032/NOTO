@@ -10,7 +10,7 @@ import { Link } from '../router';
  * Whether GitHub confirmed a published release.
  *
  * The build-time version is not evidence of one: the site is deployed from the
- * same commit that a release is cut from, so it always knows a version number
+ * same commit that a release mk is cut from, so it always knows a version number
  * whether or not installers exist for it. Only a successful API response means
  * there is something to download — anything else and the page must say so
  * rather than link at files that were never published.
