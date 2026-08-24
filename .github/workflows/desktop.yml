@@ -1,12 +1,37 @@
 name: Desktop
 
 on:
+  # Path-filtered so that an unrelated change never spends five runners on a
+  # packaging matrix. Mirrors the filter web.yml already uses.
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - 'tooling/**'
+      - 'scripts/bake-environment.mjs'
+      - 'scripts/collect-desktop-artifacts.mjs'
+      - 'scripts/verify-squirrel-release.mjs'
+      - 'pnpm-lock.yaml'
+      - 'turbo.json'
+      - '.github/workflows/desktop.yml'
+      - '.github/actions/setup/**'
   workflow_dispatch:
     inputs:
       version:
         description: Version to stamp into the packages (defaults to the workspace version).
         type: string
         required: false
+        default: ''
+      environment:
+        description: Overlay to bake in. Must name a file in apps/desktop/environments.
+        type: choice
+        options: [Development, Staging, Production]
+        default: Production
+      channel:
+        description: Update channel. Empty uses the environment's defaultChannel.
+        type: choice
+        options: ['', stable, beta, nightly]
         default: ''
       sign:
         description: Sign and notarize the packages (requires the signing secrets).
@@ -19,21 +44,96 @@ on:
         type: string
         required: false
         default: ''
+      environment:
+        type: string
+        required: false
+        default: Production
+      channel:
+        type: string
+        required: false
+        default: ''
       sign:
         type: boolean
         required: false
         default: false
 
+# Keyed by environment as well as ref: the same commit packaged for two
+# environments produces two different artifacts, and one must not cancel the
+# other.
 concurrency:
-  group: desktop-${{ github.ref }}-${{ inputs.version }}
+  group: desktop-${{ github.ref }}-${{ inputs.environment }}-${{ inputs.version }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
+  resolve:
+    name: Resolve build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      include: ${{ steps.pick.outputs.include }}
+      environment: ${{ steps.pick.outputs.environment }}
+      channel: ${{ steps.pick.outputs.channel }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the platform matrix and environment
+        id: pick
+        shell: bash
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+
+          # Discriminated on whether an environment was supplied, NOT on
+          # github.event_name. In a reusable workflow that context belongs to
+          # the caller, so a tag push through release.yml reports "push" here -
+          # and matching on that would quietly build Windows alone and drop
+          # macOS and Linux from every release. Both workflow_call and
+          # workflow_dispatch always carry an environment; a bare push cannot.
+          #
+          # A bare push is a smoke test of the packaging path, not a release.
+          # One Windows slice proves Forge still produces an installer; the full
+          # five-platform matrix is what a release needs and what it pays for.
+          if [ -z "${INPUT_ENVIRONMENT:-}" ]; then
+            include='[{"label":"Windows x64","os":"windows-latest","platform":"win32","arch":"x64"}]'
+            environment="Development"
+          else
+            include='[
+              {"label":"Windows x64","os":"windows-latest","platform":"win32","arch":"x64"},
+              {"label":"Windows arm64","os":"windows-latest","platform":"win32","arch":"arm64"},
+              {"label":"macOS arm64","os":"macos-latest","platform":"darwin","arch":"arm64"},
+              {"label":"macOS x64","os":"macos-latest","platform":"darwin","arch":"x64"},
+              {"label":"Linux x64","os":"ubuntu-latest","platform":"linux","arch":"x64"}
+            ]'
+            environment="$INPUT_ENVIRONMENT"
+          fi
+
+          # The overlay set lives on disk. Validating against it here means a
+          # workflow input that has drifted away from the files fails at the
+          # start of the run rather than producing a package aimed at an update
+          # feed nobody meant to ship.
+          if [ ! -f "apps/desktop/environments/noto.${environment}.json" ]; then
+            echo "::error::No overlay apps/desktop/environments/noto.${environment}.json."
+            echo "::error::Available: $(ls apps/desktop/environments | paste -sd' ' -)"
+            exit 1
+          fi
+
+          # Control characters only, not [:space:]: GITHUB_OUTPUT needs one line,
+          # but stripping every space would also collapse the labels inside the
+          # JSON, and those labels are what name each job in the UI.
+          echo "include=$(echo "$include" | tr -d '[:cntrl:]')" >> "$GITHUB_OUTPUT"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "channel=${INPUT_CHANNEL:-}" >> "$GITHUB_OUTPUT"
+          echo "Building $environment on the ${INPUT_CHANNEL:-default} channel."
+
   package:
     name: ${{ matrix.label }}
+    needs: resolve
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
 
@@ -42,14 +142,7 @@ jobs:
       # needs to know every platform's verdict in a single run.
       fail-fast: false
       matrix:
-        include:
-          - { label: Windows x64, os: windows-latest, platform: win32, arch: x64 }
-          - { label: Windows arm64, os: windows-latest, platform: win32, arch: arm64 }
-          # Electron Packager downloads the Electron binary for the requested
-          # architecture, so both macOS slices cross-build from one arm64 runner.
-          - { label: macOS arm64, os: macos-latest, platform: darwin, arch: arm64 }
-          - { label: macOS x64, os: macos-latest, platform: darwin, arch: x64 }
-          - { label: Linux x64, os: ubuntu-latest, platform: linux, arch: x64 }
+        include: ${{ fromJSON(needs.resolve.outputs.include) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +177,17 @@ jobs:
           else
             echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
+
+      # Baked before the bundle is built, using the same script the local
+      # release runs. Skipping this would package the committed Development
+      # defaults - the wrong update feed - and nothing downstream would notice,
+      # because the artifact's name does not record which environment it is for.
+      - name: Bake the environment
+        shell: bash
+        run: |
+          node scripts/bake-environment.mjs \
+            --environment '${{ needs.resolve.outputs.environment }}' \
+            --channel '${{ needs.resolve.outputs.channel }}'
 
       # No separate build step for the shared packages: they are consumed as
       # TypeScript source and Forge's Vite plugin bundles them as part of `make`.
@@ -152,10 +256,23 @@ jobs:
             --version ${{ steps.version.outputs.value }} \
             --out build
 
+      # The Squirrel manifest is checked here for the same reason the local
+      # release checks it: nothing else ever reads RELEASES, so a hash that does
+      # not describe the package beside it would only surface once installed
+      # clients quietly stopped updating.
+      - name: Verify the Windows update manifest
+        if: matrix.platform == 'win32' && matrix.arch == 'x64'
+        shell: bash
+        run: |
+          node scripts/verify-squirrel-release.mjs \
+            --dir build \
+            --version ${{ steps.version.outputs.value }} \
+            --arch ${{ matrix.arch }}
+
       - name: Upload release assets
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          name: desktop-${{ needs.resolve.outputs.environment }}-${{ matrix.platform }}-${{ matrix.arch }}
           path: build
           retention-days: 14
           if-no-files-found: error

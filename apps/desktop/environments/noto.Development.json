@@ -1,0 +1,8 @@
+{
+  "environment": "Development",
+  "description": "Local build against a dev web application. Updates disabled.",
+  "buildEnv": "development",
+  "defaultChannel": "nightly",
+  "updateFeedUrl": "",
+  "webAppUrl": "http://localhost:5173"
+}

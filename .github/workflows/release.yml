@@ -98,6 +98,12 @@ jobs:
     secrets: inherit
     with:
       version: ${{ needs.prepare.outputs.version }}
+      # A tag release is always the Production overlay. The channel, though,
+      # comes from the tag itself - v1.1.0-beta.1 is a beta - so the package is
+      # baked to watch the same channel it was published on. Getting this wrong
+      # ships a beta that checks the stable feed and never updates.
+      environment: Production
+      channel: ${{ needs.prepare.outputs.channel }}
       sign: ${{ needs.prepare.outputs.sign == 'true' }}
 
   web:

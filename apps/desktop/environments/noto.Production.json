@@ -1,0 +1,8 @@
+{
+  "environment": "Production",
+  "description": "Public release. Ships to every user.",
+  "buildEnv": "production",
+  "defaultChannel": "stable",
+  "updateFeedUrl": "https://update.electronjs.org/utkarsh032/NOTO",
+  "webAppUrl": "https://noto-web.utkarshraj525.workers.dev"
+}

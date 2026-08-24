@@ -25,6 +25,8 @@ import {
 import { app } from 'electron';
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app';
 
+import { BUILD_CHANNEL, UPDATE_FEED_URL } from '../generated/environment';
+
 /** How long Noto waits between update checks while it is running. */
 const UPDATE_INTERVAL = '2 hours';
 
@@ -36,7 +38,10 @@ function log(message: string): void {
 }
 
 function resolveChannel(): UpdateChannel {
-  const requested = process.env.NOTO_UPDATE_CHANNEL;
+  // The channel baked in at package time is the authority: a packaged app
+  // inherits none of the environment that built it. The variable stays ahead of
+  // it only so a developer or a CI job can retarget a build without repackaging.
+  const requested = process.env.NOTO_UPDATE_CHANNEL || BUILD_CHANNEL;
   if (requested && (CHANNELS as readonly string[]).includes(requested)) {
     return requested as UpdateChannel;
   }
@@ -68,11 +73,12 @@ export function initialiseUpdates(): void {
 
   // A static feed hosts the channel's own RELEASES/zip payloads. Until one is
   // published, only stable can update itself.
-  const staticFeed = process.env.NOTO_UPDATE_FEED_URL;
+  const staticFeed = process.env.NOTO_UPDATE_FEED_URL || UPDATE_FEED_URL;
 
   if (channel !== 'stable' && !staticFeed) {
     log(
-      `skipped: the ${channel} channel needs NOTO_UPDATE_FEED_URL to point at its update feed. ` +
+      `skipped: the ${channel} channel has no update feed. Build with an -Environment whose ` +
+        'updateFeedUrl is set, or override with NOTO_UPDATE_FEED_URL. ' +
         'Install a new build manually, or switch back to stable.',
     );
     return;

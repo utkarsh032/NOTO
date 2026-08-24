@@ -1,0 +1,8 @@
+{
+  "environment": "Staging",
+  "description": "Pre-release verification. Not for public download.",
+  "buildEnv": "staging",
+  "defaultChannel": "beta",
+  "updateFeedUrl": "",
+  "webAppUrl": "https://noto-web.utkarshraj525.workers.dev"
+}
