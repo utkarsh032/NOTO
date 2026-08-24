@@ -97,7 +97,7 @@ Run from the repository root:
 | `pnpm test`                  | Vitest unit tests                             |
 | `pnpm test:e2e`              | Playwright end-to-end tests (web)             |
 | `pnpm format`                | Prettier write                                |
-| `.\noto-release.ps1`         | Windows: full build into `build\` (see below) |
+| `pnpm release:desktop`       | Windows: environment-aware release build      |
 | `pnpm package:desktop`       | macOS/Linux: package for this platform        |
 | `pnpm release:prepare 1.0.0` | Set the version and stub the release notes    |
 
@@ -107,31 +107,144 @@ Playwright needs its browser once: `pnpm --filter @noto/web exec playwright inst
 
 ## Build and release
 
-### Building the installer locally (Windows)
+### Prerequisites
+
+| Tool       | Version  | Why                                                                                             |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------- |
+| Node       | **22.x** | Packaging only. Forge 7.11 pins a packager that fails silently on Node 24 — see the note below. |
+| pnpm       | 11.x     | `corepack enable`                                                                               |
+| fnm        | any      | Lets the release script reach Node 22 without changing your default Node                        |
+| PowerShell | 5.1+     | Elevated preferred, not required                                                                |
+
+Install fnm and Node 22 once:
 
 ```powershell
-.\noto-release.ps1
+winget install --id Schniz.fnm -e
+fnm install 22
 ```
 
-Artifacts land in **`build\`**:
+You do not need to switch to Node 22 yourself. The release script finds it through fnm
+and uses it for the build only.
+
+### Building a release locally (Windows)
+
+```powershell
+pnpm release:desktop
+```
+
+`pnpm release:desktop` is a thin wrapper around `.\noto-release.ps1`. PowerShell does not
+run scripts from the current directory without the `.\` prefix — the wrapper exists so
+that is one less thing to remember.
+
+With no `-Environment`, an interactive session shows a numbered menu built by globbing
+`apps\desktop\environments`. Each option is printed with its update feed URL, because
+that — not the label — is what actually differs between two packages of the same version.
+A **non-interactive** session with no `-Environment` fails rather than guessing: a package
+aimed at the wrong update feed is not something you can tell from its file name.
+
+| Invocation                                                       | What it does                                    |
+| ---------------------------------------------------------------- | ----------------------------------------------- |
+| `pnpm release:desktop`                                           | Prompts for the environment, builds everything  |
+| `pnpm release:desktop -- -Environment Staging -SkipWeb`          | Staging package, skips the web bundles          |
+| `pnpm release:desktop -- -Environment Production -Version 1.0.0` | Stamps 1.0.0 everywhere, then builds Production |
+| `pnpm release:desktop -- -Environment Staging -Channel nightly`  | Overrides the overlay's default channel         |
+| `pnpm release:desktop -- -Arch arm64`                            | ARM64 slice (installer only, no update feed)    |
+
+`-SkipVerify` skips lint/typecheck/tests. `-Configuration Debug` is allowed for every
+environment except Production. Building Production always prints the configuration about
+to be baked in and requires you to type `yes`; `-AssumeYes` supplies that for an
+automated run.
+
+Run it elevated where you can — administrator is not required, but it lets the script add
+a Defender exclusion for the output folder, which is what stops Squirrel's `rcedit` step
+failing intermittently while Defender scans the freshly written binaries.
+
+### Environment overlays
+
+The environment set is whatever is in `apps\desktop\environments`. Nothing enumerates it
+in code, so adding a file adds an environment — to the menu, to the `bake-environment.mjs`
+validation and to the CI input check at once.
+
+| File                    | Update feed             | Default channel | For                                |
+| ----------------------- | ----------------------- | --------------- | ---------------------------------- |
+| `noto.Production.json`  | `update.electronjs.org` | `stable`        | Public releases                    |
+| `noto.Staging.json`     | none yet                | `beta`          | Pre-release verification           |
+| `noto.Development.json` | none                    | `nightly`       | Local builds against a dev web app |
+
+Each file carries `environment`, `description`, `buildEnv`, `defaultChannel`,
+`updateFeedUrl` and `webAppUrl`. All six are required, and a missing one aborts the build
+by name.
+
+`updateFeedUrl` may be empty. `stable` does not need one — it resolves through
+`update.electronjs.org` — but `beta` and `nightly` do, and a build on those channels
+without one warns loudly that the package will never update itself.
+
+The chosen values are written into `apps\desktop\src\generated\environment.ts` by
+[`scripts/bake-environment.mjs`](scripts/bake-environment.mjs), which both the local
+script and CI call. That file is **committed**, carrying the Development defaults, so a
+fresh clone typechecks; a release rewrites it and restores it when the build ends.
+
+It is a generated module rather than an environment variable because `process.env`
+describes the machine that ran the build, not the artifact it produced — a packaged app
+started from the Start menu inherits none of it.
+
+### What a release folder holds
+
+Artifacts are keyed by environment **and** channel as well as version, because the same
+version built for two environments is two different packages:
 
 ```text
-build\
+build\<Environment>\<Channel>\<Version>\
 ├── Noto-<version>-win-x64.exe     the installer
+├── Noto-<version>-win-x64.zip     the same installer, zipped
 ├── noto-<version>-full.nupkg      Squirrel update payload
 ├── RELEASES                       Squirrel update manifest
+├── download.html                  from scripts/templates/download.html
+├── _headers                       static headers for the download host
 └── SHA256SUMS.txt
 ```
 
-Run it elevated where you can — administrator is not required, but it lets the
-script add a Defender exclusion for the output folder, which is what stops
-Squirrel's `rcedit` step failing intermittently while Defender scans the freshly
-written binaries. The script also switches to Node 22 (see the packaging note
-below), stops leftover Noto instances that would lock the output directory, and
-refuses to collect any artifact older than the run that produced it.
+The same contents are mirrored to `build\<Environment>\<Channel>\Latest\`, wiped first, so
+an upload step never has to know the version number.
 
-`-SkipVerify` skips lint/typecheck/tests, `-Arch arm64` builds the other slice,
-`-Version 1.0.0` stamps a version across every manifest first.
+### What the build refuses to publish
+
+Each of these aborts the run and prints what was expected, what was found, and what to do
+about it:
+
+- **A package that was never built.** `@electron/packager` can exit 0 having produced
+  nothing, so the script looks for the application binary itself rather than trusting the
+  exit code. This is the failure that ships an installer which installs cleanly and then
+  does not launch.
+- **An installer under the wrong name.** Looked up as `Noto-<version>-win-<arch>.exe`
+  exactly, never as `*.exe` — a wildcard returns entries in directory order and would
+  happily publish an earlier build under this version's release notes.
+- **A missing or disagreeing `RELEASES`.** Its SHA1 is recomputed the way Squirrel does it
+  and compared against the `.nupkg` beside it, along with the size and the version.
+  Nothing else in the pipeline reads that file, so a mismatch would otherwise surface
+  months later as "nobody is upgrading", with no error anywhere.
+- **Stale artifacts.** Everything collected must be newer than the timestamp taken before
+  the build started.
+- **An incomplete folder.** The `[OK]`/`[MISSING]` checklist is a gate, not a report.
+
+### Hand-off
+
+The release folder is **not** committed. A 133 MB installer exceeds GitHub's 100 MB file
+limit, which is why `build/` is ignored. Publishing goes through the tag-driven pipeline
+instead:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+`release.yml` then builds macOS and Linux on their own runners — neither can be produced
+from Windows — bakes the **Production** overlay with the channel derived from the tag
+itself (`v1.1.0-beta.1` is a beta), and publishes every platform to the GitHub Release.
+
+`desktop.yml` also runs on pushes that touch `apps/desktop/**`, building a single Windows
+slice as a smoke test of the packaging path. Its `environment` input must name a file in
+`apps\desktop\environments`; a value that has drifted from the overlays fails at the start
+of the run.
 
 ### Releasing
 
