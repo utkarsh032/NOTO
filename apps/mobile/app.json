@@ -2,7 +2,7 @@
   "expo": {
     "name": "Noto",
     "slug": "noto",
-    "version": "0.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "scheme": "noto",
     "userInterfaceStyle": "automatic",
@@ -10,12 +10,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noto.app",
-      "buildNumber": "1000"
+      "buildNumber": "1001001"
     },
     "android": {
       "package": "com.noto.app",
       "edgeToEdgeEnabled": true,
-      "versionCode": 1000
+      "versionCode": 1001001
     },
     "plugins": ["expo-router"],
     "experiments": {
