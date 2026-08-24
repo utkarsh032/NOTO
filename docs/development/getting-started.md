@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-| Tool           | Version            | Needed for                         |
-| -------------- | ------------------ | ---------------------------------- |
-| Node.js        | 20.19+ (24 LTS ok) | Everything                         |
-| pnpm           | 11+                | Everything (`npm install -g pnpm`) |
-| Git            | any recent         | Everything                         |
-| Android Studio | latest             | Local Android builds only          |
-| Xcode          | latest             | Local iOS builds only (macOS)      |
+| Tool           | Version            | Needed for                                        |
+| -------------- | ------------------ | ------------------------------------------------- |
+| Node.js        | 20.19+ (24 LTS ok) | Everything                                        |
+| pnpm           | 11+                | Everything (`npm install -g pnpm`)                |
+| Git            | any recent         | Everything                                        |
+| Android Studio | latest             | Local Android builds ([guide](android-studio.md)) |
+| Xcode          | latest             | Local iOS builds only (macOS)                     |
 
 Project libraries are never installed globally — they are pinned by this
 repository and its lockfile.
@@ -31,6 +31,9 @@ pnpm dev:mobile     # Expo
 The web application and the website run on different ports on purpose: the
 website's download links point at the web application, and checking they work
 means running both.
+
+Running the mobile application on an emulator or a phone — Android Studio
+setup, devices, Logcat, APKs — is [android-studio.md](android-studio.md).
 
 ## Before you push
 
