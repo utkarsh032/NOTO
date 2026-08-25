@@ -28,6 +28,28 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.1.5',
+    date: '2026-08-25',
+    summary: 'The Android APK, published on the download page at last.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'The Android APK is published on the download page — a 16 MB 64-bit build, with a separate one for older 32-bit phones, signed with Noto’s own upload key.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Publishing waits for the mobile build instead of running as soon as the desktop packages are ready. The APK was being built correctly and then arriving too late to be attached, which is why 1.1.3 and 1.1.4 shipped without it.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Generating the native Android project no longer removes packages the rest of the build depends on, which had been hanging that step until the job timed out.',
+      },
+    ],
+  },
+  {
     version: '1.1.4',
     date: '2026-08-25',
     summary: 'The Android APK, signed with a real upload key and published on the download page.',
