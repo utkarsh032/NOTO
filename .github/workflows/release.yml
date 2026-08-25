@@ -50,16 +50,20 @@ jobs:
       - name: Derive release metadata
         id: meta
         env:
-          # Set the repository variable NOTO_RELEASE_SIGN to `true` once the
-          # signing secrets exist, and NOTO_RELEASE_MOBILE once mobile joins
-          # the release train. Both default to off.
+          # Desktop signing is still opt-in: set the repository variable
+          # NOTO_RELEASE_SIGN to `true` once those certificates exist.
+          #
+          # Mobile has joined the release train, so it is opt-out. Leaving it
+          # off by default meant v1.1.2 shipped release notes announcing an
+          # Android build, and skipped the job that produces it. Set
+          # NOTO_RELEASE_MOBILE to `false` to suppress it for a release.
           SIGN: ${{ vars.NOTO_RELEASE_SIGN }}
           MOBILE: ${{ vars.NOTO_RELEASE_MOBILE }}
         run: |
           tag="${{ inputs.tag || github.ref_name }}"
           node scripts/release-metadata.mjs "$tag" >> "$GITHUB_OUTPUT"
           echo "sign=${SIGN:-false}" >> "$GITHUB_OUTPUT"
-          echo "mobile=${MOBILE:-false}" >> "$GITHUB_OUTPUT"
+          echo "mobile=${MOBILE:-true}" >> "$GITHUB_OUTPUT"
 
       # A production tag must describe code that is already on main. This is the
       # last automated check before assets are published publicly.
