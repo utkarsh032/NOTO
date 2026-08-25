@@ -32,6 +32,12 @@ on:
         type: boolean
         required: false
         default: false
+      # A release publishes the APK on the download page, so a build with no
+      # upload keystore must fail rather than ship the shared debug key.
+      require_signing:
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: mobile-${{ github.ref }}-${{ inputs.version }}
@@ -86,9 +92,12 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
             echo "available=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.require_signing }}" = "true" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. A published APK must not carry the shared Android debug key — see docs/deployment/code-signing.md."
+            exit 1
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; producing a debug-signed build that cannot be uploaded to Google Play."
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; producing a debug-signed build. Fine for testing, never for publication."
           fi
 
       - name: Build APK (testing)

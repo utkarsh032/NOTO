@@ -1,4 +1,10 @@
-import { PLATFORMS, RELEASES_URL, downloadUrl, type PlatformId } from '@noto/config';
+import {
+  PLATFORMS,
+  RELEASES_URL,
+  downloadUrl,
+  type DownloadPackage,
+  type PlatformId,
+} from '@noto/config';
 
 import { Badge, ButtonLink, Card, Container, PageHeader, Section } from '../components/primitives';
 import { WEB_APP_URL } from '../env';
@@ -28,13 +34,28 @@ function formatDate(iso: string | null): string | null {
   });
 }
 
+/**
+ * Whether a release actually carries the file a package describes.
+ *
+ * Not every platform ships on every release — Android is built only when the
+ * mobile job runs — so the package list alone is not evidence that a file
+ * exists. Offering a link to an asset that was never uploaded is worse than
+ * showing nothing: it is a 404 with a download button on it.
+ */
+function isPublished(pkg: DownloadPackage, version: string, assets: string[]): boolean {
+  const fileName = pkg.file?.(version);
+  return fileName ? assets.includes(fileName) : false;
+}
+
 function PlatformCard({
   platformId,
   version,
+  assets,
   highlighted,
 }: {
   platformId: PlatformId;
   version: string;
+  assets: string[];
   highlighted?: boolean;
 }) {
   const platform = PLATFORMS.find((candidate) => candidate.id === platformId);
@@ -50,7 +71,9 @@ function PlatformCard({
       <ul className="mt-4 space-y-2">
         {platform.packages.map((pkg) => {
           const href = pkg.file
-            ? downloadUrl(version, pkg.file(version))
+            ? isPublished(pkg, version, assets)
+              ? downloadUrl(version, pkg.file(version))
+              : undefined
             : pkg.href === '/'
               ? WEB_APP_URL
               : pkg.href;
@@ -81,19 +104,23 @@ function PlatformCard({
   );
 }
 
-function PrimaryDownload({ version }: { version: string }) {
+function PrimaryDownload({ version, assets }: { version: string; assets: string[] }) {
   const detected = useDetectedPlatform();
   const platform = PLATFORMS.find((candidate) => candidate.id === detected.id);
 
-  // The stores are not open yet, and the web application needs no download, so
-  // those visitors are pointed at the thing that does work for them.
-  if (!platform || detected.id === 'web' || detected.id === 'android' || detected.id === 'ios') {
+  const published =
+    platform?.packages.filter((pkg) => isPublished(pkg, version, assets)) ??
+    ([] as DownloadPackage[]);
+
+  // Nothing to hand this visitor: the web application, which needs no download,
+  // or a platform this release published no package for. Both get the browser.
+  if (!platform || detected.id === 'web' || published.length === 0) {
     return (
       <Card className="text-center">
         <p className="text-muted text-sm">
           {detected.id === 'web'
             ? 'Noto runs in your browser with nothing to install.'
-            : 'The mobile applications are not published yet. In the meantime, Noto runs in your mobile browser.'}
+            : `Noto for ${platform?.label ?? 'your device'} is not part of this release. In the meantime, it runs in your browser.`}
         </p>
         <div className="mt-4">
           <ButtonLink href={WEB_APP_URL}>Open Noto in your browser</ButtonLink>
@@ -104,8 +131,7 @@ function PrimaryDownload({ version }: { version: string }) {
 
   // Prefer the package matching the detected architecture; fall back to the
   // first one, which is the recommended build for that platform.
-  const preferred =
-    platform.packages.find((pkg) => pkg.arch === detected.arch && pkg.file) ?? platform.packages[0];
+  const preferred = published.find((pkg) => pkg.arch === detected.arch) ?? published[0];
 
   const file = preferred?.file?.(version);
 
@@ -126,6 +152,13 @@ function PrimaryDownload({ version }: { version: string }) {
           </div>
           <p className="text-subtle mt-3 font-mono text-xs break-all">{file}</p>
         </>
+      ) : null}
+
+      {detected.id === 'android' ? (
+        <p className="text-muted mt-4 text-xs">
+          Noto is not on Google Play yet, so Android will ask you to allow this one install. Open
+          the file once it has downloaded and confirm the prompt.
+        </p>
       ) : null}
 
       {!detected.confident ? (
@@ -183,7 +216,7 @@ export function Download() {
         <>
           <Section>
             <div className="mx-auto max-w-md">
-              <PrimaryDownload version={release.version} />
+              <PrimaryDownload version={release.version} assets={release.assets} />
             </div>
           </Section>
 
@@ -197,6 +230,7 @@ export function Download() {
                   key={platform.id}
                   platformId={platform.id}
                   version={release.version}
+                  assets={release.assets}
                   highlighted={platform.id === detected.id}
                 />
               ))}
