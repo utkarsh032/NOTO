@@ -27,6 +27,18 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.1.4',
+    date: '2026-08-25',
+    summary: 'The Android APK, signed with a real upload key and published on the download page.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'The Android APK is published on the download page — a 16 MB 64-bit build, with a separate one for older 32-bit phones. 1.1.3 shipped without it because the signing key was missing, and the pipeline correctly refused to publish an APK carrying the shared Android debug key.',
+      },
+    ],
+  },
   // 1.1.2 has no entry because it has no release. It was tagged, its packaging
   // run was cancelled by a hung build, and nothing was ever published under it
   // — so listing it here would advertise a version with nothing to download.
