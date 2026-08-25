@@ -107,6 +107,8 @@ jobs:
           NOTO_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           NOTO_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           NOTO_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        # Produces one APK per ABI rather than a universal one — see
+        # `apps/mobile/plugins/with-android-app-size.cjs`.
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Build AAB (Play Store)
@@ -116,17 +118,26 @@ jobs:
           NOTO_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           NOTO_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           NOTO_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --no-daemon
+        # Play splits the bundle per device itself, so the per-ABI APK splits
+        # that `assembleRelease` needs are turned off for this task.
+        run: ./gradlew bundleRelease --no-daemon -Pnoto.enableAbiSplits=false
 
       - name: Rename outputs
         run: |
           mkdir -p build
           v="${{ steps.version.outputs.value }}"
-          find apps/mobile/android -name '*.apk' -path '*release*' \
-            -exec cp {} "build/Noto-$v-android.apk" \;
-          find apps/mobile/android -name '*.aab' -path '*release*' \
-            -exec cp {} "build/Noto-$v-android.aab" \;
-          ls -l build
+          out=apps/mobile/android/app/build/outputs
+
+          # Named explicitly rather than globbed: `assembleRelease` now emits
+          # one APK per ABI, including the emulator-only x86 pair, and a `find`
+          # would copy all four over each other in whatever order it walked
+          # them. Missing files are an error — a silently absent APK would
+          # publish a release with a dead download button on it.
+          cp "$out/apk/release/app-arm64-v8a-release.apk" "build/Noto-$v-android.apk"
+          cp "$out/apk/release/app-armeabi-v7a-release.apk" "build/Noto-$v-android-armeabi-v7a.apk"
+          cp "$out/bundle/release/app-release.aab" "build/Noto-$v-android.aab"
+
+          ls -lh build
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4

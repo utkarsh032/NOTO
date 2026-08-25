@@ -71,7 +71,11 @@ const GROUPS = [
   {
     title: 'Android',
     rows: [
-      { label: 'APK (testing)', match: (n) => n === `Noto-${version}-android.apk` },
+      { label: 'APK (64-bit)', match: (n) => n === `Noto-${version}-android.apk` },
+      {
+        label: 'APK (32-bit)',
+        match: (n) => n === `Noto-${version}-android-armeabi-v7a.apk`,
+      },
       { label: 'App bundle (Play Store)', match: (n) => n === `Noto-${version}-android.aab` },
     ],
   },

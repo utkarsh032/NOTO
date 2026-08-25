@@ -17,7 +17,11 @@
       "edgeToEdgeEnabled": true,
       "versionCode": 1001002
     },
-    "plugins": ["expo-router", "./plugins/with-android-release-signing.cjs"],
+    "plugins": [
+      "expo-router",
+      "./plugins/with-android-release-signing.cjs",
+      "./plugins/with-android-app-size.cjs"
+    ],
     "experiments": {
       "typedRoutes": true
     }
