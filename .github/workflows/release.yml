@@ -94,6 +94,8 @@ jobs:
     needs: prepare
     uses: ./.github/workflows/ci.yml
     secrets: inherit
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
 
   desktop:
     name: Desktop
@@ -101,6 +103,7 @@ jobs:
     uses: ./.github/workflows/desktop.yml
     secrets: inherit
     with:
+      ref: ${{ needs.prepare.outputs.tag }}
       version: ${{ needs.prepare.outputs.version }}
       # A tag release is always the Production overlay. The channel, though,
       # comes from the tag itself - v1.1.0-beta.1 is a beta - so the package is
@@ -116,6 +119,7 @@ jobs:
     uses: ./.github/workflows/web.yml
     secrets: inherit
     with:
+      ref: ${{ needs.prepare.outputs.tag }}
       environment: production
       version: ${{ needs.prepare.outputs.version }}
 
@@ -126,6 +130,7 @@ jobs:
     uses: ./.github/workflows/mobile.yml
     secrets: inherit
     with:
+      ref: ${{ needs.prepare.outputs.tag }}
       version: ${{ needs.prepare.outputs.version }}
       android: true
       ios: false

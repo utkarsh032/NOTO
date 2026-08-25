@@ -27,9 +27,13 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // 1.1.2 has no entry because it has no release. It was tagged, its packaging
+  // run was cancelled by a hung build, and nothing was ever published under it
+  // — so listing it here would advertise a version with nothing to download.
+  // Everything it promised ships in 1.1.3.
   {
-    version: '1.1.2',
-    date: null,
+    version: '1.1.3',
+    date: '2026-08-25',
     summary: 'Noto for Android, published as an APK you can install from the download page.',
     changes: [
       {
@@ -46,6 +50,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         kind: 'fixed',
         description:
           'The download page only links files a release actually carries, rather than offering every platform for every version and occasionally pointing at a file that was never published.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'A build that stops responding no longer costs a release. Packaging attempts are given a deadline and retried, and a genuinely broken build now fails loudly instead of being reported as cancelled. This is what stopped 1.1.2 from being published.',
       },
     ],
   },

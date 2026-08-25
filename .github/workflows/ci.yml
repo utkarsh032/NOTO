@@ -6,6 +6,15 @@ on:
   push:
     branches: [main, dev]
   workflow_call:
+    inputs:
+      # The commit to build. A called workflow otherwise checks out the ref
+      # that triggered the caller, which is right for a tag push and wrong for
+      # every `workflow_dispatch` re-run: those name the tag as an input while
+      # the run itself is started from a branch.
+      ref:
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
 
 # Superseded pull request runs are cancelled; pushes to main and dev always
@@ -24,6 +33,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: ./.github/actions/setup
 
@@ -45,6 +56,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: ./.github/actions/setup
 
@@ -81,6 +94,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: ./.github/actions/setup
 
