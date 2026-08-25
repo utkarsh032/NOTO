@@ -111,6 +111,18 @@ export function assetFileName(
   return `Noto-${version}-${segment}-${arch}.${extension}`;
 }
 
+/**
+ * Builds the Android release asset name, e.g. `Noto-1.0.0-android.apk`.
+ *
+ * There is no architecture in the name, unlike the desktop packages: the
+ * release workflow builds a single APK carrying every ABI, so one file installs
+ * on any phone. Must stay in step with the rename step in
+ * `.github/workflows/mobile.yml`.
+ */
+export function androidAssetFileName(version: string, extension: 'apk' | 'aab' = 'apk'): string {
+  return `Noto-${version}-android.${extension}`;
+}
+
 /** Direct download URL for a released asset. */
 export function downloadUrl(version: string, fileName: string): string {
   return `${RELEASES_URL}/download/v${version}/${fileName}`;
@@ -183,12 +195,23 @@ export const PLATFORMS: PlatformInfo[] = [
   {
     id: 'android',
     label: 'Android',
-    packages: [{ label: 'Google Play', format: 'store', href: RELEASES_URL }],
+    packages: [
+      {
+        label: 'Android APK',
+        note: 'Any phone, Android 7+',
+        format: 'apk',
+        arch: 'arm64',
+        file: (v) => androidAssetFileName(v),
+      },
+      // No `href`: the download page renders "Soon" rather than a link, which
+      // is honest. Pointing this at GitHub was worse than saying nothing.
+      { label: 'Google Play', format: 'store' },
+    ],
   },
   {
     id: 'ios',
     label: 'iOS',
-    packages: [{ label: 'App Store', format: 'store', href: RELEASES_URL }],
+    packages: [{ label: 'App Store', format: 'store' }],
   },
   {
     id: 'web',
@@ -236,6 +259,18 @@ export const SYSTEM_REQUIREMENTS: SystemRequirement[] = [
       { label: 'Memory', value: '4 GB minimum' },
       { label: 'Storage', value: '500 MB or more' },
       { label: 'Desktop', value: 'A glibc-based distribution with a graphical session' },
+    ],
+  },
+  {
+    platform: 'Android',
+    rows: [
+      { label: 'Operating system', value: 'Android 7.0 (API 24) or later' },
+      { label: 'Architecture', value: 'arm64-v8a, armeabi-v7a, x86 or x86_64' },
+      { label: 'Storage', value: '200 MB or more' },
+      {
+        label: 'Installing',
+        value: 'The APK is installed outside the Play Store, so Android asks you to permit it once',
+      },
     ],
   },
   {

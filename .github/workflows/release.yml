@@ -125,6 +125,7 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       android: true
       ios: false
+      require_signing: true
 
   publish:
     name: Publish GitHub Release

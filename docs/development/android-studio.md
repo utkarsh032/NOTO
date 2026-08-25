@@ -20,38 +20,69 @@ That has two consequences:
 
 ## Prerequisites
 
-| Thing                    | Notes                                                                     |
-| ------------------------ | ------------------------------------------------------------------------- |
-| Android Studio           | Latest. Installed at `C:\Program Files\Android\Android Studio`            |
-| JDK                      | Use the JetBrains Runtime bundled with Studio. Gradle 9.3.1 needs JDK 17+ |
-| Android SDK              | At `%LOCALAPPDATA%\Android\Sdk`                                           |
-| Node 20.19+ and pnpm 11+ | The Gradle build shells out to `node` — see below                         |
+| Thing                    | Notes                                                          |
+| ------------------------ | -------------------------------------------------------------- |
+| Android Studio           | Latest. Installed at `C:\Program Files\Android\Android Studio` |
+| JDK 17                   | **Not** the JBR 25 bundled with Studio — see below             |
+| Android SDK              | At `%LOCALAPPDATA%\Android\Sdk`                                |
+| Node 20.19+ and pnpm 11+ | The Gradle build shells out to `node` — see below              |
 
 Run `pnpm install` at the repository root before anything else. Gradle resolves
 `react-native` and the Expo plugins out of `node_modules`; without it the sync
 fails immediately.
 
-### Set ANDROID_HOME
+### Environment variables
 
-Not currently set on this machine, and it is the most common first failure
-(`SDK location not found`). In PowerShell, once:
+Android Studio needs neither of these — it knows where its own SDK and JDK are,
+and writes `android/local.properties` on first sync. Every command-line build
+needs both, and missing them is the most common first failure. In PowerShell,
+once:
 
 ```powershell
 $sdk = "$env:LOCALAPPDATA\Android\Sdk"
 $path = [Environment]::GetEnvironmentVariable('Path', 'User')
 [Environment]::SetEnvironmentVariable('ANDROID_HOME', $sdk, 'User')
+[Environment]::SetEnvironmentVariable('JAVA_HOME', "$env:USERPROFILE\.gradle\jdks\eclipse_adoptium-17-amd64-windows.2", 'User')
 [Environment]::SetEnvironmentVariable('Path', "$path;$sdk\platform-tools;$sdk\emulator", 'User')
 ```
 
-Open a new terminal and check:
+Without `ANDROID_HOME` you get `SDK location not found`; without `JAVA_HOME`,
+`gradlew` refuses to start.
+
+Open a **new** terminal — existing ones keep the old environment — and check:
 
 ```powershell
 adb version
+java -version
 ```
 
-Android Studio itself does not need the variable — it writes
-`android/local.properties` with an `sdk.dir` line on first sync. The command
-line does need it.
+### Use JDK 17, not the one in Android Studio
+
+This matters more than it looks. Android Studio bundles a JetBrains Runtime —
+currently **OpenJDK 25** — and pointing Gradle at it makes the native build fail
+part-way through with a message that explains nothing:
+
+```text
+Execution failed for task ':react-native-screens:configureCMakeDebug[arm64-v8a]'.
+> WARNING: A restricted method in java.lang.System has been called
+```
+
+That is not a warning about your code. JDK 24 restricted the `System::load`
+family, and the Android Gradle Plugin's prefab step surfaces the resulting
+notice as a task failure before CMake is ever invoked. The Java compilation,
+Kotlin compilation and resource tasks all pass first, which makes it look like a
+C++ problem. It is not — it is the JDK version.
+
+Use a JDK 17. Gradle has probably already downloaded one for you, under
+`%USERPROFILE%\.gradle\jdks\`; if not:
+
+```powershell
+winget install EclipseAdoptium.Temurin.17.JDK
+```
+
+In Android Studio the same setting lives at **Settings → Build, Execution,
+Deployment → Build Tools → Gradle → Gradle JDK**. Point it at the JDK 17 as
+well, or Studio's Run button hits exactly the same wall.
 
 ### SDK components
 
@@ -68,8 +99,22 @@ Android Studio → **Settings → Languages & Frameworks → Android SDK**.
 Install the command-line tools: `sdkmanager` lives there, `expo-doctor` looks
 for it, and `sdkmanager --licenses` is how you clear licence errors.
 
-The NDK is not needed. Nothing in Noto compiles C++ — React Native and the Expo
-modules arrive as prebuilt artifacts.
+The NDK and CMake are needed, and you do not have to install them by hand — the
+Gradle build accepts their licences and downloads them on the first run
+(currently NDK `27.1.12297006` and CMake `3.22.1`). Two dependencies compile
+C++ under the new architecture: `react-native-screens` and
+`react-native-worklets`. That is what makes the first build slow.
+
+By default that C++ is compiled for all four ABIs listed in
+`gradle.properties` — `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. For an
+emulator you need exactly one:
+
+```powershell
+.\gradlew.bat installDebug -PreactNativeArchitectures=x86_64
+```
+
+Use `arm64-v8a` for a physical phone. Nearly every Android device since 2019 is
+arm64.
 
 ## Opening the project
 
@@ -95,6 +140,14 @@ editor and the two do not conflict.
 There are always two moving parts: the **native app** built by Gradle, and
 **Metro**, the JavaScript bundler that serves the app's code over port 8081.
 
+They are not interchangeable, and this trips everyone up once. `pnpm dev:mobile`
+starts **only Metro**. It prints `Waiting on http://localhost:8081` and then
+sits there — it does not build anything, does not install anything, and cannot
+put the app on a device by itself. If Noto has never been built on this machine
+there is no APK for it to talk to, and nothing will ever appear on the emulator.
+
+So the first run has to be a build.
+
 ### The short way
 
 ```powershell
@@ -113,13 +166,29 @@ for the first run of the day and after any native change.
    pnpm dev:mobile
    ```
 
-2. Pick your device in the toolbar dropdown.
+2. Start your emulator, or plug in a phone, and pick it in the toolbar dropdown.
 3. Press **Run** (`Shift+F10`).
 
 The Run button only rebuilds the _native_ app. Once it is installed, editing
 `.tsx` files reloads through Metro in about a second — do not press Run again.
 You need it only after changing native dependencies, `app.json`, or anything
 under `android/`.
+
+### When Metro is already running
+
+`expo run:android` wants port 8081 for its own Metro. If you already have
+`pnpm dev:mobile` open in another terminal, drive Gradle directly instead and
+let the app connect to the server you have:
+
+```powershell
+cd apps\mobile\android
+.\gradlew.bat installDebug
+adb shell am start -n com.noto.app/.MainActivity
+```
+
+`installDebug` builds and installs; `am start` launches it. The first one is
+slow — Gradle downloads its own distribution and the whole dependency graph.
+Later builds take seconds.
 
 ## Setting up an emulator
 
@@ -172,7 +241,7 @@ The launcher icon is **Noto**; the package is `com.noto.app`.
 
 - It opens on the document list. On the very first launch the list is empty and
   a default workspace is created in on-device SQLite.
-- **+** creates a document and pushes to the editor at `/document/[id]`.
+- **New document** creates one and pushes to the editor at `/document/[id]`.
 - Documents survive killing and reopening the app — they live in `expo-sqlite`,
   not memory. Uninstalling, or clearing app data, wipes them.
 
@@ -210,6 +279,70 @@ Two things worth knowing:
   with the _debug_ keystore. Fine for testing on your own devices, never for
   distribution — see [code signing](../deployment/code-signing.md).
 
+## Putting it on your own phone
+
+This is a different job from [running on a physical
+device](#running-on-a-physical-device). That one tethers the phone to your
+machine for development. This one gives you an app that keeps working after you
+unplug the cable and leave the house.
+
+Build a release APK for your phone's architecture — `arm64-v8a` for anything
+made since about 2019:
+
+```powershell
+cd apps\mobile\android
+.\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a
+```
+
+The result is `app\build\outputs\apk\release\app-release.apk`. Then either push it over USB, with the phone in
+developer mode:
+
+```powershell
+adb install -r app\build\outputs\apk\release\app-release.apk
+```
+
+or copy the file to the phone however you like — cable, Drive, emailing it to
+yourself — open it in the phone's file manager, and allow **Install unknown
+apps** for whichever app is doing the opening when Android asks. That permission
+prompt is normal for anything not from the Play Store.
+
+Do not build a phone APK with `-PreactNativeArchitectures=x86_64`. That is the
+emulator's architecture; the APK installs and then dies on launch.
+
+### Release builds and the Windows path limit
+
+A local `assembleRelease` may fail on Windows where `assembleDebug` succeeds:
+
+```text
+ninja: error: Stat(rngesturehandler_codegen_autolinked_build/CMakeFiles/...
+  /RNGestureHandlerDetectorShadowNode.cpp.o): Filename longer than 260 characters
+```
+
+CMake mirrors each source file's absolute path underneath the object directory,
+which makes some of these paths enormous. `RelWithDebInfo` is nine characters
+longer than `Debug`, and that alone is enough to push the longest of them past
+the limit. Enabling `LongPathsEnabled` in Windows does not help: the ninja that
+ships in the Android SDK enforces its own 260-character check.
+
+The repository's own path is part of the sum, so a checkout at `D:/Noto` builds
+where `D:/Projects/Noto` does not. The release pipeline builds Android on Linux,
+where the limit does not exist, which is why this only ever bites locally.
+
+### The keystore caveat
+
+The release APK is signed with `android/app/debug.keystore` — the standard
+Android debug key, not a secret. Two consequences:
+
+- Android refuses to install an update over it unless the new APK carries the
+  same key. If `expo prebuild --clean` ever replaces that keystore you have to
+  uninstall first, and uninstalling deletes the app's SQLite database along with
+  every document in it.
+- It cannot go to the Play Store, or to anyone else. That needs a real signing
+  key: [code signing](../deployment/code-signing.md).
+
+There is no sync on mobile yet — documents live only in that app's storage on
+that one phone.
+
 ## Regenerating the native project
 
 From `apps/mobile`:
@@ -227,19 +360,23 @@ Nothing is lost from git either way; the folder is not tracked.
 
 ## Troubleshooting
 
-| Symptom                                                | Cause                                       | Fix                                                                     |
-| ------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `SDK location not found`                               | `ANDROID_HOME` unset, no `local.properties` | Set it, [above](#set-android_home)                                      |
-| `Cannot run program "node"` during Gradle sync         | Studio's PATH has no Node                   | Restart Studio, or launch it from a terminal where `node` works         |
-| `Could not resolve react-native` / Expo plugin missing | `pnpm install` never ran                    | `pnpm install` at the repository root                                   |
-| `Failed to find target with hash string android-NN`    | That SDK platform is not installed          | SDK Manager → tick that API level                                       |
-| Licence not accepted                                   | Missing SDK licences                        | `sdkmanager --licenses` (needs the command-line tools)                  |
-| `Unable to load script` / red connection screen        | Metro not running or unreachable            | `pnpm dev:mobile`, then `adb reverse tcp:8081 tcp:8081`                 |
-| Installs, then a white screen                          | Metro is still bundling                     | Watch the Metro terminal; it resolves on its own                        |
-| `adb devices` shows `unauthorized`                     | RSA prompt not accepted                     | Unplug, replug, accept. Or `adb kill-server` then `adb start-server`    |
-| `Unsupported class file major version`                 | Gradle running on the wrong JDK             | Settings → Build Tools → Gradle → **Gradle JDK** → the bundled `jbr-21` |
-| Gradle daemon runs out of memory                       | 2 GB heap in `gradle.properties`            | Raise to `org.gradle.jvmargs=-Xmx4096m` (reset by the next prebuild)    |
-| Edits in `packages/*` have no effect                   | Metro cached the old module                 | Restart Metro with `npx expo start --clear`                             |
+| Symptom                                                                                    | Cause                                         | Fix                                                                                                       |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `pnpm dev:mobile` prints `Waiting on http://localhost:8081` and nothing happens            | Metro is running but the app was never built  | Build it — [running it](#running-it)                                                                      |
+| `SDK location not found`                                                                   | `ANDROID_HOME` unset, no `local.properties`   | Set it, [above](#environment-variables)                                                                   |
+| `JAVA_HOME is not set` from `gradlew`                                                      | No JDK on the command line                    | Set `JAVA_HOME` to a JDK 17, [above](#use-jdk-17-not-the-one-in-android-studio)                           |
+| `configureCMakeDebug` fails with `A restricted method in java.lang.System has been called` | Building on JDK 24+ (Studio's bundled JBR 25) | Switch to JDK 17, [above](#use-jdk-17-not-the-one-in-android-studio)                                      |
+| `Cannot run program "node"` during Gradle sync                                             | Studio's PATH has no Node                     | Restart Studio, or launch it from a terminal where `node` works                                           |
+| `Could not resolve react-native` / Expo plugin missing                                     | `pnpm install` never ran                      | `pnpm install` at the repository root                                                                     |
+| `Failed to find target with hash string android-NN`                                        | That SDK platform is not installed            | SDK Manager → tick that API level                                                                         |
+| Licence not accepted                                                                       | Missing SDK licences                          | `sdkmanager --licenses` (needs the command-line tools)                                                    |
+| `Unable to load script` / red connection screen                                            | Metro not running or unreachable              | `pnpm dev:mobile`, then `adb reverse tcp:8081 tcp:8081`                                                   |
+| Installs, then a white screen                                                              | Metro is still bundling                       | Watch the Metro terminal; it resolves on its own                                                          |
+| `adb devices` shows `unauthorized`                                                         | RSA prompt not accepted                       | Unplug, replug, accept. Or `adb kill-server` then `adb start-server`                                      |
+| `Unsupported class file major version`                                                     | Gradle running on the wrong JDK               | Settings → Build Tools → Gradle → **Gradle JDK** → the JDK 17                                             |
+| Gradle daemon runs out of memory                                                           | 2 GB heap in `gradle.properties`              | Raise to `org.gradle.jvmargs=-Xmx4096m` (reset by the next prebuild)                                      |
+| `Filename longer than 260 characters` from ninja                                           | Windows path limit, release builds only       | Build Android in CI, or check out to a shorter path — [above](#release-builds-and-the-windows-path-limit) |
+| Edits in `packages/*` have no effect                                                       | Metro cached the old module                   | Restart Metro with `npx expo start --clear`                                                               |
 
 ## Where mobile fits
 
