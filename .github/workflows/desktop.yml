@@ -40,6 +40,15 @@ on:
         default: false
   workflow_call:
     inputs:
+      # The commit to package. A called workflow otherwise checks out the ref
+      # that triggered the caller, which is right for a tag push and wrong for
+      # every `workflow_dispatch` re-run: those name the tag as an input while
+      # the run itself is started from a branch, so the packages would be built
+      # from that branch and then labelled with the tag's version.
+      ref:
+        type: string
+        required: false
+        default: ''
       version:
         type: string
         required: false
@@ -79,6 +88,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Pick the platform matrix and environment
         id: pick
@@ -146,6 +157,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       # Node 22, not 24. Electron Forge 7.11 pins @electron/packager 18.4.4,
       # which exits silently with status 0 while extracting the Electron archive
@@ -245,7 +258,17 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter @noto/desktop exec electron-forge make --arch=${{ matrix.arch }}
+        # Wrapped rather than run directly because this step hangs instead of
+        # failing: the DMG maker's `hdiutil` intermittently stops responding on
+        # the hosted macOS runners. That is what cost v1.1.2 — macOS arm64 sat
+        # here for the full 45 minutes while the other four platforms finished
+        # in under three, and the resulting *cancelled* job skipped the publish
+        # step. A healthy make takes two to three minutes, so fifteen is a
+        # generous deadline for one attempt and two attempts still land well
+        # inside the job's budget.
+        run: |
+          node scripts/run-with-retry.mjs --timeout 15 --attempts 2 -- \
+            pnpm --filter @noto/desktop exec electron-forge make --arch=${{ matrix.arch }}
 
       - name: Collect release assets
         shell: bash

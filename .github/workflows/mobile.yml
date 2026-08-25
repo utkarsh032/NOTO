@@ -20,6 +20,14 @@ on:
         default: false
   workflow_call:
     inputs:
+      # The commit to build. A called workflow otherwise checks out the ref
+      # that triggered the caller, which is right for a tag push and wrong for
+      # every `workflow_dispatch` re-run: those name the tag as an input while
+      # the run itself is started from a branch.
+      ref:
+        type: string
+        required: false
+        default: ''
       version:
         type: string
         required: false
@@ -55,6 +63,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: ./.github/actions/setup
 
@@ -159,6 +169,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: ./.github/actions/setup
 
