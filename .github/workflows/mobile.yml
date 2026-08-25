@@ -91,8 +91,16 @@ jobs:
 
       # `apps/mobile/android` is generated, not committed, so the native project
       # is regenerated from app.json on every run.
+      # Bounded because this step hangs rather than fails. A healthy prebuild
+      # takes about a second; on 1.1.4 it sat here for the full 45-minute job
+      # timeout and was reported as *cancelled*, which reads like somebody
+      # pressed stop rather than like a broken build. Five minutes is a hundred
+      # times the honest cost, so a stall now fails fast and says so.
       - name: Generate native Android project
-        run: pnpm --filter @noto/mobile exec expo prebuild --platform android --no-install --clean
+        run: |
+          node ../../scripts/run-with-retry.mjs --timeout 5 --attempts 2 -- \
+            pnpm exec expo prebuild --platform android --no-install --clean
+        working-directory: apps/mobile
 
       - name: Decode upload keystore
         id: keystore
@@ -184,8 +192,13 @@ jobs:
             echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
 
+      # Bounded and run from the package directory for the same reasons as the
+      # Android step above.
       - name: Generate native iOS project
-        run: pnpm --filter @noto/mobile exec expo prebuild --platform ios --no-install --clean
+        run: |
+          node ../../scripts/run-with-retry.mjs --timeout 5 --attempts 2 -- \
+            pnpm exec expo prebuild --platform ios --no-install --clean
+        working-directory: apps/mobile
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios

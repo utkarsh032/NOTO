@@ -138,9 +138,22 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    needs: [prepare, desktop, web]
-    # `mobile` is intentionally absent from `needs`: it is optional, and a
-    # skipped job would otherwise block the release.
+    needs: [prepare, desktop, web, mobile]
+    # Mobile is optional but must still be *waited for*. Leaving it out of
+    # `needs` altogether — the previous arrangement — did stop a skipped mobile
+    # job from blocking the release, but it also meant publish started the
+    # moment desktop finished, while the Android build was still running. The
+    # APK could never be attached however well it built, which is how 1.1.4
+    # shipped desktop-only with a healthy Android job still in progress.
+    #
+    # `always()` keeps a skipped or failed mobile from withholding the desktop
+    # packages; the explicit result checks are what still make a broken
+    # desktop or web build stop the release.
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.desktop.result == 'success' &&
+      needs.web.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
