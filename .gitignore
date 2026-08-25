@@ -26,6 +26,7 @@ blob-report/
 .expo-shared/
 expo-env.d.ts
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
