@@ -35,7 +35,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         kind: 'added',
         description:
-          'An Android application, downloadable as a single APK that installs on any phone running Android 7.0 or later. Documents are stored on the device, as on every other platform.',
+          'An Android application for phones running Android 7.0 or later, published on the download page as a 16 MB APK — 64-bit, with a separate build for older 32-bit phones. Documents are stored on the device, as on every other platform.',
       },
       {
         kind: 'fixed',
