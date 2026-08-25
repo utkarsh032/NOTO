@@ -111,16 +111,29 @@ export function assetFileName(
   return `Noto-${version}-${segment}-${arch}.${extension}`;
 }
 
+/** Android ABIs the release workflow publishes an APK for. */
+export type AndroidAbi = 'arm64-v8a' | 'armeabi-v7a';
+
 /**
  * Builds the Android release asset name, e.g. `Noto-1.0.0-android.apk`.
  *
- * There is no architecture in the name, unlike the desktop packages: the
- * release workflow builds a single APK carrying every ABI, so one file installs
- * on any phone. Must stay in step with the rename step in
- * `.github/workflows/mobile.yml`.
+ * The unqualified name is the 64-bit ARM build, which is what all but a
+ * handful of very old phones want — it is unqualified because it is the one
+ * the download page hands out. A single APK used to carry all four ABIs, but
+ * that is how a text-only notes app ended up as a 104 MB download; see
+ * `apps/mobile/plugins/with-android-app-size.cjs`.
+ *
+ * The app bundle has no ABI: Play splits it per device on its own.
+ *
+ * Must stay in step with the rename step in `.github/workflows/mobile.yml`.
  */
-export function androidAssetFileName(version: string, extension: 'apk' | 'aab' = 'apk'): string {
-  return `Noto-${version}-android.${extension}`;
+export function androidAssetFileName(
+  version: string,
+  extension: 'apk' | 'aab' = 'apk',
+  abi: AndroidAbi = 'arm64-v8a',
+): string {
+  const suffix = extension === 'apk' && abi !== 'arm64-v8a' ? `-${abi}` : '';
+  return `Noto-${version}-android${suffix}.${extension}`;
 }
 
 /** Direct download URL for a released asset. */
@@ -197,11 +210,23 @@ export const PLATFORMS: PlatformInfo[] = [
     label: 'Android',
     packages: [
       {
-        label: 'Android APK',
-        note: 'Any phone, Android 7+',
+        label: 'Android APK (64-bit)',
+        note: 'Android 7+, recommended',
         format: 'apk',
         arch: 'arm64',
         file: (v) => androidAssetFileName(v),
+      },
+      // Left without an `arch` on purpose. A browser cannot tell 32-bit ARM
+      // from 64-bit, so the architecture preference on the download page must
+      // never resolve to this one — it is here for the few older phones whose
+      // owners know they need it, and the 64-bit build stays what everyone
+      // else is handed. The labels differ because the download page keys its
+      // list on them.
+      {
+        label: 'Android APK (32-bit)',
+        note: 'phones from before ~2016',
+        format: 'apk',
+        file: (v) => androidAssetFileName(v, 'apk', 'armeabi-v7a'),
       },
       // No `href`: the download page renders "Soon" rather than a link, which
       // is honest. Pointing this at GitHub was worse than saying nothing.
