@@ -91,3 +91,102 @@
   border-top: 1px solid var(--noto-border);
   margin: 1.5em 0;
 }
+
+/* Alignment is written as an inline `text-align` style by the Tiptap
+   extension, so it needs no rule here. */
+
+.noto-prose s {
+  text-decoration-line: line-through;
+}
+
+.noto-prose u {
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+
+.noto-prose img {
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  margin: 1em 0;
+  max-width: 100%;
+}
+
+/* ProseMirror marks a whole selected block node — an image, a divider — rather
+   than highlighting text inside it, so the selection needs drawing. */
+.noto-prose .ProseMirror-selectednode {
+  outline: 2px solid var(--noto-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Tables.
+ *
+ * prosemirror-tables ships a stylesheet, but importing it would hard-code its
+ * colours into both themes. These are the same rules against Noto's tokens.
+ */
+
+.noto-prose .tableWrapper {
+  margin-bottom: 0.75em;
+  /* A wide table scrolls inside itself instead of stretching the document. */
+  overflow-x: auto;
+}
+
+.noto-prose table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  /* Fixed layout is what lets column resizing hold the widths it is given. */
+  table-layout: fixed;
+  width: 100%;
+}
+
+.noto-prose th,
+.noto-prose td {
+  border: 1px solid var(--noto-border);
+  box-sizing: border-box;
+  min-width: 4em;
+  padding: 0.4em 0.6em;
+  position: relative;
+  vertical-align: top;
+}
+
+.noto-prose th {
+  background: var(--noto-surface-sunken);
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Cells hold paragraphs; their bottom margin would double the row height. */
+.noto-prose th > p:last-child,
+.noto-prose td > p:last-child {
+  margin-bottom: 0;
+}
+
+.noto-prose .selectedCell::after {
+  background: var(--noto-accent-subtle);
+  bottom: 0;
+  content: '';
+  left: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+}
+
+.noto-prose .column-resize-handle {
+  background: var(--noto-accent);
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 3px;
+  z-index: 20;
+}
+
+.noto-prose .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}

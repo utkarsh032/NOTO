@@ -6,12 +6,14 @@
  * defined here, so a shortcut and a menu entry can never drift apart.
  */
 
-export type CommandCategory = 'file' | 'edit' | 'format' | 'view' | 'navigation' | 'app';
+export type CommandCategory = 'file' | 'edit' | 'format' | 'insert' | 'view' | 'navigation' | 'app';
 
 export interface CommandContext {
   hasActiveDocument: boolean;
   hasSelection: boolean;
   isEditable: boolean;
+  /** True when the caret sits inside a table cell. Optional: most callers never enter one. */
+  isInTable?: boolean;
 }
 
 export interface Command {
@@ -31,6 +33,8 @@ export interface Command {
 const requiresDocument = (context: CommandContext): boolean => context.hasActiveDocument;
 const requiresEditable = (context: CommandContext): boolean =>
   context.hasActiveDocument && context.isEditable;
+const requiresTable = (context: CommandContext): boolean =>
+  requiresEditable(context) && context.isInTable === true;
 
 /** The commands available before any feature work begins. */
 export const CORE_COMMANDS: readonly Command[] = [
@@ -72,11 +76,24 @@ export const CORE_COMMANDS: readonly Command[] = [
     category: 'file',
     isEnabled: requiresDocument,
   },
+
+  /*
+   * Formatting.
+   *
+   * The accelerators below are the editor's keymap, not a second copy of it:
+   * `@noto/editor` builds ProseMirror's bindings from these entries, so a
+   * shortcut changed here changes what the editor actually does.
+   *
+   * Where an accelerator matches Tiptap's own default it is repeated
+   * deliberately — the registry has to state it for menus and the command
+   * palette to render, and stating it is what keeps the two in step.
+   */
   {
     id: 'format.bold',
     title: 'Bold',
     category: 'format',
     shortcut: 'CmdOrCtrl+B',
+    keywords: ['strong', 'weight'],
     isEnabled: requiresEditable,
   },
   {
@@ -84,6 +101,22 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Italic',
     category: 'format',
     shortcut: 'CmdOrCtrl+I',
+    keywords: ['emphasis', 'oblique'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.underline',
+    title: 'Underline',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+U',
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.strike',
+    title: 'Strikethrough',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+S',
+    keywords: ['strikethrough', 'cross out'],
     isEnabled: requiresEditable,
   },
   {
@@ -91,7 +124,183 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Inline Code',
     category: 'format',
     shortcut: 'CmdOrCtrl+E',
+    keywords: ['monospace'],
     isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.link',
+    title: 'Link',
+    category: 'format',
+    /*
+     * Not `CmdOrCtrl+K`, which the command palette already owns. Link is the
+     * more common binding elsewhere, but the palette is reachable from every
+     * screen and formatting is not, so the palette keeps the shorter key.
+     */
+    shortcut: 'CmdOrCtrl+Shift+K',
+    keywords: ['url', 'hyperlink', 'anchor'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.paragraph',
+    title: 'Paragraph',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Alt+0',
+    keywords: ['body', 'normal text'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.heading1',
+    title: 'Heading 1',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Alt+1',
+    keywords: ['title', 'h1'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.heading2',
+    title: 'Heading 2',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Alt+2',
+    keywords: ['subtitle', 'h2'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.heading3',
+    title: 'Heading 3',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Alt+3',
+    keywords: ['h3'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.bulletList',
+    title: 'Bullet List',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+8',
+    keywords: ['unordered', 'bullets', 'points'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.orderedList',
+    title: 'Numbered List',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+7',
+    keywords: ['ordered', 'numbers'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.blockquote',
+    title: 'Blockquote',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+B',
+    keywords: ['quote', 'citation'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.codeBlock',
+    title: 'Code Block',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Alt+C',
+    keywords: ['snippet', 'fenced', 'monospace'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.alignLeft',
+    title: 'Align Left',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+L',
+    keywords: ['alignment'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.alignCenter',
+    title: 'Align Center',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+E',
+    keywords: ['alignment', 'centre'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.alignRight',
+    title: 'Align Right',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+R',
+    keywords: ['alignment'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.alignJustify',
+    title: 'Justify',
+    category: 'format',
+    shortcut: 'CmdOrCtrl+Shift+J',
+    keywords: ['alignment', 'justified'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.clear',
+    title: 'Clear Formatting',
+    category: 'format',
+    keywords: ['remove', 'plain', 'reset'],
+    isEnabled: requiresEditable,
+  },
+
+  /* Insertions. */
+  {
+    id: 'insert.image',
+    title: 'Insert Image',
+    category: 'insert',
+    keywords: ['picture', 'photo', 'figure'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'insert.horizontalRule',
+    title: 'Insert Divider',
+    category: 'insert',
+    keywords: ['horizontal rule', 'separator', 'line'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'insert.table',
+    title: 'Insert Table',
+    category: 'insert',
+    keywords: ['grid', 'rows', 'columns'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'table.addRowAfter',
+    title: 'Insert Row Below',
+    category: 'insert',
+    isEnabled: requiresTable,
+  },
+  {
+    id: 'table.addColumnAfter',
+    title: 'Insert Column After',
+    category: 'insert',
+    isEnabled: requiresTable,
+  },
+  {
+    id: 'table.deleteRow',
+    title: 'Delete Row',
+    category: 'insert',
+    isEnabled: requiresTable,
+  },
+  {
+    id: 'table.deleteColumn',
+    title: 'Delete Column',
+    category: 'insert',
+    isEnabled: requiresTable,
+  },
+  {
+    id: 'table.toggleHeaderRow',
+    title: 'Toggle Header Row',
+    category: 'insert',
+    isEnabled: requiresTable,
+  },
+  {
+    id: 'table.delete',
+    title: 'Delete Table',
+    category: 'insert',
+    isEnabled: requiresTable,
   },
   {
     id: 'view.toggleSidebar',
@@ -293,6 +502,51 @@ export function formatShortcut(shortcut: string, platform: ShortcutPlatform): st
   if (parsed.shift) modifiers.push('Shift');
 
   return [...modifiers, key].join('+');
+}
+
+const KEYMAP_MODIFIERS: Record<string, string> = {
+  cmdorctrl: 'Mod',
+  commandorcontrol: 'Mod',
+  cmd: 'Meta',
+  command: 'Meta',
+  meta: 'Meta',
+  super: 'Meta',
+  ctrl: 'Ctrl',
+  control: 'Ctrl',
+  alt: 'Alt',
+  option: 'Alt',
+  shift: 'Shift',
+};
+
+/** Emitted in this order so a binding reads the same way every time. */
+const KEYMAP_MODIFIER_ORDER = ['Mod', 'Meta', 'Ctrl', 'Alt', 'Shift'];
+
+/**
+ * Rewrites an accelerator into the `Mod-` notation ProseMirror keymaps use.
+ *
+ * This is what lets the registry be the editor's keymap rather than a
+ * description of it: `@noto/editor` binds the result, so `CmdOrCtrl+Shift+7`
+ * defined above is literally the key that makes a numbered list. Returns `null`
+ * for an accelerator that cannot be expressed, which the caller skips.
+ */
+export function toKeymapBinding(shortcut: string): string | null {
+  const parts = shortcut.split('+').map((part) => part.trim());
+  const key = parts.pop();
+  if (!key) return null;
+
+  const modifiers = new Set<string>();
+  for (const part of parts) {
+    const modifier = KEYMAP_MODIFIERS[part.toLowerCase()];
+    if (!modifier) return null;
+    modifiers.add(modifier);
+  }
+
+  // ProseMirror matches letters case-insensitively only when they are written
+  // lowercase; `Mod-B` and `Mod-b` are two different bindings to it.
+  const normalizedKey = /^[a-z]$/iu.test(key) ? key.toLowerCase() : key;
+
+  const ordered = KEYMAP_MODIFIER_ORDER.filter((modifier) => modifiers.has(modifier));
+  return [...ordered, normalizedKey].join('-');
 }
 
 /** Looks up the command an event triggers, honouring `isEnabled`. */

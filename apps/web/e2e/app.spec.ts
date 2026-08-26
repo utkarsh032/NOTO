@@ -1,10 +1,19 @@
-import { type Locator, expect, test } from '@playwright/test';
+import { type Locator, type Page, expect, test } from '@playwright/test';
 
 /** The sidebar's create button; `exact` distinguishes it from "New document". */
 const sidebarNew = { role: 'button' as const, name: 'New', exact: true };
 
 /** Title a freshly created document carries — `UNTITLED_DOCUMENT_TITLE`. */
 const UNTITLED = 'Untitled';
+
+/**
+ * The sidebar row for a document.
+ *
+ * Anchored to the start of the accessible name, because each row also carries a
+ * "Move <title> to trash" button that a bare substring match picks up too.
+ */
+const documentRow = (page: Page, title: string) =>
+  page.getByRole('button', { name: new RegExp(`^${title}`) });
 
 /**
  * Creating a document re-binds the title field to the new record. Typing before
@@ -44,11 +53,11 @@ test.describe('Noto web shell', () => {
     // there is proof the debounced autosave reached the database. The "Saved"
     // indicator is not: it is already showing before the edit, so asserting on
     // it would let the reload race the save.
-    await expect(page.getByRole('button', { name: /Persisted note/ })).toBeVisible();
+    await expect(documentRow(page, 'Persisted note')).toBeVisible();
 
     await page.reload();
 
-    await expect(page.getByRole('button', { name: /Persisted note/ })).toBeVisible();
+    await expect(documentRow(page, 'Persisted note')).toBeVisible();
     await expect(title).toHaveValue('Persisted note');
   });
 
@@ -60,13 +69,13 @@ test.describe('Noto web shell', () => {
     await page.getByRole('button', { name: 'New document' }).click();
     await openedNewDocument(title);
     await title.fill('First');
-    await expect(page.getByRole('button', { name: /First/ })).toBeVisible();
+    await expect(documentRow(page, 'First')).toBeVisible();
 
     await page.getByRole(sidebarNew.role, sidebarNew).click();
     await openedNewDocument(title);
     await title.fill('Second');
 
-    await expect(page.getByRole('button', { name: /First/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Second/ })).toBeVisible();
+    await expect(documentRow(page, 'First')).toBeVisible();
+    await expect(documentRow(page, 'Second')).toBeVisible();
   });
 });

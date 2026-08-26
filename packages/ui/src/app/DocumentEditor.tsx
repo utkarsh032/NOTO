@@ -1,10 +1,12 @@
 import { useSettingsStore } from '@noto/core';
-import { NotoEditor } from '@noto/editor/react';
+import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { EditorToolbar } from './EditorToolbar';
 import { useNotoData } from './data-context';
 import { useCommandShortcuts } from './use-command-shortcuts';
+import { useFormattingPrompts } from './use-formatting-prompts';
 
 export interface DocumentEditorProps {
   document: NotoDocument;
@@ -122,8 +124,24 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
     [scheduleSave],
   );
 
+  /*
+   * Link, image and table need a URL or a size before they can run. The prompt
+   * state is held here so that the toolbar buttons and the accelerators bound
+   * inside the editor open the same one.
+   */
+  const prompts = useFormattingPrompts();
+
+  const editor = useNotoEditor({
+    content: activeDocument.content,
+    onChange: onContentChange,
+    onInteractiveCommand: prompts.handleCommand,
+    autofocus: true,
+  });
+
   // Save is bound here rather than in the shell because this is where the
-  // unsaved draft lives.
+  // unsaved draft lives. Formatting accelerators are not bound at this level at
+  // all: the editor owns those through ProseMirror's keymap, so a shortcut
+  // fires once rather than being handled twice and cancelling itself out.
   const shortcutHandlers = useMemo(() => ({ 'document.save': flush }), [flush]);
 
   useCommandShortcuts(shortcutHandlers, {
@@ -133,7 +151,7 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
   });
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 py-10">
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 pt-6 pb-10">
       <div className="mb-2 flex items-baseline justify-between gap-4">
         <input
           value={title}
@@ -147,16 +165,23 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
         </span>
       </div>
 
-      <p className="text-subtle mb-6 text-xs">
+      <p className="text-subtle mb-4 text-xs">
         {activeDocument.wordCount} {activeDocument.wordCount === 1 ? 'word' : 'words'}
       </p>
 
-      <NotoEditor
-        content={activeDocument.content}
-        onChange={onContentChange}
-        autofocus
-        className="noto-prose flex-1"
+      {/*
+       * Sticks to the top of the scroll area so the controls are still there
+       * three pages into a document. The negative margin pulls its background
+       * out over the page padding, so text scrolling underneath does not show
+       * through at the edges.
+       */}
+      <EditorToolbar
+        editor={editor}
+        prompts={prompts}
+        className="bg-surface border-border-subtle sticky top-0 z-10 -mx-8 mb-4 border-b px-8 pt-1 pb-2"
       />
+
+      <NotoEditorContent editor={editor} className="noto-prose flex-1" id="noto-document-body" />
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import { EditorContent } from '@tiptap/react';
-
+import { NotoEditorContent } from './NotoEditorContent';
 import { type UseNotoEditorOptions, useNotoEditor } from './use-noto-editor';
 
 export interface NotoEditorProps extends UseNotoEditorOptions {
@@ -7,16 +6,12 @@ export interface NotoEditorProps extends UseNotoEditorOptions {
 }
 
 /**
- * The shared rich-text surface used by the web and desktop applications.
- *
- * Typography is applied through the `noto-prose` class defined in the app
- * stylesheet, so the editor picks up the Noto design tokens without this
- * package depending on Tailwind.
+ * A self-contained rich-text surface, for callers that do not need the editor
+ * instance themselves. Where a toolbar or menu has to act on the document, use
+ * `useNotoEditor` with `NotoEditorContent` instead.
  */
 export function NotoEditor({ className, ...options }: NotoEditorProps) {
   const editor = useNotoEditor(options);
 
-  if (!editor) return null;
-
-  return <EditorContent editor={editor} className={className ?? 'noto-prose'} />;
+  return <NotoEditorContent editor={editor} className={className} />;
 }
