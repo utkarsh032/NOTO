@@ -16,6 +16,19 @@ if (squirrelStartup) app.quit();
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+/**
+ * Windows embeds the icon in the executable and macOS reads it from the bundle,
+ * but a Linux window shows a generic placeholder unless the process names one —
+ * and so does every platform during development, where there is no bundle yet.
+ *
+ * Packaging prunes `assets/`, so `forge.config.ts` copies the PNG next to the
+ * bundle as an extra resource; from source it is still two levels above the
+ * compiled main script.
+ */
+const WINDOW_ICON = app.isPackaged
+  ? path.join(process.resourcesPath, 'icon.png')
+  : path.join(__dirname, '..', '..', 'assets', 'icon.png');
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1180,
@@ -23,6 +36,7 @@ function createWindow(): void {
     minWidth: layout.sidebarMinWidth + 480,
     minHeight: 480,
     title: APP_NAME,
+    icon: WINDOW_ICON,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -9,6 +9,10 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const APP_BUNDLE_ID = 'com.noto.app';
 
+// The Linux makers want a PNG rather than the platform icon containers, and
+// they resolve it relative to the process directory rather than to this file.
+const LINUX_ICON = 'assets/icon.png';
+
 // Signing is opt-in and driven entirely by the environment, so an ordinary
 // development build needs no certificates and no configuration. The release
 // workflow sets NOTO_SIGN=true and provides the credentials as secrets; see
@@ -43,6 +47,17 @@ const config: ForgeConfig = {
     executableName: 'noto',
     appBundleId: APP_BUNDLE_ID,
     asar: true,
+
+    // Extension-less on purpose: Packager appends `.ico` on Windows and
+    // `.icns` on macOS. Linux takes its icon from the makers instead, which is
+    // why `assets/icon.png` is named there and not here.
+    icon: 'assets/icon',
+
+    // The Vite plugin prunes the packaged application down to `.vite` and the
+    // manifest, so `assets/` does not survive into the bundle. The PNG is
+    // copied alongside it instead, because `main.ts` reads it at runtime to
+    // give the window an icon on Linux.
+    extraResource: [LINUX_ICON],
 
     // Gatekeeper rejects an unsigned application, and notarization is what
     // stops macOS warning the user on first launch.
@@ -90,11 +105,17 @@ const config: ForgeConfig = {
   makers: [
     // Windows: Squirrel produces both the installer and the update feed that
     // Electron's autoUpdater consumes.
-    new MakerSquirrel({ name: 'noto', setupExe: 'Noto-Setup.exe' }),
+    new MakerSquirrel({
+      name: 'noto',
+      setupExe: 'Noto-Setup.exe',
+      // The installer window and the Add/Remove Programs entry read this; the
+      // application icon above covers only the executable itself.
+      setupIcon: 'assets/icon.ico',
+    }),
 
     // macOS: the DMG is what users download; the ZIP is what Squirrel.Mac
     // needs in order to apply an update, so both are published.
-    new MakerDMG({ name: 'Noto', overwrite: true }, ['darwin']),
+    new MakerDMG({ name: 'Noto', icon: 'assets/icon.icns', overwrite: true }, ['darwin']),
     new MakerZIP({}, ['darwin']),
 
     // Linux: AppImage is the primary, distribution-independent download; deb
@@ -104,13 +125,31 @@ const config: ForgeConfig = {
     // look for a binary named after the package — `@noto/desktop` — which does
     // not exist, and the build fails after packaging has already succeeded.
     new MakerAppImage({
-      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+      options: {
+        name: 'noto',
+        productName: 'Noto',
+        bin: 'noto',
+        categories: ['Utility'],
+        icon: LINUX_ICON,
+      },
     }),
     new MakerDeb({
-      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+      options: {
+        name: 'noto',
+        productName: 'Noto',
+        bin: 'noto',
+        categories: ['Utility'],
+        icon: LINUX_ICON,
+      },
     }),
     new MakerRpm({
-      options: { name: 'noto', productName: 'Noto', bin: 'noto', categories: ['Utility'] },
+      options: {
+        name: 'noto',
+        productName: 'Noto',
+        bin: 'noto',
+        categories: ['Utility'],
+        icon: LINUX_ICON,
+      },
     }),
   ],
 

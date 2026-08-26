@@ -3,6 +3,7 @@
     "name": "Noto",
     "slug": "noto",
     "version": "1.1.6",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "noto",
     "userInterfaceStyle": "automatic",
@@ -15,7 +16,11 @@
     "android": {
       "package": "com.noto.app",
       "edgeToEdgeEnabled": true,
-      "versionCode": 1001006
+      "versionCode": 1001006,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
       "expo-router",

@@ -89,7 +89,9 @@ export function NotoApp() {
       <Sidebar />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="border-border-subtle flex items-center justify-between border-b px-4 py-2">
+        {/* Same height as the sidebar's brand bar, so the rule under the two
+            of them is a single unbroken line across the window. */}
+        <header className="border-border-subtle flex h-12 shrink-0 items-center justify-between border-b px-4">
           <Button size="sm" variant="ghost" onClick={toggleSidebar}>
             Toggle sidebar
           </Button>
