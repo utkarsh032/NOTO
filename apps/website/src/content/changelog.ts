@@ -28,6 +28,18 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.1.6',
+    date: '2026-08-26',
+    summary: 'Noto for Android, published on the download page.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'An Android application for phones running Android 7.0 or later, published on the download page as a 16 MB APK — 64-bit, with a separate build for older 32-bit phones, signed with Noto’s own upload key. Documents are stored on the device, as on every other platform.',
+      },
+    ],
+  },
+  {
     version: '1.1.5',
     date: '2026-08-25',
     summary: 'The Android APK, published on the download page at last.',
