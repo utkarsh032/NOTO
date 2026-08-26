@@ -8,6 +8,7 @@ import {
   findCommandForEvent,
   formatShortcut,
   matchesShortcut,
+  toKeymapBinding,
 } from './commands';
 
 const press = (key: string, modifiers: Partial<ShortcutEvent> = {}): ShortcutEvent => ({
@@ -30,6 +31,8 @@ const empty: CommandContext = {
   hasSelection: false,
   isEditable: false,
 };
+
+const inTable: CommandContext = { ...editing, isInTable: true };
 
 describe('matchesShortcut', () => {
   it('resolves CmdOrCtrl per platform', () => {
@@ -128,5 +131,92 @@ describe('CORE_COMMANDS', () => {
     const registry = createCommandRegistry();
     expect(registry.get('document.save')?.title).toBe('Save Document');
     expect(registry.available(empty).map((command) => command.id)).not.toContain('document.save');
+  });
+});
+
+describe('toKeymapBinding', () => {
+  it('rewrites CmdOrCtrl as the platform-agnostic Mod ProseMirror expects', () => {
+    expect(toKeymapBinding('CmdOrCtrl+B')).toBe('Mod-b');
+    expect(toKeymapBinding('CmdOrCtrl+Shift+7')).toBe('Mod-Shift-7');
+    expect(toKeymapBinding('CmdOrCtrl+Alt+1')).toBe('Mod-Alt-1');
+  });
+
+  it('lowercases letters, which ProseMirror matches case-sensitively', () => {
+    expect(toKeymapBinding('CmdOrCtrl+Shift+S')).toBe('Mod-Shift-s');
+  });
+
+  it('orders modifiers the same way however the accelerator was written', () => {
+    expect(toKeymapBinding('Shift+Alt+CmdOrCtrl+K')).toBe('Mod-Alt-Shift-k');
+  });
+
+  it('keeps an explicit platform modifier explicit', () => {
+    expect(toKeymapBinding('Ctrl+Alt+C')).toBe('Ctrl-Alt-c');
+    expect(toKeymapBinding('Cmd+E')).toBe('Meta-e');
+  });
+
+  it('returns null for an accelerator it cannot express', () => {
+    expect(toKeymapBinding('Hyper+N')).toBeNull();
+    expect(toKeymapBinding('')).toBeNull();
+  });
+});
+
+describe('formatting commands', () => {
+  const formatting = CORE_COMMANDS.filter(
+    (command) => command.category === 'format' || command.category === 'insert',
+  );
+
+  it('gives every id exactly one definition', () => {
+    const ids = CORE_COMMANDS.map((command) => command.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('expresses every editor accelerator as a keymap binding', () => {
+    // The editor binds these through ProseMirror; one that cannot be converted
+    // would show a shortcut hint in the toolbar that no key actually triggers.
+    for (const command of formatting) {
+      if (!command.shortcut) continue;
+      expect(toKeymapBinding(command.shortcut), command.id).not.toBeNull();
+    }
+  });
+
+  it('offers no formatting while nothing is open', () => {
+    const registry = createCommandRegistry();
+    const available = registry.available(empty).map((command) => command.id);
+
+    expect(available).not.toContain('format.bold');
+    expect(available).not.toContain('insert.table');
+  });
+
+  it('offers table commands only inside a table', () => {
+    const registry = createCommandRegistry();
+
+    expect(registry.available(editing).map((command) => command.id)).not.toContain(
+      'table.deleteRow',
+    );
+    expect(registry.available(inTable).map((command) => command.id)).toContain('table.deleteRow');
+  });
+
+  it('does not let the link key shadow the command palette', () => {
+    const palette = press('k', { ctrlKey: true });
+    const link = press('k', { ctrlKey: true, shiftKey: true });
+
+    expect(findCommandForEvent(CORE_COMMANDS, palette, editing, 'other')?.id).toBe(
+      'navigation.commandPalette',
+    );
+    expect(findCommandForEvent(CORE_COMMANDS, link, editing, 'other')?.id).toBe('format.link');
+  });
+
+  it('does not let strikethrough shadow save', () => {
+    expect(
+      findCommandForEvent(CORE_COMMANDS, press('s', { ctrlKey: true }), editing, 'other')?.id,
+    ).toBe('document.save');
+    expect(
+      findCommandForEvent(
+        CORE_COMMANDS,
+        press('S', { ctrlKey: true, shiftKey: true }),
+        editing,
+        'other',
+      )?.id,
+    ).toBe('format.strike');
   });
 });
