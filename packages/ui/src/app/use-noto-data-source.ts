@@ -1,4 +1,8 @@
-import { createDocument as buildDocument, updateDocument as applyUpdate } from '@noto/core';
+import {
+  createDocument as buildDocument,
+  deleteDocument as applyDelete,
+  updateDocument as applyUpdate,
+} from '@noto/core';
 import type { NotoDatabase } from '@noto/database';
 import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -91,6 +95,22 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
     setRevision((value) => value + 1);
   }, []);
 
+  const deleteDocument = useCallback(async (id: string) => {
+    const database = databaseRef.current;
+    if (!database) return;
+
+    const existing = await database.documents.get(id);
+    if (!existing) return;
+
+    await database.documents.put(applyDelete(existing));
+
+    // Drop the selection when the open document is the one that went away, so
+    // the shell falls back to the newest remaining document rather than
+    // pointing at a tombstone.
+    setSelectedId((current) => (current === id ? null : current));
+    setRevision((value) => value + 1);
+  }, []);
+
   /*
    * Derived rather than stored, so opening the most recent document needs no
    * selection effect.
@@ -117,7 +137,17 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       selectDocument: setSelectedId,
       createDocument,
       updateDocument,
+      deleteDocument,
     }),
-    [status, error, workspace, documents, activeDocument, createDocument, updateDocument],
+    [
+      status,
+      error,
+      workspace,
+      documents,
+      activeDocument,
+      createDocument,
+      updateDocument,
+      deleteDocument,
+    ],
   );
 }

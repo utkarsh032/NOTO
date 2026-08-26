@@ -1,4 +1,8 @@
-import { createDocument as buildDocument, updateDocument as applyUpdate } from '@noto/core';
+import {
+  createDocument as buildDocument,
+  deleteDocument as applyDelete,
+  updateDocument as applyUpdate,
+} from '@noto/core';
 import type { UpdateDocumentInput, Workspace } from '@noto/types';
 import type { NotoDataValue } from '@noto/ui';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -61,6 +65,18 @@ export function useWebNotoData(): NotoDataValue {
     await db.documents.put(applyUpdate(existing, patch));
   }, []);
 
+  const deleteDocument = useCallback(async (id: string) => {
+    const existing = await db.documents.get(id);
+    if (!existing) return;
+
+    await db.documents.put(applyDelete(existing));
+
+    // Drop the selection when the open document is the one that went away, so
+    // the shell falls back to the newest remaining document rather than
+    // pointing at a tombstone.
+    setSelectedId((current) => (current === id ? null : current));
+  }, []);
+
   /*
    * Derived rather than stored, so opening the most recent document needs no
    * selection effect.
@@ -87,7 +103,17 @@ export function useWebNotoData(): NotoDataValue {
       selectDocument: setSelectedId,
       createDocument,
       updateDocument,
+      deleteDocument,
     }),
-    [status, error, workspace, documents, activeDocument, createDocument, updateDocument],
+    [
+      status,
+      error,
+      workspace,
+      documents,
+      activeDocument,
+      createDocument,
+      updateDocument,
+      deleteDocument,
+    ],
   );
 }

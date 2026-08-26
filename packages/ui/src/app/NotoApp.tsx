@@ -1,5 +1,5 @@
 import { nextThemeMode, useSettingsStore, useUiStore } from '@noto/core';
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
@@ -7,6 +7,7 @@ import { Spinner } from '../components/Spinner';
 import { DocumentEditor } from './DocumentEditor';
 import { Sidebar } from './Sidebar';
 import { useNotoData } from './data-context';
+import { useCommandShortcuts } from './use-command-shortcuts';
 
 /**
  * The Noto application shell, shared by the web and desktop applications.
@@ -21,6 +22,24 @@ export function NotoApp() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const theme = useSettingsStore((state) => state.settings.appearance.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
+
+  /*
+   * Shell-level accelerators. Save is deliberately absent: the editor binds it,
+   * because the editor is what holds the unsaved draft.
+   */
+  const shortcutHandlers = useMemo(
+    () => ({
+      'document.new': () => void createDocument(),
+      'view.toggleSidebar': toggleSidebar,
+    }),
+    [createDocument, toggleSidebar],
+  );
+
+  useCommandShortcuts(shortcutHandlers, {
+    hasActiveDocument: Boolean(activeDocument),
+    hasSelection: false,
+    isEditable: Boolean(activeDocument),
+  });
 
   if (status === 'error') {
     return (

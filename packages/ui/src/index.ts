@@ -13,3 +13,8 @@ export { Sidebar } from './app/Sidebar';
 export { DocumentEditor, type DocumentEditorProps } from './app/DocumentEditor';
 export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
+export {
+  useCommandShortcuts,
+  detectShortcutPlatform,
+  type CommandHandlers,
+} from './app/use-command-shortcuts';

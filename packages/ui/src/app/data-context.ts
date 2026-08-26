@@ -21,6 +21,11 @@ export interface NotoDataValue {
   selectDocument(id: string | null): void;
   createDocument(): Promise<void>;
   updateDocument(id: string, patch: UpdateDocumentInput): Promise<void>;
+  /**
+   * Soft-deletes a document. The row stays on disk as a tombstone so the sync
+   * layer can remove it on other devices; it simply stops being listed.
+   */
+  deleteDocument(id: string): Promise<void>;
 }
 
 export const NotoDataContext = createContext<NotoDataValue | null>(null);
