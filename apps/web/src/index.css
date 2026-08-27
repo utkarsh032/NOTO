@@ -1,3 +1,10 @@
+/*
+ * Inter, self-hosted. Noto is local-first and the desktop build has no network
+ * to fetch a webfont from, so the family the design system specifies ships with
+ * the application rather than being requested from a CDN.
+ */
+@import '@fontsource-variable/inter';
+
 @import 'tailwindcss';
 @import '@noto/config/tokens.css';
 @import '@noto/ui/styles.css';
@@ -17,8 +24,21 @@ body,
 }
 
 body {
-  background-color: var(--noto-surface);
-  color: var(--noto-text);
+  background-color: var(--noto-background);
+  color: var(--noto-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Nothing in Noto should be reachable by mouse but not by keyboard, so the
+ * focus ring is defined once here rather than remembered per component.
+ */
+:focus-visible {
+  outline-color: var(--noto-brand);
+}
+
+::selection {
+  background: var(--noto-brand-muted);
+  color: var(--noto-text-primary);
 }

@@ -1,4 +1,4 @@
-import { radius, spacing } from '@noto/config';
+import { radius, spacing, typeScale } from '@noto/config';
 import type { NotoDocument } from '@noto/types';
 import { useRouter } from 'expo-router';
 import {
@@ -42,17 +42,17 @@ export default function DocumentListScreen() {
 
   if (status === 'loading') {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.surface }]}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.brand} />
       </View>
     );
   }
 
   if (status === 'error') {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Storage unavailable</Text>
-        <Text style={[styles.excerpt, { color: colors.textMuted }]}>{error}</Text>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Storage unavailable</Text>
+        <Text style={[styles.excerpt, { color: colors.textSecondary }]}>{error}</Text>
       </View>
     );
   }
@@ -66,23 +66,25 @@ export default function DocumentListScreen() {
       style={({ pressed }) => [
         styles.row,
         {
-          backgroundColor: pressed ? colors.surfaceSunken : colors.surfaceRaised,
+          backgroundColor: pressed ? colors.surfaceSecondary : colors.surface,
           borderColor: colors.border,
         },
       ]}
     >
       <View style={styles.rowText}>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
           {item.title || 'Untitled'}
         </Text>
-        <Text style={[styles.excerpt, { color: colors.textMuted }]} numberOfLines={2}>
+        <Text style={[styles.excerpt, { color: colors.textSecondary }]} numberOfLines={2}>
           {item.excerpt || 'Empty document'}
         </Text>
       </View>
 
       <Pressable
         onPress={() => confirmDelete(item)}
-        hitSlop={spacing.sm}
+        /* Padded out to the 44px the design system asks for: the label itself
+           is nowhere near a comfortable target. */
+        hitSlop={spacing[2]}
         accessibilityRole="button"
         accessibilityLabel={`Delete ${item.title || 'Untitled'}`}
         style={({ pressed }) => [styles.rowAction, { opacity: pressed ? 0.5 : 1 }]}
@@ -93,7 +95,7 @@ export default function DocumentListScreen() {
   );
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.surface }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlatList
         data={documents}
         keyExtractor={(item) => item.id}
@@ -101,9 +103,9 @@ export default function DocumentListScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={[styles.title, { color: colors.text }]}>No documents yet</Text>
-            <Text style={[styles.excerpt, { color: colors.textMuted }]}>
-              Tap New to start writing.
+            <Text style={[styles.title, { color: colors.textPrimary }]}>No documents yet</Text>
+            <Text style={[styles.excerpt, { color: colors.textSecondary }]}>
+              Tap New document to start writing.
             </Text>
           </View>
         }
@@ -111,12 +113,13 @@ export default function DocumentListScreen() {
 
       <Pressable
         onPress={() => void onCreate()}
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: pressed ? colors.accentHover : colors.accent },
+          { backgroundColor: pressed ? colors.brandHover : colors.brand },
         ]}
       >
-        <Text style={[styles.buttonLabel, { color: colors.accentText }]}>New document</Text>
+        <Text style={[styles.buttonLabel, { color: colors.onBrand }]}>New document</Text>
       </Pressable>
     </View>
   );
@@ -124,26 +127,35 @@ export default function DocumentListScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  centered: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.xl },
-  list: { flexGrow: 1, padding: spacing.lg, gap: spacing.sm },
+  centered: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing[6] },
+  list: { flexGrow: 1, gap: spacing[2], padding: spacing[4] },
   row: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
+    gap: spacing[3],
+    padding: spacing[4],
   },
-  rowText: { flex: 1, gap: spacing.xs },
-  rowAction: { paddingVertical: spacing.xs },
-  rowActionLabel: { fontSize: 13, fontWeight: '600' },
-  title: { fontSize: 16, fontWeight: '600' },
-  excerpt: { fontSize: 13 },
+  rowText: { flex: 1, gap: spacing[1] },
+  rowAction: { paddingHorizontal: spacing[2], paddingVertical: spacing[3] },
+  rowActionLabel: { fontSize: typeScale.bodySmall.fontSize, fontWeight: '600' },
+  title: {
+    fontSize: typeScale.h4.fontSize,
+    fontWeight: typeScale.h4.fontWeight,
+    lineHeight: typeScale.h4.lineHeight,
+  },
+  excerpt: {
+    fontSize: typeScale.bodySmall.fontSize,
+    lineHeight: typeScale.bodySmall.lineHeight,
+  },
   button: {
     alignItems: 'center',
     borderRadius: radius.md,
-    margin: spacing.lg,
-    padding: spacing.lg,
+    justifyContent: 'center',
+    margin: spacing[4],
+    minHeight: 48,
+    padding: spacing[3],
   },
-  buttonLabel: { fontSize: 15, fontWeight: '600' },
+  buttonLabel: { fontSize: typeScale.bodyLarge.fontSize, fontWeight: typeScale.button.fontWeight },
 });

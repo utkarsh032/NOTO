@@ -34,13 +34,13 @@ export function PageHeader({
   lead?: ReactNode;
 }) {
   return (
-    <header className="border-border-subtle bg-surface-sunken border-b py-14 sm:py-20">
+    <header className="border-default bg-surface-secondary border-b py-14 sm:py-20">
       <Container>
         {eyebrow ? (
-          <p className="text-accent mb-3 text-sm font-medium tracking-wide uppercase">{eyebrow}</p>
+          <p className="text-brand mb-3 text-sm font-medium tracking-wide uppercase">{eyebrow}</p>
         ) : null}
-        <h1 className="text-content text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-        {lead ? <p className="text-muted mt-4 max-w-2xl text-lg">{lead}</p> : null}
+        <h1 className="text-primary text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+        {lead ? <p className="text-secondary mt-4 max-w-2xl text-lg">{lead}</p> : null}
       </Container>
     </header>
   );
@@ -61,9 +61,9 @@ export function Section({
     <section id={id} className="py-12 sm:py-16">
       <Container>
         {title ? (
-          <h2 className="text-content text-xl font-semibold tracking-tight sm:text-2xl">{title}</h2>
+          <h2 className="text-primary text-xl font-semibold tracking-tight sm:text-2xl">{title}</h2>
         ) : null}
-        {description ? <p className="text-muted mt-2 max-w-2xl">{description}</p> : null}
+        {description ? <p className="text-secondary mt-2 max-w-2xl">{description}</p> : null}
         <div className={title || description ? 'mt-8' : undefined}>{children}</div>
       </Container>
     </section>
@@ -73,10 +73,7 @@ export function Section({
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={classes(
-        'border-border-subtle bg-surface-raised rounded-lg border p-5 shadow-sm',
-        className,
-      )}
+      className={classes('border-default bg-surface rounded-lg border p-5 shadow-sm', className)}
     >
       {children}
     </div>
@@ -88,13 +85,13 @@ export function Card({ children, className }: { children: ReactNode; className?:
 type ButtonTone = 'primary' | 'secondary';
 
 const TONE: Record<ButtonTone, string> = {
-  primary: 'bg-accent text-accent-content hover:bg-accent-hover',
-  secondary: 'border border-border-strong bg-surface-raised text-content hover:bg-surface-sunken',
+  primary: 'bg-brand text-on-brand hover:bg-brand-hover',
+  secondary: 'border border-strong bg-surface text-primary hover:bg-surface-secondary',
 };
 
 const BUTTON_BASE =
   'inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium ' +
-  'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 
 export function ButtonLink({
   href,
@@ -136,11 +133,11 @@ export function Prose({ children }: { children: ReactNode }) {
   return (
     <div
       className={classes(
-        'text-muted max-w-2xl space-y-4',
-        '[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2',
-        '[&_code]:bg-surface-sunken [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm',
-        '[&_h3]:text-content [&_h3]:pt-2 [&_h3]:text-base [&_h3]:font-semibold',
-        '[&_strong]:text-content [&_li]:ml-5 [&_li]:list-disc [&_strong]:font-semibold',
+        'text-secondary max-w-2xl space-y-4',
+        '[&_a]:text-brand [&_a]:underline [&_a]:underline-offset-2',
+        '[&_code]:bg-surface-secondary [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm',
+        '[&_h3]:text-primary [&_h3]:pt-2 [&_h3]:text-base [&_h3]:font-semibold',
+        '[&_strong]:text-primary [&_li]:ml-5 [&_li]:list-disc [&_strong]:font-semibold',
       )}
     >
       {children}
@@ -150,11 +147,11 @@ export function Prose({ children }: { children: ReactNode }) {
 
 export function DefinitionTable({ rows }: { rows: { label: string; value: ReactNode }[] }) {
   return (
-    <dl className="divide-border-subtle divide-y">
+    <dl className="divide-default divide-y">
       {rows.map((row) => (
         <div key={row.label} className="grid gap-1 py-3 sm:grid-cols-3 sm:gap-4">
-          <dt className="text-content text-sm font-medium">{row.label}</dt>
-          <dd className="text-muted text-sm sm:col-span-2">{row.value}</dd>
+          <dt className="text-primary text-sm font-medium">{row.label}</dt>
+          <dd className="text-secondary text-sm sm:col-span-2">{row.value}</dd>
         </div>
       ))}
     </dl>
@@ -174,7 +171,7 @@ export function Badge({
         'inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium',
         // Filled rather than tinted: `accent-subtle` is a dark blue in the dark
         // theme and would not carry accent-coloured text legibly.
-        tone === 'accent' ? 'bg-accent text-accent-content' : 'bg-surface-sunken text-muted',
+        tone === 'accent' ? 'bg-brand text-on-brand' : 'bg-surface-secondary text-secondary',
       )}
     >
       {children}

@@ -1,3 +1,6 @@
+/* Self-hosted: the desktop application has no network to fetch a webfont from. */
+@import '@fontsource-variable/inter';
+
 @import 'tailwindcss';
 @import '@noto/config/tokens.css';
 @import '@noto/ui/styles.css';
@@ -14,8 +17,8 @@ body,
 }
 
 body {
-  background-color: var(--noto-surface);
-  color: var(--noto-text);
+  background-color: var(--noto-background);
+  color: var(--noto-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   /* Desktop chrome should not feel like a web page. */
@@ -27,4 +30,13 @@ input,
 textarea,
 .noto-prose {
   user-select: text;
+}
+
+:focus-visible {
+  outline-color: var(--noto-brand);
+}
+
+::selection {
+  background: var(--noto-brand-muted);
+  color: var(--noto-text-primary);
 }

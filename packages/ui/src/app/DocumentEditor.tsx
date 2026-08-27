@@ -3,6 +3,7 @@ import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { StatusIndicator, type StatusKind } from '../components/StatusIndicator';
 import { EditorToolbar } from './EditorToolbar';
 import { useNotoData } from './data-context';
 import { useCommandShortcuts } from './use-command-shortcuts';
@@ -14,10 +15,11 @@ export interface DocumentEditorProps {
 
 type SaveState = 'saved' | 'unsaved' | 'saving';
 
-const SAVE_STATE_LABELS: Record<SaveState, string> = {
-  saved: 'Saved',
-  unsaved: 'Unsaved changes',
-  saving: 'Saving…',
+/** Noto is local-first, so this says "saved", not "synced". */
+const SAVE_STATE: Record<SaveState, { status: StatusKind; label: string }> = {
+  saved: { status: 'saved', label: 'Saved' },
+  unsaved: { status: 'pending', label: 'Unsaved changes' },
+  saving: { status: 'busy', label: 'Saving…' },
 };
 
 /**
@@ -150,38 +152,56 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
     isEditable: true,
   });
 
+  const save = SAVE_STATE[saveState];
+
+  /*
+   * A white canvas on the application's off-white background, at a comfortable
+   * measure. The card is what makes the document the object on the screen
+   * rather than a region of the window chrome.
+   *
+   * The toolbar sits outside that measure and spans the pane: twenty controls
+   * do not fit across an 800px column without wrapping to a second row, and a
+   * toolbar that changes height as the window resizes is not a fixed thing the
+   * hand can learn.
+   */
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 pt-6 pb-10">
-      <div className="mb-2 flex items-baseline justify-between gap-4">
-        <input
-          value={title}
-          onChange={(event) => onTitleChange(event.target.value)}
-          placeholder="Untitled"
-          aria-label="Document title"
-          className="text-content placeholder:text-subtle w-full bg-transparent text-3xl font-semibold outline-none"
-        />
-        <span className="text-subtle shrink-0 text-xs" aria-live="polite">
-          {SAVE_STATE_LABELS[saveState]}
-        </span>
-      </div>
-
-      <p className="text-subtle mb-4 text-xs">
-        {activeDocument.wordCount} {activeDocument.wordCount === 1 ? 'word' : 'words'}
-      </p>
-
-      {/*
-       * Sticks to the top of the scroll area so the controls are still there
-       * three pages into a document. The negative margin pulls its background
-       * out over the page padding, so text scrolling underneath does not show
-       * through at the edges.
-       */}
+    <div className="flex min-h-full flex-col">
+      {/* Sticky, so the controls are still there three pages into a document. */}
       <EditorToolbar
         editor={editor}
         prompts={prompts}
-        className="bg-surface border-border-subtle sticky top-0 z-10 -mx-8 mb-4 border-b px-8 pt-1 pb-2"
+        className="border-default bg-background sticky top-0 z-10 border-b px-4 sm:px-6"
       />
 
-      <NotoEditorContent editor={editor} className="noto-prose flex-1" id="noto-document-body" />
+      <div className="max-w-editor mx-auto w-full flex-1 px-4 py-6 sm:px-8 sm:py-8">
+        <article className="border-default bg-surface rounded-lg border px-5 py-8 shadow-sm sm:px-10 sm:py-10">
+          <div className="mb-6">
+            <div className="mb-1 flex items-baseline justify-between gap-4">
+              {/*
+               * An input carries an intrinsic minimum width, so on a narrow
+               * window it refuses to shrink and runs under the save state
+               * beside it. `min-w-0` is what lets the flex row hold.
+               */}
+              <input
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+                placeholder="Untitled"
+                aria-label="Document title"
+                className="text-primary placeholder:text-disabled text-h1 w-full min-w-0 flex-1 bg-transparent outline-none"
+              />
+              <StatusIndicator status={save.status} label={save.label} className="shrink-0" />
+            </div>
+
+            {/* Metadata is present but quiet: it is about the document, not the
+                document itself. */}
+            <p className="text-tertiary text-caption">
+              {activeDocument.wordCount} {activeDocument.wordCount === 1 ? 'word' : 'words'}
+            </p>
+          </div>
+
+          <NotoEditorContent editor={editor} className="noto-prose" id="noto-document-body" />
+        </article>
+      </div>
     </div>
   );
 }

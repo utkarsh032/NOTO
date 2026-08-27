@@ -2,83 +2,239 @@
  * Noto design tokens for Tailwind CSS v4 (web + desktop).
  *
  * The values here mirror `tokens.ts` / `theme.ts`, which React Native consumes
- * directly. `@theme inline` maps Tailwind's colour utilities onto the semantic
- * custom properties below, so switching theme is a variable swap on :root and
- * every `bg-surface` / `text-muted` utility follows automatically.
+ * directly. `@theme inline` maps Tailwind's utilities onto the semantic custom
+ * properties below, so switching theme is a variable swap on :root and every
+ * `bg-surface` / `text-secondary` utility follows automatically.
+ *
+ * Components consume the semantic names only. A raw value such as `bg-[#16a34a]`
+ * in a component is a bug: it cannot follow the theme, and it puts the palette
+ * back in places nobody will think to look when it changes.
  */
 
 @theme inline {
+  /* ── Surfaces ──────────────────────────────────────────────────────────── */
+  --color-background: var(--noto-background);
   --color-surface: var(--noto-surface);
-  --color-surface-raised: var(--noto-surface-raised);
-  --color-surface-sunken: var(--noto-surface-sunken);
-  --color-border-subtle: var(--noto-border);
-  --color-border-strong: var(--noto-border-strong);
-  --color-content: var(--noto-text);
-  --color-muted: var(--noto-text-muted);
-  --color-subtle: var(--noto-text-subtle);
-  --color-inverted: var(--noto-text-inverted);
-  --color-accent: var(--noto-accent);
-  --color-accent-hover: var(--noto-accent-hover);
-  --color-accent-content: var(--noto-accent-text);
-  --color-accent-subtle: var(--noto-accent-subtle);
-  --color-success: var(--noto-success);
-  --color-warning: var(--noto-warning);
-  --color-danger: var(--noto-danger);
+  --color-surface-secondary: var(--noto-surface-secondary);
+  --color-surface-tertiary: var(--noto-surface-tertiary);
 
-  --radius-sm: 4px;
+  /*
+   * Borders read as `border-default` / `border-strong`, which is why the keys
+   * are bare. `bg-default` falls out of the same registration and is the right
+   * utility for a hairline rule or a toolbar separator.
+   */
+  --color-default: var(--noto-border);
+  --color-strong: var(--noto-border-strong);
+
+  /* ── Text ──────────────────────────────────────────────────────────────── */
+  --color-primary: var(--noto-text-primary);
+  --color-secondary: var(--noto-text-secondary);
+  --color-tertiary: var(--noto-text-tertiary);
+  --color-disabled: var(--noto-text-disabled);
+  --color-inverted: var(--noto-text-inverted);
+
+  /* ── Brand ─────────────────────────────────────────────────────────────── */
+  --color-brand: var(--noto-brand);
+  --color-brand-hover: var(--noto-brand-hover);
+  --color-brand-strong: var(--noto-brand-strong);
+  --color-brand-soft: var(--noto-brand-soft);
+  --color-brand-muted: var(--noto-brand-muted);
+  --color-brand-subtle: var(--noto-brand-subtle);
+  --color-on-brand: var(--noto-on-brand);
+
+  /* ── Semantic ──────────────────────────────────────────────────────────── */
+  --color-success: var(--noto-success);
+  --color-info: var(--noto-info);
+  --color-warning: var(--noto-warning);
+  --color-on-warning: var(--noto-on-warning);
+  --color-danger: var(--noto-danger);
+  --color-ai: var(--noto-ai);
+  --color-ai-soft: var(--noto-ai-soft);
+  --color-memory: var(--noto-memory);
+  --color-capture: var(--noto-capture);
+
+  /* ── Radius ────────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
 
-  --spacing-sidebar: 260px;
+  /* ── Shadows ───────────────────────────────────────────────────────────── */
+  --shadow-sm: var(--noto-shadow-sm);
+  --shadow-md: var(--noto-shadow-md);
+  --shadow-lg: var(--noto-shadow-lg);
+
+  /* ── Layout ────────────────────────────────────────────────────────────── */
+  --spacing-sidebar: 248px;
+  --spacing-sidebar-collapsed: 72px;
+  --spacing-context-panel: 320px;
+  --spacing-header: 72px;
+  --spacing-toolbar: 48px;
   --spacing-title-bar: 38px;
-  --spacing-editor: 720px;
+  --spacing-editor: 800px;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* ── Type scale ────────────────────────────────────────────────────────── */
+  --text-display: 32px;
+  --text-display--line-height: 40px;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+
+  --text-h1: 28px;
+  --text-h1--line-height: 36px;
+  --text-h1--font-weight: 700;
+  --text-h1--letter-spacing: -0.018em;
+
+  /* Inter Variable reaches the intermediate 650 the scale asks for. */
+  --text-h2: 22px;
+  --text-h2--line-height: 30px;
+  --text-h2--font-weight: 650;
+  --text-h2--letter-spacing: -0.012em;
+
+  --text-h3: 18px;
+  --text-h3--line-height: 26px;
+  --text-h3--font-weight: 600;
+
+  --text-h4: 16px;
+  --text-h4--line-height: 24px;
+  --text-h4--font-weight: 600;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 26px;
+
+  --text-body: 14px;
+  --text-body--line-height: 22px;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 20px;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 18px;
+  --text-caption--font-weight: 500;
+
+  --text-button: 14px;
+  --text-button--line-height: 20px;
+  --text-button--font-weight: 600;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --default-transition-duration: 150ms;
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  --font-sans:
+    'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
   --font-serif: 'Source Serif 4', ui-serif, Georgia, Cambria, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
+  /* Surfaces — warm neutrals. The background is never pure white, so a white
+     card separates from it without needing a heavy border. */
+  --noto-background: #fafbfa;
   --noto-surface: #ffffff;
-  --noto-surface-raised: #ffffff;
-  --noto-surface-sunken: #f7f7f8;
-  --noto-border: #dcdce2;
-  --noto-border-strong: #bfbfc9;
-  --noto-text: #18181b;
-  --noto-text-muted: #55555f;
-  --noto-text-subtle: #9494a1;
+  --noto-surface-secondary: #f7f9f7;
+  --noto-surface-tertiary: #f1f4f1;
+
+  --noto-border: #e5e9e5;
+  --noto-border-strong: #d5dbd5;
+
+  --noto-text-primary: #111827;
+  --noto-text-secondary: #4b5563;
+  --noto-text-tertiary: #6b7280;
+  --noto-text-disabled: #9ca3af;
   --noto-text-inverted: #ffffff;
-  --noto-accent: #4f6bed;
-  --noto-accent-hover: #3d55d1;
-  --noto-accent-text: #ffffff;
-  --noto-accent-subtle: #e0e9ff;
-  --noto-success: #2f9e5f;
-  --noto-warning: #c98a1a;
-  --noto-danger: #d0453c;
-  --noto-scrim: rgba(13, 13, 15, 0.45);
+
+  --noto-brand: #16a34a;
+  --noto-brand-hover: #15803d;
+  --noto-brand-strong: #166534;
+  --noto-brand-soft: #f0fdf4;
+  --noto-brand-muted: #dcfce7;
+  --noto-brand-subtle: #bbf7d0;
+  --noto-on-brand: #ffffff;
+
+  --noto-success: #16a34a;
+  --noto-info: #2563eb;
+  --noto-warning: #d97706;
+  --noto-danger: #dc2626;
+  --noto-ai: #7c3aed;
+  --noto-ai-soft: #f5f3ff;
+  --noto-memory: #0f766e;
+  --noto-capture: #ea580c;
+
+  /* Amber is amber in both themes, so text on a warning fill is dark in both.
+     It is deliberately not redefined below. */
+  --noto-on-warning: #111827;
+
+  --noto-scrim: rgba(17, 24, 39, 0.45);
+
+  --noto-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --noto-shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --noto-shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.14);
+
+  --noto-duration-fast: 150ms;
+  --noto-duration-normal: 200ms;
+  --noto-duration-slow: 300ms;
 
   color-scheme: light;
 }
 
+/*
+ * The dark theme is the same semantic system on its own ramp, not an inversion:
+ * flipping the light neutrals gives a blue-grey that reads as a different
+ * product, so these are green-shifted to match the brand.
+ */
 :root[data-theme='dark'] {
-  --noto-surface: #0d0d0f;
-  --noto-surface-raised: #18181b;
-  --noto-surface-sunken: #18181b;
-  --noto-border: #27272c;
-  --noto-border-strong: #3f3f47;
-  --noto-text: #f7f7f8;
-  --noto-text-muted: #9494a1;
-  --noto-text-subtle: #6f6f7e;
-  --noto-text-inverted: #0d0d0f;
-  --noto-accent: #4f6bed;
-  --noto-accent-hover: #a3bcff;
-  --noto-accent-text: #ffffff;
-  --noto-accent-subtle: #2f41a8;
-  --noto-success: #2f9e5f;
-  --noto-warning: #c98a1a;
-  --noto-danger: #d0453c;
+  --noto-background: #0f1411;
+  --noto-surface: #151b17;
+  --noto-surface-secondary: #1b231e;
+  --noto-surface-tertiary: #222c26;
+
+  --noto-border: #28332c;
+  --noto-border-strong: #3a4740;
+
+  --noto-text-primary: #f3f4f6;
+  --noto-text-secondary: #a7b0aa;
+  --noto-text-tertiary: #7c877f;
+  --noto-text-disabled: #5c665f;
+  --noto-text-inverted: #0f1411;
+
+  /* A step lighter, and filled buttons take near-black text: `#16a34a` does not
+     separate from a near-black surface, and white on `#22c55e` misses 4.5:1. */
+  --noto-brand: #22c55e;
+  --noto-brand-hover: #4ade80;
+  --noto-brand-strong: #86efac;
+  --noto-brand-soft: #132a1c;
+  --noto-brand-muted: #17351f;
+  --noto-brand-subtle: #1f4d2e;
+  --noto-on-brand: #052e16;
+
+  --noto-success: #22c55e;
+  --noto-info: #60a5fa;
+  --noto-warning: #fbbf24;
+  --noto-danger: #f87171;
+  --noto-ai: #a78bfa;
+  --noto-ai-soft: #1e1b33;
+  --noto-memory: #2dd4bf;
+  --noto-capture: #fb923c;
+
   --noto-scrim: rgba(0, 0, 0, 0.6);
 
+  /* A dark surface does not catch light the same way; the light alphas vanish. */
+  --noto-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --noto-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --noto-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
   color-scheme: dark;
+}
+
+/*
+ * A visitor who has asked their system to stop animating things is asking every
+ * application, not just the ones that thought to check.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --noto-duration-fast: 0ms;
+    --noto-duration-normal: 0ms;
+    --noto-duration-slow: 0ms;
+  }
 }

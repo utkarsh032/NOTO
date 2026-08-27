@@ -16,11 +16,11 @@ export function Features() {
             {group.features.map((feature) => (
               <Card key={feature.title} className="flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-content text-sm font-semibold">{feature.title}</h3>
+                  <h3 className="text-primary text-sm font-semibold">{feature.title}</h3>
                   {feature.status === 'planned' ? <Badge>Planned</Badge> : null}
                 </div>
-                <p className="text-muted text-sm">{feature.description}</p>
-                {feature.detail ? <p className="text-subtle text-sm">{feature.detail}</p> : null}
+                <p className="text-secondary text-sm">{feature.description}</p>
+                {feature.detail ? <p className="text-tertiary text-sm">{feature.detail}</p> : null}
               </Card>
             ))}
           </div>

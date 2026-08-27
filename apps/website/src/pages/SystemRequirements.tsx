@@ -15,7 +15,7 @@ export function SystemRequirements() {
         <div className="grid gap-6 md:grid-cols-2">
           {SYSTEM_REQUIREMENTS.map((requirement) => (
             <Card key={requirement.platform}>
-              <h2 className="text-content text-base font-semibold">{requirement.platform}</h2>
+              <h2 className="text-primary text-base font-semibold">{requirement.platform}</h2>
               <div className="mt-2">
                 <DefinitionTable rows={requirement.rows} />
               </div>
@@ -25,7 +25,7 @@ export function SystemRequirements() {
       </Section>
 
       <Section title="Notes">
-        <div className="text-muted max-w-2xl space-y-4">
+        <div className="text-secondary max-w-2xl space-y-4">
           <p>
             Storage figures cover the application itself. Your documents are stored separately and
             grow with what you write — a large library of text documents is still measured in

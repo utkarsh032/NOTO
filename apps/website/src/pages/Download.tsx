@@ -62,9 +62,9 @@ function PlatformCard({
   if (!platform) return null;
 
   return (
-    <Card className={highlighted ? 'border-accent' : undefined}>
+    <Card className={highlighted ? 'border-brand' : undefined}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-content text-base font-semibold">{platform.label}</h3>
+        <h3 className="text-primary text-base font-semibold">{platform.label}</h3>
         {highlighted ? <Badge tone="accent">Detected</Badge> : null}
       </div>
 
@@ -80,15 +80,15 @@ function PlatformCard({
 
           return (
             <li key={pkg.label} className="flex items-center justify-between gap-3">
-              <span className="text-muted text-sm">
+              <span className="text-secondary text-sm">
                 {pkg.label}
-                {pkg.note ? <span className="text-subtle ml-2 text-xs">{pkg.note}</span> : null}
+                {pkg.note ? <span className="text-tertiary ml-2 text-xs">{pkg.note}</span> : null}
               </span>
 
               {href ? (
                 <a
                   href={href}
-                  className="border-border-strong text-content hover:bg-surface-sunken shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                  className="border-strong text-primary hover:bg-surface-secondary shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
                   {...(pkg.file ? {} : { target: '_blank', rel: 'noreferrer noopener' })}
                 >
                   {pkg.file ? `.${pkg.format}` : 'Open'}
@@ -117,7 +117,7 @@ function PrimaryDownload({ version, assets }: { version: string; assets: string[
   if (!platform || detected.id === 'web' || published.length === 0) {
     return (
       <Card className="text-center">
-        <p className="text-muted text-sm">
+        <p className="text-secondary text-sm">
           {detected.id === 'web'
             ? 'Noto runs in your browser with nothing to install.'
             : `Noto for ${platform?.label ?? 'your device'} is not part of this release. In the meantime, it runs in your browser.`}
@@ -136,11 +136,11 @@ function PrimaryDownload({ version, assets }: { version: string; assets: string[
   const file = preferred?.file?.(version);
 
   return (
-    <Card className="border-accent text-center">
-      <p className="text-subtle text-sm">Detected platform</p>
-      <p className="text-content mt-1 text-2xl font-semibold">
+    <Card className="border-brand text-center">
+      <p className="text-tertiary text-sm">Detected platform</p>
+      <p className="text-primary mt-1 text-2xl font-semibold">
         {platform.label}
-        <span className="text-muted ml-2 text-base font-normal">{detected.arch}</span>
+        <span className="text-secondary ml-2 text-base font-normal">{detected.arch}</span>
       </p>
 
       {file ? (
@@ -150,19 +150,19 @@ function PrimaryDownload({ version, assets }: { version: string; assets: string[
               Download for {platform.label}
             </ButtonLink>
           </div>
-          <p className="text-subtle mt-3 font-mono text-xs break-all">{file}</p>
+          <p className="text-tertiary mt-3 font-mono text-xs break-all">{file}</p>
         </>
       ) : null}
 
       {detected.id === 'android' ? (
-        <p className="text-muted mt-4 text-xs">
+        <p className="text-secondary mt-4 text-xs">
           Noto is not on Google Play yet, so Android will ask you to allow this one install. Open
           the file once it has downloaded and confirm the prompt.
         </p>
       ) : null}
 
       {!detected.confident ? (
-        <p className="text-subtle mt-4 text-xs">
+        <p className="text-tertiary mt-4 text-xs">
           We could not identify your system with confidence — check the full list below.
         </p>
       ) : null}
@@ -174,8 +174,8 @@ function NothingReleasedYet() {
   return (
     <Section>
       <Card className="text-center">
-        <h2 className="text-content text-lg font-semibold">No release published yet</h2>
-        <p className="text-muted mx-auto mt-3 max-w-xl">
+        <h2 className="text-primary text-lg font-semibold">No release published yet</h2>
+        <p className="text-secondary mx-auto mt-3 max-w-xl">
           Noto has not cut its first versioned release. The applications are being built in the open
           — you can run them from source today, and this page will list installers as soon as there
           is something to install.
@@ -241,12 +241,12 @@ export function Download() {
             <Container className="px-0">
               <div className="grid gap-4 md:grid-cols-3">
                 <Card>
-                  <h3 className="text-content text-sm font-semibold">Check the download</h3>
-                  <p className="text-muted mt-2 text-sm">
+                  <h3 className="text-primary text-sm font-semibold">Check the download</h3>
+                  <p className="text-secondary mt-2 text-sm">
                     Every release publishes{' '}
                     <a
                       href={downloadUrl(release.version, 'SHA256SUMS.txt')}
-                      className="text-accent hover:underline"
+                      className="text-brand hover:underline"
                     >
                       SHA256SUMS.txt
                     </a>
@@ -255,11 +255,11 @@ export function Download() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-content text-sm font-semibold">Security warnings</h3>
-                  <p className="text-muted mt-2 text-sm">
+                  <h3 className="text-primary text-sm font-semibold">Security warnings</h3>
+                  <p className="text-secondary mt-2 text-sm">
                     A new installer has no reputation with SmartScreen or Gatekeeper yet, so your
                     system may warn you the first time. The{' '}
-                    <Link href="/faq" className="text-accent hover:underline">
+                    <Link href="/faq" className="text-brand hover:underline">
                       FAQ
                     </Link>{' '}
                     explains what to expect.
@@ -267,10 +267,10 @@ export function Download() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-content text-sm font-semibold">Will it run?</h3>
-                  <p className="text-muted mt-2 text-sm">
+                  <h3 className="text-primary text-sm font-semibold">Will it run?</h3>
+                  <p className="text-secondary mt-2 text-sm">
                     See the{' '}
-                    <Link href="/requirements" className="text-accent hover:underline">
+                    <Link href="/requirements" className="text-brand hover:underline">
                       system requirements
                     </Link>{' '}
                     for what Noto needs on each platform.

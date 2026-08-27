@@ -18,18 +18,18 @@ export function Faq() {
             {section.entries.map((entry) => (
               <Card key={entry.question} className="p-0">
                 <details className="group">
-                  <summary className="text-content focus-visible:outline-accent cursor-pointer list-none px-5 py-4 text-sm font-medium marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2">
+                  <summary className="text-primary focus-visible:outline-brand cursor-pointer list-none px-5 py-4 text-sm font-medium marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2">
                     <span className="flex items-center justify-between gap-4">
                       {entry.question}
                       <span
                         aria-hidden
-                        className="text-subtle transition-transform group-open:rotate-45"
+                        className="text-tertiary transition-transform group-open:rotate-45"
                       >
                         +
                       </span>
                     </span>
                   </summary>
-                  <p className="text-muted px-5 pb-5 text-sm">{entry.answer}</p>
+                  <p className="text-secondary px-5 pb-5 text-sm">{entry.answer}</p>
                 </details>
               </Card>
             ))}
@@ -39,8 +39,8 @@ export function Faq() {
 
       <Section>
         <Card className="text-center">
-          <h2 className="text-content text-base font-semibold">Still stuck?</h2>
-          <p className="text-muted mx-auto mt-2 max-w-xl text-sm">
+          <h2 className="text-primary text-base font-semibold">Still stuck?</h2>
+          <p className="text-secondary mx-auto mt-2 max-w-xl text-sm">
             Open an issue with your platform, your Noto version and what you did — that is usually
             enough to reproduce a problem straight away.
           </p>

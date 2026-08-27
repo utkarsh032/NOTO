@@ -18,16 +18,16 @@ export function Documentation() {
               <Card key={link.title}>
                 <Link
                   href={link.href}
-                  className="text-content hover:text-accent text-sm font-semibold"
+                  className="text-primary hover:text-brand text-sm font-semibold"
                 >
                   {link.title}
                   {link.href.startsWith('/') ? null : (
-                    <span aria-hidden className="text-subtle ml-1">
+                    <span aria-hidden className="text-tertiary ml-1">
                       ↗
                     </span>
                   )}
                 </Link>
-                <p className="text-muted mt-2 text-sm">{link.description}</p>
+                <p className="text-secondary mt-2 text-sm">{link.description}</p>
               </Card>
             ))}
           </div>
