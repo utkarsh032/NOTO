@@ -19,6 +19,7 @@
     "@noto/types": "workspace:*",
     "expo": "~57.0.12",
     "expo-router": "~57.0.12",
+    "expo-splash-screen": "^57.0.8",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "^19.2.8",

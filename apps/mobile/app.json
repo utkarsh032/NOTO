@@ -24,6 +24,18 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 128,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "backgroundColor": "#18181B"
+          }
+        }
+      ],
       "./plugins/with-android-release-signing.cjs",
       "./plugins/with-android-app-size.cjs"
     ],

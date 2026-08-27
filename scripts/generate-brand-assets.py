@@ -38,6 +38,12 @@ OPAQUE_BACKDROP = (63, 81, 235, 255)
 # with four coloured triangles in it.
 BLEED = 1.22
 
+# `expo.plugins.expo-splash-screen.imageWidth` in `apps/mobile/app.json`, which
+# has to match. Android 12 composites the launch icon onto a 288dp canvas and
+# shows only the 192dp circle inside it; a square this wide has a 181dp
+# diagonal, so the mark stays whole on every launcher.
+SPLASH_IMAGE_WIDTH = 128
+
 
 def load(name: str) -> Image.Image:
     return Image.open(BRAND / name).convert("RGBA")
@@ -163,6 +169,14 @@ def main() -> None:
     mobile = ROOT / "apps" / "mobile" / "assets"
     write(bled(icon, 1024), mobile / "icon.png")
     write(inset(icon, 1024, 0.66), mobile / "adaptive-icon.png")
+    # The launch screen draws this centred on a flat colour. Transparent rather
+    # than bled, so the same file works over the light and the dark backdrop.
+    #
+    # 512 is `imageWidth` in `app.json` times four, the xxxhdpi multiplier and
+    # the largest the Expo plugin asks for. It resizes without
+    # `withoutEnlargement`, so a smaller source would be upscaled rather than
+    # refused — raise this with `imageWidth` if that ever changes.
+    write(scaled(icon, SPLASH_IMAGE_WIDTH * 4), mobile / "splash-icon.png")
 
     print("packages/ui")
     ui = ROOT / "packages" / "ui" / "src" / "assets"
