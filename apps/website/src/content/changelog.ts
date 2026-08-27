@@ -28,6 +28,54 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-08-26',
+    summary:
+      'Rich formatting — headings, lists, links, images and tables — Noto’s own icon on every platform, and an editor that keeps everything you type.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'Documents are no longer plain text. Headings, bold, italic, underline, strikethrough, bullet and numbered lists, blockquotes, inline and block code, links, images, tables, horizontal rules and text alignment are all available, from a toolbar above the document and from the keyboard.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Links, with the shortcut on CmdOrCtrl+Shift+K because the command palette already owns CmdOrCtrl+K. Typing a bare address turns it into a link, and a host typed without a scheme gets https://. Addresses that cannot be made safe are refused rather than silently ignored — a note renders as HTML and will sync to other devices, so a javascript: link would be stored cross-site scripting rather than a bad link.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Images and tables. An image is referenced by its address or kept inline when pasted from the clipboard; Noto has no asset store yet, so nothing is copied into the document behind your back. Tables have resizable columns, with row, column and header controls in the toolbar.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Noto has its own icon everywhere — the desktop application, the Windows installer, the Android launcher and launch screen, the browser tab and the marketing site. Until now the desktop application carried Electron’s atom and Android carried the green robot, and there was no launch screen at all. One source image derives them all.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Switching documents within a second of typing no longer drops the last few keystrokes. Autosave flushes its queue on unmount, when the window is hidden and on an explicit save, and the indicator no longer calls a document saved while a write is still queued.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Documents can be deleted — from a control on each sidebar row on web and desktop, and on Android from the document list, the editor header or a long press.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Keyboard shortcuts work. They were declared in the command registry and bound to nothing; keys now resolve through the registry, so a command unavailable in the current context cannot fire.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'On Android, a title typed in the editor now appears in the document list. Each screen held its own copy of the list, so an edit reached the database but never the screen that had already loaded it.',
+      },
+    ],
+  },
+  {
     version: '1.1.6',
     date: '2026-08-26',
     summary: 'Noto for Android, published on the download page.',

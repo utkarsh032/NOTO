@@ -2,7 +2,7 @@
   "expo": {
     "name": "Noto",
     "slug": "noto",
-    "version": "1.1.6",
+    "version": "1.2.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "noto",
@@ -11,12 +11,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noto.app",
-      "buildNumber": "1001006"
+      "buildNumber": "1002000"
     },
     "android": {
       "package": "com.noto.app",
       "edgeToEdgeEnabled": true,
-      "versionCode": 1001006,
+      "versionCode": 1002000,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
