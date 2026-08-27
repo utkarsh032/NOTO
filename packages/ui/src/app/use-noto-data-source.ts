@@ -75,13 +75,15 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
 
   const createDocument = useCallback(async () => {
     const database = databaseRef.current;
-    if (!database || !workspace) return;
+    if (!database || !workspace) return null;
 
     const document = buildDocument({ workspaceId: workspace.id });
     await database.documents.put(document);
 
     setSelectedId(document.id);
     setRevision((value) => value + 1);
+
+    return document.id;
   }, [workspace]);
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
@@ -104,25 +106,25 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
 
     await database.documents.put(applyDelete(existing));
 
-    // Drop the selection when the open document is the one that went away, so
-    // the shell falls back to the newest remaining document rather than
-    // pointing at a tombstone.
+    // Stop pointing at a tombstone. The tab bar notices the document has gone,
+    // drops its tab and moves to a neighbour.
     setSelectedId((current) => (current === id ? null : current));
     setRevision((value) => value + 1);
   }, []);
 
   /*
-   * Derived rather than stored, so opening the most recent document needs no
-   * selection effect.
+   * `undefined` means "not resolved yet", and is deliberately distinct from
+   * `null`: a document that was just created is briefly absent from
+   * `documents`, and resolving that window to "nothing open" would close the
+   * tab the editor is about to render.
    *
-   * `undefined` means "not resolved yet". A document that was just created is
-   * briefly absent from `documents`, and falling back to the newest row in that
-   * window would quietly point the editor at a different document — sending the
-   * user's next keystrokes to the wrong note.
+   * There is no fallback to the newest row. Which document is open is the tab
+   * bar's business, and a silent fallback here would make closing the last tab
+   * impossible — it would reopen something immediately.
    */
   const activeDocument = useMemo(() => {
     if (documents === undefined) return undefined;
-    if (selectedId === null) return documents[0] ?? null;
+    if (selectedId === null) return null;
 
     return documents.find((row) => row.id === selectedId);
   }, [selectedId, documents]);

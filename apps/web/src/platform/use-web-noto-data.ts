@@ -45,17 +45,24 @@ export function useWebNotoData(): NotoDataValue {
 
   const workspaceId = workspace?.id ?? null;
 
+  /*
+   * `undefined` until the workspace is known, not `[]`. An empty array here
+   * would mean "this workspace has no documents", and the tab bar would take it
+   * at its word and close every tab it had just restored.
+   */
   const documents = useLiveQuery(
-    async () => (workspaceId ? db.documents.listByWorkspace(workspaceId) : []),
+    async () => (workspaceId ? db.documents.listByWorkspace(workspaceId) : undefined),
     [workspaceId],
   );
 
   const createDocument = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId) return null;
 
     const document = buildDocument({ workspaceId });
     await db.documents.put(document);
     setSelectedId(document.id);
+
+    return document.id;
   }, [workspaceId]);
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
@@ -71,24 +78,24 @@ export function useWebNotoData(): NotoDataValue {
 
     await db.documents.put(applyDelete(existing));
 
-    // Drop the selection when the open document is the one that went away, so
-    // the shell falls back to the newest remaining document rather than
-    // pointing at a tombstone.
+    // Stop pointing at a tombstone. The tab bar notices the document has gone,
+    // drops its tab and moves to a neighbour.
     setSelectedId((current) => (current === id ? null : current));
   }, []);
 
   /*
-   * Derived rather than stored, so opening the most recent document needs no
-   * selection effect.
+   * `undefined` means "not resolved yet", and is deliberately distinct from
+   * `null`: a document that was just created is briefly absent from the live
+   * query result, and resolving that window to "nothing open" would close the
+   * tab the editor is about to render.
    *
-   * `undefined` means "not resolved yet". A document that was just created is
-   * briefly absent from the live query result, and falling back to the newest
-   * row in that window would quietly point the editor at a different document —
-   * sending the user's next keystrokes to the wrong note.
+   * There is no fallback to the newest row. Which document is open is the tab
+   * bar's business, and a silent fallback here would make closing the last tab
+   * impossible — it would reopen something immediately.
    */
   const activeDocument = useMemo(() => {
     if (documents === undefined) return undefined;
-    if (selectedId === null) return documents[0] ?? null;
+    if (selectedId === null) return null;
 
     return documents.find((row) => row.id === selectedId);
   }, [selectedId, documents]);

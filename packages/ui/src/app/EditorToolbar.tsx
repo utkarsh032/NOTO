@@ -1,4 +1,13 @@
-import { CORE_COMMANDS, formatShortcut } from '@noto/core';
+import {
+  CORE_COMMANDS,
+  canZoomIn,
+  canZoomOut,
+  formatShortcut,
+  formatZoom,
+  useSettingsStore,
+  zoomIn,
+  zoomOut,
+} from '@noto/core';
 import {
   MAX_TABLE_SIZE,
   MIN_TABLE_SIZE,
@@ -6,7 +15,7 @@ import {
   insertImage,
   insertTable,
   removeLink,
-  runFormatAction,
+  runEditorAction,
 } from '@noto/editor';
 import { type Editor, useFormatState } from '@noto/editor/react';
 import { type ComponentType, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,9 +41,15 @@ import {
   LinkIcon,
   OrderedListIcon,
   QuoteIcon,
+  RedoIcon,
+  SearchIcon,
   StrikethroughIcon,
   TableIcon,
   UnderlineIcon,
+  UndoIcon,
+  WrapTextIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from '../components/icons';
 import { cn } from '../utils/cn';
 import { detectShortcutPlatform } from './use-command-shortcuts';
@@ -101,12 +116,22 @@ const FIELD_CLASSES = fieldClasses('sm');
 export interface EditorToolbarProps {
   editor: Editor | null;
   prompts: FormattingPrompts;
+  /** Opens the find bar, which the editor pane owns. */
+  onFind?(): void;
   className?: string;
 }
 
-export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps) {
+export function EditorToolbar({ editor, prompts, onFind, className }: EditorToolbarProps) {
   const format = useFormatState(editor);
   const platform = useMemo(() => detectShortcutPlatform(), []);
+
+  /*
+   * Zoom and wrap are settings rather than document state: they change how this
+   * reader sees every document, and survive a restart. The toolbar is simply
+   * the nearest place to reach them.
+   */
+  const { wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
+  const updateEditor = useSettingsStore((state) => state.updateEditor);
 
   const hint = (commandId: string): string | undefined => {
     const shortcut = COMMANDS_BY_ID.get(commandId)?.shortcut;
@@ -122,7 +147,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
       shortcutHint={hint(id)}
       isActive={format.active[id] ?? false}
       disabled={!editor}
-      onClick={() => runFormatAction(editor, id)}
+      onClick={() => runEditorAction(editor, id)}
     >
       <Glyph />
     </ToolbarButton>
@@ -140,7 +165,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
       >
         <Select
           value={activeBlockType}
-          onChange={(event) => runFormatAction(editor, event.target.value)}
+          onChange={(event) => runEditorAction(editor, event.target.value)}
           disabled={!editor}
           aria-label="Block type"
           fieldSize="sm"
@@ -198,6 +223,80 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
 
         <Separator />
         {renderControl({ id: 'format.clear', icon: ClearFormattingIcon })}
+
+        <Separator />
+        <ToolbarButton
+          label={title('edit.undo')}
+          shortcutHint={hint('edit.undo')}
+          disabled={!editor || !format.canUndo}
+          onClick={() => runEditorAction(editor, 'edit.undo')}
+        >
+          <UndoIcon />
+        </ToolbarButton>
+        <ToolbarButton
+          label={title('edit.redo')}
+          shortcutHint={hint('edit.redo')}
+          disabled={!editor || !format.canRedo}
+          onClick={() => runEditorAction(editor, 'edit.redo')}
+        >
+          <RedoIcon />
+        </ToolbarButton>
+        <ToolbarButton
+          label={title('edit.find')}
+          shortcutHint={hint('edit.find')}
+          disabled={!editor || !onFind}
+          onClick={() => onFind?.()}
+        >
+          <SearchIcon />
+        </ToolbarButton>
+
+        {/*
+         * View controls sit at the far end, pushed there rather than ordered
+         * there: they act on the window, not on the document, and grouping them
+         * apart is what says so.
+         */}
+        <span className="flex-1" aria-hidden="true" />
+
+        <ToolbarButton
+          label={title('view.toggleWordWrap')}
+          shortcutHint={hint('view.toggleWordWrap')}
+          isActive={wordWrap}
+          onClick={() => updateEditor({ wordWrap: !wordWrap })}
+        >
+          <WrapTextIcon />
+        </ToolbarButton>
+
+        <Separator />
+        <ToolbarButton
+          label={title('view.zoomOut')}
+          shortcutHint={hint('view.zoomOut')}
+          disabled={!canZoomOut(zoom)}
+          onClick={() => updateEditor({ zoom: zoomOut(zoom) })}
+        >
+          <ZoomOutIcon />
+        </ToolbarButton>
+        {/*
+         * The level doubles as the reset control, which is where the hand
+         * already is after pressing either side of it.
+         */}
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => updateEditor({ zoom: 1 })}
+          title={`${title('view.zoomReset')}${hint('view.zoomReset') ? ` (${hint('view.zoomReset')})` : ''}`}
+          aria-label={`${title('view.zoomReset')}. Currently ${formatZoom(zoom)}.`}
+          className="text-secondary text-caption hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand h-8 min-w-12 shrink-0 rounded-md px-1 tabular-nums transition-colors focus-visible:outline-2 focus-visible:-outline-offset-1"
+        >
+          {formatZoom(zoom)}
+        </button>
+        <ToolbarButton
+          label={title('view.zoomIn')}
+          shortcutHint={hint('view.zoomIn')}
+          disabled={!canZoomIn(zoom)}
+          onClick={() => updateEditor({ zoom: zoomIn(zoom) })}
+        >
+          <ZoomInIcon />
+        </ToolbarButton>
       </div>
 
       {/*
@@ -226,7 +325,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
               size="sm"
               variant="ghost"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => runFormatAction(editor, control.id)}
+              onClick={() => runEditorAction(editor, control.id)}
             >
               {control.label}
             </Button>
@@ -235,7 +334,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
             size="sm"
             variant="ghost"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => runFormatAction(editor, 'table.delete')}
+            onClick={() => runEditorAction(editor, 'table.delete')}
             className="text-danger hover:text-danger"
           >
             Delete table

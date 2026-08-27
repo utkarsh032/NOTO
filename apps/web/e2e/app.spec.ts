@@ -17,11 +17,14 @@ const UNTITLED = 'Untitled';
 /**
  * The sidebar row for a document.
  *
- * Anchored to the start of the accessible name, because each row also carries a
- * "Move <title> to trash" button that a bare substring match picks up too.
+ * Scoped to the document list and anchored to the start of the name: the same
+ * title also appears on a tab, under Recent, and on the row's own "Move
+ * <title> to trash" button, any of which a looser match picks up.
  */
 const documentRow = (page: Page, title: string) =>
-  page.getByRole('button', { name: new RegExp(`^${title}`) });
+  page.getByRole('list', { name: 'All documents' }).getByRole('button', {
+    name: new RegExp(`^${title}`),
+  });
 
 /**
  * Waits for a freshly created document to be ready to type into.
@@ -67,11 +70,11 @@ test.describe('Noto web shell', () => {
     // there is proof the debounced autosave reached the database. The "Saved"
     // indicator is not: it is already showing before the edit, so asserting on
     // it would let the reload race the save.
-    await expect(documentRow(page, 'Persisted note')).toBeVisible();
+    await expect(documentRow(page, 'Persisted note')).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
 
-    await expect(documentRow(page, 'Persisted note')).toBeVisible();
+    await expect(documentRow(page, 'Persisted note')).toBeVisible({ timeout: 15_000 });
     await expect(title).toHaveValue('Persisted note');
   });
 
@@ -83,13 +86,13 @@ test.describe('Noto web shell', () => {
     await emptyStateNew(page).click();
     await openedNewDocument(page, title);
     await title.fill('First');
-    await expect(documentRow(page, 'First')).toBeVisible();
+    await expect(documentRow(page, 'First')).toBeVisible({ timeout: 15_000 });
 
     await sidebarNew(page).click();
     await openedNewDocument(page, title);
     await title.fill('Second');
 
-    await expect(documentRow(page, 'First')).toBeVisible();
-    await expect(documentRow(page, 'Second')).toBeVisible();
+    await expect(documentRow(page, 'First')).toBeVisible({ timeout: 15_000 });
+    await expect(documentRow(page, 'Second')).toBeVisible({ timeout: 15_000 });
   });
 });

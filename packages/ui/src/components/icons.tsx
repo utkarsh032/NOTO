@@ -361,3 +361,107 @@ export function DotIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function UndoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 7v6h6" />
+      <path d="M3.5 13a9 9 0 1 0 2.1-6.4L3 9" />
+    </Icon>
+  );
+}
+
+export function RedoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 7v6h-6" />
+      <path d="M20.5 13a9 9 0 1 1-2.1-6.4L21 9" />
+    </Icon>
+  );
+}
+
+export function ZoomInIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+      <path d="M11 8v6" />
+      <path d="M8 11h6" />
+    </Icon>
+  );
+}
+
+export function ZoomOutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+      <path d="M8 11h6" />
+    </Icon>
+  );
+}
+
+export function WrapTextIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 6h18" />
+      <path d="M3 18h6" />
+      <path d="M3 12h13a3 3 0 0 1 0 6h-3" />
+      <path d="m15 15-2 3 2 3" />
+    </Icon>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Icon>
+  );
+}
+
+export function ReplaceIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect x="13" y="13" width="8" height="8" rx="1.5" />
+      <path d="M14 6h4.5a1.5 1.5 0 0 1 1.5 1.5V10" />
+      <path d="m18 3 2 3-2 3" />
+    </Icon>
+  );
+}
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 15 6-6 6 6" />
+    </Icon>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </Icon>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z" />
+      <path d="m14.5 5.5 4 4" />
+    </Icon>
+  );
+}

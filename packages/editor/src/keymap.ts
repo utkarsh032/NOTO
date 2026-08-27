@@ -1,7 +1,7 @@
-import { CORE_COMMANDS, toKeymapBinding } from '@noto/core';
+import { CORE_COMMANDS, scopeOf, toKeymapBinding } from '@noto/core';
 import { type Editor, Extension } from '@tiptap/core';
 
-import { FORMAT_ACTIONS } from './formatting';
+import { EDITOR_ACTIONS } from './formatting';
 
 /**
  * Handles a formatting command the editor cannot finish on its own — the link
@@ -18,9 +18,6 @@ declare module '@tiptap/core' {
     notoKeymap: NotoKeymapStorage;
   }
 }
-
-/** Categories whose accelerators belong to the editor rather than the shell. */
-const EDITOR_CATEGORIES = new Set(['format', 'insert']);
 
 /**
  * Binds the formatting accelerators from the command registry.
@@ -54,12 +51,14 @@ export const NotoKeymap = Extension.create({
 
     for (const command of CORE_COMMANDS) {
       if (!command.shortcut) continue;
-      if (!EDITOR_CATEGORIES.has(command.category)) continue;
+      // The registry says which keys are the editor's. Everything else belongs
+      // to the window listener, and binding it here too would run it twice.
+      if (scopeOf(command) !== 'editor') continue;
 
       const binding = toKeymapBinding(command.shortcut);
       if (!binding) continue;
 
-      const action = FORMAT_ACTIONS[command.id];
+      const action = EDITOR_ACTIONS[command.id];
 
       shortcuts[binding] = () => {
         if (action) return action(this.editor);

@@ -1,16 +1,26 @@
-import { useSettingsStore } from '@noto/core';
+import { clampZoom, useSettingsStore } from '@noto/core';
+import { toEditorContent } from '@noto/editor';
 import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { Button } from '../components/Button';
 import { StatusIndicator, type StatusKind } from '../components/StatusIndicator';
+import { AlertIcon } from '../components/icons';
+import { cn } from '../utils/cn';
 import { EditorToolbar } from './EditorToolbar';
+import { FindReplaceBar } from './FindReplaceBar';
 import { useNotoData } from './data-context';
+import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
 import { useFormattingPrompts } from './use-formatting-prompts';
 
 export interface DocumentEditorProps {
   document: NotoDocument;
+  /** Reports whether this document has edits not yet written to storage. */
+  onDirtyChange?(documentId: string, dirty: boolean): void;
+  /** Hands the shell a way to flush this editor's queue, for Save All. */
+  onRegisterFlush?(flush: (() => void) | null): void;
 }
 
 type SaveState = 'saved' | 'unsaved' | 'saving';
@@ -32,9 +42,13 @@ const SAVE_STATE: Record<SaveState, { status: StatusKind; label: string }> = {
  * plain state and Tiptap rebuild instead of trying to reconcile two unrelated
  * documents.
  */
-export function DocumentEditor({ document: activeDocument }: DocumentEditorProps) {
+export function DocumentEditor({
+  document: activeDocument,
+  onDirtyChange,
+  onRegisterFlush,
+}: DocumentEditorProps) {
   const { updateDocument } = useNotoData();
-  const autoSaveDelayMs = useSettingsStore((state) => state.settings.editor.autoSaveDelayMs);
+  const { autoSaveDelayMs, wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
 
   const [title, setTitle] = useState(activeDocument.title);
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -51,19 +65,23 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
    * Safe to call after unmount — that is the point of it — so it guards every
    * state update rather than assuming the component is still on screen.
    */
-  const flush = useCallback(() => {
+  const flush = useCallback((): Promise<void> => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
 
     const queued = pendingRef.current;
-    if (Object.keys(queued).length === 0) return;
+    if (Object.keys(queued).length === 0) return Promise.resolve();
 
     pendingRef.current = {};
     if (mountedRef.current) setSaveState('saving');
 
-    void updateDocument(documentId, queued).then(() => {
+    // Returned so unmount can wait for the write before the tab stops saying
+    // it has unsaved work.
+    return updateDocument(documentId, queued).then(() => {
+      // Nothing left for a recovery snapshot to rescue once the write lands.
+      if (Object.keys(pendingRef.current).length === 0) clearSnapshot(documentId);
       if (!mountedRef.current) return;
 
       // A keystroke landing mid-write queues more work. Reporting "Saved" here
@@ -83,6 +101,22 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
     [autoSaveDelayMs, flush],
   );
 
+  /* Save All reaches this editor's queue through here. */
+  useEffect(() => {
+    onRegisterFlush?.(() => void flush());
+    return () => onRegisterFlush?.(null);
+  }, [onRegisterFlush, flush]);
+
+  /* The tab shows a dot for as long as there is unwritten work. */
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
+
+  useEffect(() => {
+    onDirtyChange?.(documentId, saveState !== 'saved');
+  }, [onDirtyChange, documentId, saveState]);
+
   /*
    * Flushing on unmount is what makes switching documents inside the autosave
    * window safe: without it the pending timer is cleared and the user's last
@@ -93,9 +127,13 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
 
     return () => {
       mountedRef.current = false;
-      flush();
+
+      // Switching tabs unmounts this editor, so nothing here can report the
+      // write finishing — the tab would keep its dot forever. Reporting from
+      // the resolved flush is what clears it.
+      void flush().then(() => onDirtyChangeRef.current?.(documentId, false));
     };
-  }, [flush]);
+  }, [flush, documentId]);
 
   /*
    * Closing a tab or switching away is the other way edits escape. `beforeunload`
@@ -104,26 +142,71 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
    */
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (window.document.visibilityState === 'hidden') flush();
+      if (window.document.visibilityState === 'hidden') void flush();
     };
 
     window.document.addEventListener('visibilitychange', onVisibilityChange);
     return () => window.document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [flush]);
 
+  /* ---------------------------------------------------------------------- */
+  /* Recovery                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * What was in the editor when the process last stopped, if that is newer than
+   * what reached storage. Read once, on mount, before anything is typed.
+   */
+  const [recovered, setRecovered] = useState<RecoverySnapshot | null>(() =>
+    readSnapshot(activeDocument.id, activeDocument.updatedAt),
+  );
+
+  const contentRef = useRef<DocumentContent>(activeDocument.content);
+  const titleRef = useRef(activeDocument.title);
+
+  /** Records the live state, so a crash inside the debounce window survives. */
+  const snapshot = useCallback(() => {
+    writeSnapshot({
+      documentId,
+      title: titleRef.current,
+      content: contentRef.current,
+      savedAt: Date.now(),
+    });
+  }, [documentId]);
+
+  /*
+   * The title lives in local state so typing does not wait for a write. That
+   * makes it deaf to a rename from anywhere else — the sidebar, most obviously
+   * — unless the stored title is watched for changes that did not come from
+   * here. A queued title of our own wins, so adopting an external one can never
+   * overwrite what is being typed.
+   */
+  const storedTitleRef = useRef(activeDocument.title);
+  useEffect(() => {
+    if (activeDocument.title === storedTitleRef.current) return;
+    storedTitleRef.current = activeDocument.title;
+
+    if (pendingRef.current.title !== undefined) return;
+    setTitle(activeDocument.title);
+  }, [activeDocument.title]);
+
   const onTitleChange = useCallback(
     (value: string) => {
       setTitle(value);
+      titleRef.current = value;
+      snapshot();
       scheduleSave({ title: value });
     },
-    [scheduleSave],
+    [scheduleSave, snapshot],
   );
 
   const onContentChange = useCallback(
     (content: DocumentContent) => {
+      contentRef.current = content;
+      snapshot();
       scheduleSave({ content });
     },
-    [scheduleSave],
+    [scheduleSave, snapshot],
   );
 
   /*
@@ -140,11 +223,49 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
     autofocus: true,
   });
 
-  // Save is bound here rather than in the shell because this is where the
-  // unsaved draft lives. Formatting accelerators are not bound at this level at
-  // all: the editor owns those through ProseMirror's keymap, so a shortcut
-  // fires once rather than being handled twice and cancelling itself out.
-  const shortcutHandlers = useMemo(() => ({ 'document.save': flush }), [flush]);
+  const restore = useCallback(() => {
+    if (!recovered || !editor) return;
+
+    // The same cast the editor uses at every other content boundary.
+    editor.commands.setContent(toEditorContent(recovered.content));
+    setTitle(recovered.title);
+    titleRef.current = recovered.title;
+    contentRef.current = recovered.content;
+    scheduleSave({ title: recovered.title, content: recovered.content });
+
+    setRecovered(null);
+  }, [recovered, editor, scheduleSave]);
+
+  const discardRecovery = useCallback(() => {
+    clearSnapshot(documentId);
+    setRecovered(null);
+  }, [documentId]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Find                                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  const [find, setFind] = useState({ open: false, replace: false });
+
+  const closeFind = useCallback(() => {
+    setFind({ open: false, replace: false });
+    editor?.commands.focus();
+  }, [editor]);
+
+  /*
+   * Save is bound here because this is where the unsaved draft lives, and find
+   * because this is what holds the editor. Formatting and undo are deliberately
+   * absent: the editor owns those through ProseMirror's keymap, so a shortcut
+   * fires once rather than being handled twice and cancelling itself out.
+   */
+  const shortcutHandlers = useMemo(
+    () => ({
+      'document.save': () => void flush(),
+      'edit.find': () => setFind({ open: true, replace: false }),
+      'edit.replace': () => setFind({ open: true, replace: true }),
+    }),
+    [flush],
+  );
 
   useCommandShortcuts(shortcutHandlers, {
     hasActiveDocument: true,
@@ -167,11 +288,27 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
   return (
     <div className="flex min-h-full flex-col">
       {/* Sticky, so the controls are still there three pages into a document. */}
-      <EditorToolbar
-        editor={editor}
-        prompts={prompts}
-        className="border-default bg-background sticky top-0 z-10 border-b px-4 sm:px-6"
-      />
+      <div className="bg-background sticky top-0 z-10">
+        <EditorToolbar
+          editor={editor}
+          prompts={prompts}
+          onFind={() => setFind({ open: true, replace: false })}
+          className="border-default border-b px-4 sm:px-6"
+        />
+
+        {find.open ? (
+          <FindReplaceBar
+            editor={editor}
+            showReplace={find.replace}
+            onToggleReplace={(replace) => setFind({ open: true, replace })}
+            onClose={closeFind}
+          />
+        ) : null}
+      </div>
+
+      {recovered ? (
+        <RecoveryNotice snapshot={recovered} onRestore={restore} onDiscard={discardRecovery} />
+      ) : null}
 
       <div className="max-w-editor mx-auto w-full flex-1 px-4 py-6 sm:px-8 sm:py-8">
         <article className="border-default bg-surface rounded-lg border px-5 py-8 shadow-sm sm:px-10 sm:py-10">
@@ -199,8 +336,67 @@ export function DocumentEditor({ document: activeDocument }: DocumentEditorProps
             </p>
           </div>
 
-          <NotoEditorContent editor={editor} className="noto-prose" id="noto-document-body" />
+          {/*
+           * Zoom scales the type rather than transforming the element: a
+           * transform blurs text and leaves the caret and the selection
+           * measuring an unscaled box. Word wrap is a class the prose styles
+           * read, so it reaches code blocks and long unbroken strings — the
+           * only places a document can outgrow its measure.
+           */}
+          <NotoEditorContent
+            editor={editor}
+            className={cn('noto-prose', !wordWrap && 'noto-prose-nowrap')}
+            style={{ fontSize: `${clampZoom(zoom)}em` }}
+            id="noto-document-body"
+          />
         </article>
+      </div>
+    </div>
+  );
+}
+
+interface RecoveryNoticeProps {
+  snapshot: RecoverySnapshot;
+  onRestore(): void;
+  onDiscard(): void;
+}
+
+/**
+ * Offers back work that never reached storage.
+ *
+ * Phrased as a choice rather than applied automatically: the snapshot is newer,
+ * but newer is not the same as wanted, and silently replacing what someone sees
+ * with something they did not ask for is the one outcome worse than losing the
+ * tail of a sentence.
+ */
+function RecoveryNotice({ snapshot, onRestore, onDiscard }: RecoveryNoticeProps) {
+  const when = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+        snapshot.savedAt,
+      );
+    } catch {
+      return null;
+    }
+  }, [snapshot.savedAt]);
+
+  return (
+    <div
+      role="status"
+      className="border-warning/40 bg-warning/10 mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 sm:mx-8"
+    >
+      <AlertIcon className="text-warning h-5 w-5 shrink-0" />
+      <p className="text-primary text-body-sm min-w-0 flex-1">
+        Noto kept changes to this document that were never saved
+        {when ? `, from ${when}` : ''}.
+      </p>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button size="sm" variant="primary" onClick={onRestore}>
+          Restore them
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDiscard}>
+          Discard
+        </Button>
       </div>
     </div>
   );

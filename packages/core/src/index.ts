@@ -2,6 +2,7 @@ export * from './result';
 export * from './id';
 export * from './clock';
 export * from './text';
+export * from './zoom';
 export * from './documents';
 export * from './folders';
 export * from './commands';

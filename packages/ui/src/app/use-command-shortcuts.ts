@@ -1,4 +1,4 @@
-import { CORE_COMMANDS, type CommandContext, type ShortcutPlatform } from '@noto/core';
+import { CORE_COMMANDS, type CommandContext, type ShortcutPlatform, scopeOf } from '@noto/core';
 import { findCommandForEvent } from '@noto/core';
 import { useEffect, useRef } from 'react';
 
@@ -18,6 +18,15 @@ export function detectShortcutPlatform(): ShortcutPlatform {
   const agent = navigator.userAgent || '';
   return /mac|iphone|ipad|ipod/i.test(`${platform} ${agent}`) ? 'mac' : 'other';
 }
+
+/**
+ * The commands this listener may fire.
+ *
+ * Editor-scoped accelerators are bound inside ProseMirror, so they are filtered
+ * out here rather than relying on no handler being registered for them: a
+ * second binding would toggle a mark on and immediately back off.
+ */
+const APP_COMMANDS = CORE_COMMANDS.filter((command) => scopeOf(command) === 'app');
 
 /**
  * Binds command accelerators to handlers for as long as the component is mounted.
@@ -48,7 +57,7 @@ export function useCommandShortcuts(handlers: CommandHandlers, context: CommandC
       // A key still being composed into a character (IME) is not a shortcut.
       if (event.isComposing) return;
 
-      const command = findCommandForEvent(CORE_COMMANDS, event, contextRef.current, platform);
+      const command = findCommandForEvent(APP_COMMANDS, event, contextRef.current, platform);
       if (!command) return;
 
       const handler = handlersRef.current[command.id];

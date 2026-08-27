@@ -10,6 +10,13 @@ export interface EditorSettings {
   contentWidth: number | null;
   spellCheck: boolean;
   autoSaveDelayMs: number;
+  /**
+   * Wrap long lines to the measure. Off lets them run, and the block scrolls
+   * sideways — which is what someone pasting a wide log or a long URL wants.
+   */
+  wordWrap: boolean;
+  /** Presentation scale for the editing canvas. 1 is 100%. */
+  zoom: number;
 }
 
 export interface AppearanceSettings {
