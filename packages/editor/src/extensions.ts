@@ -5,6 +5,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import StarterKit from '@tiptap/starter-kit';
 
 import { NotoKeymap } from './keymap';
+import { NotoSearch } from './search';
 
 /**
  * The Noto document schema.
@@ -69,6 +70,9 @@ export function createNotoExtensions(options: NotoExtensionOptions = {}): Extens
     TableKit.configure({
       table: { resizable: true },
     }),
+
+    // Holds the find query and decorates its matches.
+    NotoSearch,
 
     // Last, so its bindings take precedence over the defaults above.
     NotoKeymap,

@@ -1,15 +1,24 @@
 import { useUiStore } from '@noto/core';
-import { useState } from 'react';
+import type { Id } from '@noto/types';
+import { useEffect, useRef, useState } from 'react';
 
 import notoIcon from '../assets/noto-icon.png';
 import notoWordmark from '../assets/noto-wordmark.png';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
-import { DocumentIcon, PlusIcon, SidebarIcon, TrashIcon } from '../components/icons';
+import {
+  ClockIcon,
+  DocumentIcon,
+  PencilIcon,
+  PlusIcon,
+  SidebarIcon,
+  TrashIcon,
+} from '../components/icons';
 import { EmptyPageIllustration } from '../components/illustrations';
 import { cn } from '../utils/cn';
 import { useNotoData } from './data-context';
+import { useDocumentTabs } from './use-document-tabs';
 
 /**
  * The sidebar.
@@ -19,8 +28,8 @@ import { useNotoData } from './data-context';
  * row. The document list is the thing here; everything else gets out of its way.
  */
 export function Sidebar() {
-  const { workspace, documents, activeDocument, selectDocument, createDocument, deleteDocument } =
-    useNotoData();
+  const { workspace, documents, activeDocument, updateDocument, deleteDocument } = useNotoData();
+  const tabs = useDocumentTabs();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
@@ -29,6 +38,9 @@ export function Sidebar() {
    * and anything else in the list dismisses the question.
    */
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  /* Renaming happens in place, in the row, rather than in a dialog about it. */
+  const [renamingId, setRenamingId] = useState<Id | null>(null);
 
   /*
    * The brand bar matches the global header's height, so the rule under the two
@@ -60,7 +72,7 @@ export function Sidebar() {
         <div className="flex flex-col items-center py-3">
           <button
             type="button"
-            onClick={() => void createDocument()}
+            onClick={() => void tabs.create()}
             aria-label="New document"
             title="New document"
             className="bg-brand text-on-brand hover:bg-brand-hover focus-visible:ring-brand focus-visible:ring-offset-surface-secondary flex h-9 w-9 items-center justify-center rounded-md shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -91,7 +103,7 @@ export function Sidebar() {
       <div className="px-3 pt-4 pb-3">
         <Button
           variant="primary"
-          onClick={() => void createDocument()}
+          onClick={() => void tabs.create()}
           leading={<PlusIcon className="h-5 w-5" />}
           className="w-full"
         >
@@ -126,9 +138,26 @@ export function Sidebar() {
             className="px-2 py-8"
           />
         ) : (
-          <ul className="flex flex-col gap-0.5">
+          /* Named, because the sidebar holds two lists and a screen reader
+             moving between them needs to be told which is which. */
+          <ul className="flex flex-col gap-0.5" aria-label="All documents">
             {documents.map((document) => {
               const isActive = document.id === activeDocument?.id;
+
+              if (renamingId === document.id) {
+                return (
+                  <li key={document.id}>
+                    <RenameRow
+                      title={document.title}
+                      onCommit={(title) => {
+                        setRenamingId(null);
+                        if (title !== document.title) void updateDocument(document.id, { title });
+                      }}
+                      onCancel={() => setRenamingId(null)}
+                    />
+                  </li>
+                );
+              }
 
               return (
                 <li key={document.id} className="group/row relative">
@@ -136,8 +165,9 @@ export function Sidebar() {
                     type="button"
                     onClick={() => {
                       setConfirmingId(null);
-                      selectDocument(document.id);
+                      tabs.open(document.id);
                     }}
+                    onDoubleClick={() => setRenamingId(document.id)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'flex w-full items-start gap-2.5 rounded-md py-2 pr-9 pl-2.5 text-left transition-colors',
@@ -190,30 +220,127 @@ export function Sidebar() {
                       </Button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingId(document.id)}
-                      aria-label={`Move ${document.title} to trash`}
-                      title="Move to trash"
-                      /*
-                       * Hidden until the row is hovered, but always reachable by
-                       * keyboard — focus-visible brings it back.
-                       */
-                      className={cn(
-                        'text-tertiary hover:bg-surface hover:text-danger focus-visible:outline-brand absolute top-1.5 right-1.5',
-                        'flex h-7 w-7 items-center justify-center rounded-sm opacity-0 transition',
-                        'group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-2',
-                      )}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
+                    /*
+                     * Hidden until the row is hovered, but always reachable by
+                     * keyboard — focus-visible brings them back.
+                     */
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => setRenamingId(document.id)}
+                        aria-label={`Rename ${document.title}`}
+                        title="Rename"
+                        className={cn(
+                          'text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand',
+                          'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
+                        )}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(document.id)}
+                        aria-label={`Move ${document.title} to trash`}
+                        title="Move to trash"
+                        className={cn(
+                          'text-tertiary hover:bg-surface hover:text-danger focus-visible:outline-brand',
+                          'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
+                        )}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
                   )}
                 </li>
               );
             })}
           </ul>
         )}
+
+        {/*
+         * Documents opened before and since closed. This is what "recent
+         * files" means in an application with no file dialog: the way back to
+         * something you were working on without hunting the whole list.
+         */}
+        {tabs.recent.length > 0 ? (
+          <section className="mt-6" aria-labelledby="noto-recent-heading">
+            <h2
+              id="noto-recent-heading"
+              className="text-tertiary text-caption flex items-center gap-1.5 px-2.5 pb-1 tracking-wide uppercase"
+            >
+              <ClockIcon className="h-3.5 w-3.5" />
+              Recent
+            </h2>
+            <ul className="flex flex-col gap-0.5">
+              {tabs.recent.slice(0, 5).map((document) => (
+                <li key={document.id}>
+                  <button
+                    type="button"
+                    onClick={() => tabs.open(document.id)}
+                    className="text-secondary hover:bg-surface hover:text-primary focus-visible:outline-brand text-body-sm w-full truncate rounded-md px-2.5 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2"
+                  >
+                    {document.title || 'Untitled'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </nav>
     </aside>
+  );
+}
+
+interface RenameRowProps {
+  title: string;
+  onCommit(title: string): void;
+  onCancel(): void;
+}
+
+/**
+ * Renaming a document, in the row the document already occupies.
+ *
+ * Committing on blur as well as on Enter is deliberate: the field appears under
+ * the pointer, so clicking away is at least as likely as pressing a key, and
+ * losing a rename to a stray click would be its own small betrayal. Escape is
+ * the way out that keeps the old name.
+ */
+function RenameRow({ title, onCommit, onCancel }: RenameRowProps) {
+  const [value, setValue] = useState(title);
+  const ref = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
+
+  useEffect(() => {
+    ref.current?.select();
+  }, []);
+
+  const commit = () => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+
+    const next = value.trim();
+    onCommit(next === '' ? title : next);
+  };
+
+  return (
+    <input
+      ref={ref}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          committedRef.current = true;
+          onCancel();
+        }
+      }}
+      aria-label={`Rename ${title}`}
+      className="border-brand bg-surface text-primary text-body-sm focus-visible:outline-brand w-full rounded-md border px-2 py-1.5 font-medium focus-visible:outline-2 focus-visible:-outline-offset-2"
+    />
   );
 }

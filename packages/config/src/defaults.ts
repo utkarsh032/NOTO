@@ -1,6 +1,6 @@
 import type { Settings } from '@noto/types';
 
-import { AUTOSAVE_DELAY_MS } from './app';
+import { AUTOSAVE_DELAY_MS, DEFAULT_ZOOM } from './app';
 import { brand, layout } from './tokens';
 
 /** The settings a fresh Noto install starts from. Sync is off until opted into. */
@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS: Settings = {
     contentWidth: layout.editorMaxWidth,
     spellCheck: true,
     autoSaveDelayMs: AUTOSAVE_DELAY_MS,
+    wordWrap: true,
+    zoom: DEFAULT_ZOOM,
   },
   syncEnabled: false,
 };

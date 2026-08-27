@@ -17,14 +17,17 @@ export const TEXT_ALIGNMENTS = ['left', 'center', 'right', 'justify'] as const;
 export type TextAlignment = (typeof TEXT_ALIGNMENTS)[number];
 
 /** Runs a command against the editor; `false` when it did not apply. */
-export type FormatAction = (editor: Editor) => boolean;
+export type EditorAction = (editor: Editor) => boolean;
 
 /*
  * `focus()` leads every chain because half of these run from a toolbar button,
  * which takes the caret out of the document when it is clicked. Restoring it
  * first is what makes the button act on the selection the user still sees.
  */
-export const FORMAT_ACTIONS: Readonly<Record<string, FormatAction>> = {
+export const EDITOR_ACTIONS: Readonly<Record<string, EditorAction>> = {
+  'edit.undo': (editor) => editor.chain().focus().undo().run(),
+  'edit.redo': (editor) => editor.chain().focus().redo().run(),
+
   'format.bold': (editor) => editor.chain().focus().toggleBold().run(),
   'format.italic': (editor) => editor.chain().focus().toggleItalic().run(),
   'format.underline': (editor) => editor.chain().focus().toggleUnderline().run(),
@@ -70,10 +73,10 @@ export const FORMAT_ACTIONS: Readonly<Record<string, FormatAction>> = {
  * Link, image and table are not: they need a URL or a size from the user first,
  * so the UI collects that and calls the functions below instead.
  */
-export function runFormatAction(editor: Editor | null, commandId: string): boolean {
+export function runEditorAction(editor: Editor | null, commandId: string): boolean {
   if (!editor) return false;
 
-  const action = FORMAT_ACTIONS[commandId];
+  const action = EDITOR_ACTIONS[commandId];
   return action ? action(editor) : false;
 }
 
@@ -209,6 +212,8 @@ export interface EditorFormatState {
   isInTable: boolean;
   /** The link under the caret, for the link dialog to open with. */
   linkHref: string | null;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export const EMPTY_FORMAT_STATE: EditorFormatState = {
@@ -216,6 +221,8 @@ export const EMPTY_FORMAT_STATE: EditorFormatState = {
   isEditable: false,
   isInTable: false,
   linkHref: null,
+  canUndo: false,
+  canRedo: false,
 };
 
 export function readFormatState(editor: Editor | null): EditorFormatState {
@@ -231,5 +238,9 @@ export function readFormatState(editor: Editor | null): EditorFormatState {
     isEditable: editor.isEditable,
     isInTable: editor.isActive('table'),
     linkHref: currentLinkHref(editor),
+    // Asked of the editor rather than tracked here: ProseMirror's history is
+    // the only thing that knows whether a step is left to undo.
+    canUndo: editor.can().undo(),
+    canRedo: editor.can().redo(),
   };
 }

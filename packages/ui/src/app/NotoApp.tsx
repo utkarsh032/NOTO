@@ -1,6 +1,13 @@
-import { nextThemeMode, useSettingsStore, useUiStore } from '@noto/core';
+import {
+  clampZoom,
+  nextThemeMode,
+  useSettingsStore,
+  useUiStore,
+  zoomIn,
+  zoomOut,
+} from '@noto/core';
 import type { ThemeMode } from '@noto/types';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef } from 'react';
 
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
@@ -16,9 +23,11 @@ import {
 } from '../components/icons';
 import { WritingIllustration } from '../components/illustrations';
 import { DocumentEditor } from './DocumentEditor';
+import { TabBar } from './TabBar';
 import { Sidebar } from './Sidebar';
 import { useNotoData } from './data-context';
 import { useCommandShortcuts } from './use-command-shortcuts';
+import { useDocumentTabs } from './use-document-tabs';
 import { useResponsiveSidebar } from './use-responsive-sidebar';
 
 /** What the theme control shows, and what it says it will do when pressed. */
@@ -39,12 +48,35 @@ const THEME_CONTROL: Record<
  * or behaves.
  */
 export function NotoApp() {
-  const { status, error, workspace, activeDocument, createDocument } = useNotoData();
+  const { status, error, workspace, activeDocument } = useNotoData();
+  const tabs = useDocumentTabs();
 
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const theme = useSettingsStore((state) => state.settings.appearance.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
+  const editorSettings = useSettingsStore((state) => state.settings.editor);
+  const updateEditor = useSettingsStore((state) => state.updateEditor);
+
+  /*
+   * Save All flushes every mounted editor. Only the front tab is mounted today,
+   * so it flushes one — but it is the editors that hold unwritten work, not the
+   * shell, and asking them is the arrangement that keeps working when a split
+   * view mounts two.
+   */
+  const flushRef = useRef(new Map<string, () => void>());
+
+  const registerFlush = useCallback((documentId: string, flush: (() => void) | null) => {
+    if (flush) flushRef.current.set(documentId, flush);
+    else flushRef.current.delete(documentId);
+  }, []);
+
+  const saveAll = useCallback(() => {
+    for (const flush of flushRef.current.values()) flush();
+  }, []);
+
+  const activeDocumentId = activeDocument?.id ?? null;
+  const zoom = clampZoom(editorSettings.zoom);
 
   /*
    * Shell-level accelerators. Save is deliberately absent: the editor binds it,
@@ -52,10 +84,30 @@ export function NotoApp() {
    */
   const shortcutHandlers = useMemo(
     () => ({
-      'document.new': () => void createDocument(),
+      'document.new': () => void tabs.create(),
+      'document.saveAll': saveAll,
+      'document.close': () => {
+        if (activeDocumentId) tabs.close(activeDocumentId);
+      },
+      'document.closeAll': tabs.closeAll,
       'view.toggleSidebar': toggleSidebar,
+      'view.zoomIn': () => updateEditor({ zoom: zoomIn(zoom) }),
+      'view.zoomOut': () => updateEditor({ zoom: zoomOut(zoom) }),
+      'view.zoomReset': () => updateEditor({ zoom: 1 }),
+      'view.toggleWordWrap': () => updateEditor({ wordWrap: !editorSettings.wordWrap }),
+      'view.toggleTheme': () => setTheme(nextThemeMode(theme)),
     }),
-    [createDocument, toggleSidebar],
+    [
+      tabs,
+      saveAll,
+      activeDocumentId,
+      toggleSidebar,
+      updateEditor,
+      zoom,
+      editorSettings.wordWrap,
+      setTheme,
+      theme,
+    ],
   );
 
   useCommandShortcuts(shortcutHandlers, {
@@ -127,7 +179,14 @@ export function NotoApp() {
   let content: ReactNode = null;
   if (activeDocument) {
     // Keyed so switching documents remounts the editor with fresh state.
-    content = <DocumentEditor key={activeDocument.id} document={activeDocument} />;
+    content = (
+      <DocumentEditor
+        key={activeDocument.id}
+        document={activeDocument}
+        onDirtyChange={tabs.setDirty}
+        onRegisterFlush={(flush) => registerFlush(activeDocument.id, flush)}
+      />
+    );
   } else if (activeDocument === null) {
     content = (
       <EmptyState
@@ -137,7 +196,7 @@ export function NotoApp() {
         action={
           <Button
             variant="primary"
-            onClick={() => void createDocument()}
+            onClick={() => void tabs.create()}
             leading={<PlusIcon className="h-5 w-5" />}
           >
             New document
@@ -194,6 +253,14 @@ export function NotoApp() {
             <ThemeIcon className="h-5 w-5" />
           </button>
         </header>
+
+        {/* Between the header and the document, where a tab bar belongs. */}
+        <TabBar
+          tabs={tabs.tabs}
+          onSelect={tabs.open}
+          onClose={tabs.close}
+          className="border-default bg-surface-secondary shrink-0 border-b px-2 pt-1"
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
       </main>

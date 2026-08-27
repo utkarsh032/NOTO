@@ -16,10 +16,23 @@ export interface CommandContext {
   isInTable?: boolean;
 }
 
+/**
+ * Who owns a command's accelerator.
+ *
+ * `editor` keys are bound inside ProseMirror by `@noto/editor`, because they
+ * act on the document and must not fire while the caret is somewhere else.
+ * `app` keys are bound on the window. The distinction is load-bearing: binding
+ * one key in both places runs the command twice, which for a toggle means
+ * turning it on and straight back off.
+ */
+export type CommandScope = 'app' | 'editor';
+
 export interface Command {
   id: string;
   title: string;
   category: CommandCategory;
+  /** Defaults to `'app'` when omitted. */
+  scope?: CommandScope;
   /**
    * Accelerator in Electron/CodeMirror notation. `CmdOrCtrl` is resolved to the
    * platform modifier at display time.
@@ -35,6 +48,11 @@ const requiresEditable = (context: CommandContext): boolean =>
   context.hasActiveDocument && context.isEditable;
 const requiresTable = (context: CommandContext): boolean =>
   requiresEditable(context) && context.isInTable === true;
+
+/** Where a command's accelerator is bound; `app` unless it says otherwise. */
+export function scopeOf(command: Command): CommandScope {
+  return command.scope ?? 'app';
+}
 
 /** The commands available before any feature work begins. */
 export const CORE_COMMANDS: readonly Command[] = [
@@ -76,6 +94,37 @@ export const CORE_COMMANDS: readonly Command[] = [
     category: 'file',
     isEnabled: requiresDocument,
   },
+  {
+    id: 'document.rename',
+    title: 'Rename Document',
+    category: 'file',
+    shortcut: 'F2',
+    keywords: ['title', 'name'],
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'document.saveAll',
+    title: 'Save All',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+Alt+S',
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'document.close',
+    title: 'Close Document',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+W',
+    keywords: ['tab'],
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'document.closeAll',
+    title: 'Close All Documents',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+Shift+W',
+    keywords: ['tabs'],
+    isEnabled: requiresDocument,
+  },
 
   /*
    * Formatting.
@@ -92,6 +141,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.bold',
     title: 'Bold',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+B',
     keywords: ['strong', 'weight'],
     isEnabled: requiresEditable,
@@ -100,6 +150,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.italic',
     title: 'Italic',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+I',
     keywords: ['emphasis', 'oblique'],
     isEnabled: requiresEditable,
@@ -108,6 +159,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.underline',
     title: 'Underline',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+U',
     isEnabled: requiresEditable,
   },
@@ -115,6 +167,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.strike',
     title: 'Strikethrough',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+S',
     keywords: ['strikethrough', 'cross out'],
     isEnabled: requiresEditable,
@@ -123,6 +176,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.code',
     title: 'Inline Code',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+E',
     keywords: ['monospace'],
     isEnabled: requiresEditable,
@@ -131,6 +185,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.link',
     title: 'Link',
     category: 'format',
+    scope: 'editor',
     /*
      * Not `CmdOrCtrl+K`, which the command palette already owns. Link is the
      * more common binding elsewhere, but the palette is reachable from every
@@ -144,6 +199,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.paragraph',
     title: 'Paragraph',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Alt+0',
     keywords: ['body', 'normal text'],
     isEnabled: requiresEditable,
@@ -152,6 +208,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.heading1',
     title: 'Heading 1',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Alt+1',
     keywords: ['title', 'h1'],
     isEnabled: requiresEditable,
@@ -160,6 +217,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.heading2',
     title: 'Heading 2',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Alt+2',
     keywords: ['subtitle', 'h2'],
     isEnabled: requiresEditable,
@@ -168,6 +226,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.heading3',
     title: 'Heading 3',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Alt+3',
     keywords: ['h3'],
     isEnabled: requiresEditable,
@@ -176,6 +235,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.bulletList',
     title: 'Bullet List',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+8',
     keywords: ['unordered', 'bullets', 'points'],
     isEnabled: requiresEditable,
@@ -184,6 +244,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.orderedList',
     title: 'Numbered List',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+7',
     keywords: ['ordered', 'numbers'],
     isEnabled: requiresEditable,
@@ -192,6 +253,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.blockquote',
     title: 'Blockquote',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+B',
     keywords: ['quote', 'citation'],
     isEnabled: requiresEditable,
@@ -200,6 +262,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.codeBlock',
     title: 'Code Block',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Alt+C',
     keywords: ['snippet', 'fenced', 'monospace'],
     isEnabled: requiresEditable,
@@ -208,6 +271,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.alignLeft',
     title: 'Align Left',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+L',
     keywords: ['alignment'],
     isEnabled: requiresEditable,
@@ -216,6 +280,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.alignCenter',
     title: 'Align Center',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+E',
     keywords: ['alignment', 'centre'],
     isEnabled: requiresEditable,
@@ -224,6 +289,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.alignRight',
     title: 'Align Right',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+R',
     keywords: ['alignment'],
     isEnabled: requiresEditable,
@@ -232,6 +298,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.alignJustify',
     title: 'Justify',
     category: 'format',
+    scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+J',
     keywords: ['alignment', 'justified'],
     isEnabled: requiresEditable,
@@ -240,6 +307,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'format.clear',
     title: 'Clear Formatting',
     category: 'format',
+    scope: 'editor',
     keywords: ['remove', 'plain', 'reset'],
     isEnabled: requiresEditable,
   },
@@ -249,6 +317,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'insert.image',
     title: 'Insert Image',
     category: 'insert',
+    scope: 'editor',
     keywords: ['picture', 'photo', 'figure'],
     isEnabled: requiresEditable,
   },
@@ -256,6 +325,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'insert.horizontalRule',
     title: 'Insert Divider',
     category: 'insert',
+    scope: 'editor',
     keywords: ['horizontal rule', 'separator', 'line'],
     isEnabled: requiresEditable,
   },
@@ -263,6 +333,7 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'insert.table',
     title: 'Insert Table',
     category: 'insert',
+    scope: 'editor',
     keywords: ['grid', 'rows', 'columns'],
     isEnabled: requiresEditable,
   },
@@ -270,43 +341,133 @@ export const CORE_COMMANDS: readonly Command[] = [
     id: 'table.addRowAfter',
     title: 'Insert Row Below',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
   {
     id: 'table.addColumnAfter',
     title: 'Insert Column After',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
   {
     id: 'table.deleteRow',
     title: 'Delete Row',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
   {
     id: 'table.deleteColumn',
     title: 'Delete Column',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
   {
     id: 'table.toggleHeaderRow',
     title: 'Toggle Header Row',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
   {
     id: 'table.delete',
     title: 'Delete Table',
     category: 'insert',
+    scope: 'editor',
     isEnabled: requiresTable,
   },
+  /*
+   * Editing history. Bound inside the editor rather than on the window: undo
+   * belongs to whatever holds the caret, and ProseMirror already owns the keys.
+   */
+  {
+    id: 'edit.undo',
+    title: 'Undo',
+    category: 'edit',
+    scope: 'editor',
+    shortcut: 'CmdOrCtrl+Z',
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'edit.redo',
+    title: 'Redo',
+    category: 'edit',
+    scope: 'editor',
+    shortcut: 'CmdOrCtrl+Shift+Z',
+    isEnabled: requiresEditable,
+  },
+
+  /*
+   * Find and replace stay app-scoped. Their keys have to keep working while the
+   * caret is in the find field — which is exactly when the editor has lost it.
+   */
+  {
+    id: 'edit.find',
+    title: 'Find',
+    category: 'edit',
+    shortcut: 'CmdOrCtrl+F',
+    keywords: ['search'],
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'edit.replace',
+    title: 'Find and Replace',
+    category: 'edit',
+    shortcut: 'CmdOrCtrl+H',
+    keywords: ['search', 'substitute'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'edit.findNext',
+    title: 'Find Next',
+    category: 'edit',
+    shortcut: 'CmdOrCtrl+G',
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'edit.findPrevious',
+    title: 'Find Previous',
+    category: 'edit',
+    shortcut: 'CmdOrCtrl+Shift+G',
+    isEnabled: requiresDocument,
+  },
+
   {
     id: 'view.toggleSidebar',
     title: 'Toggle Sidebar',
     category: 'view',
     shortcut: 'CmdOrCtrl+\\',
+  },
+  {
+    id: 'view.zoomIn',
+    title: 'Zoom In',
+    category: 'view',
+    shortcut: 'CmdOrCtrl+=',
+    keywords: ['larger', 'bigger'],
+  },
+  {
+    id: 'view.zoomOut',
+    title: 'Zoom Out',
+    category: 'view',
+    shortcut: 'CmdOrCtrl+-',
+    keywords: ['smaller'],
+  },
+  {
+    id: 'view.zoomReset',
+    title: 'Reset Zoom',
+    category: 'view',
+    shortcut: 'CmdOrCtrl+0',
+    keywords: ['actual size', '100%'],
+  },
+  {
+    id: 'view.toggleWordWrap',
+    title: 'Toggle Word Wrap',
+    category: 'view',
+    shortcut: 'Alt+Z',
+    keywords: ['wrap', 'lines', 'overflow'],
   },
   {
     id: 'view.toggleTheme',

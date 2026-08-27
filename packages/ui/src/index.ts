@@ -31,6 +31,8 @@ export { NotoApp } from './app/NotoApp';
 export { Sidebar } from './app/Sidebar';
 export { DocumentEditor, type DocumentEditorProps } from './app/DocumentEditor';
 export { EditorToolbar, type EditorToolbarProps } from './app/EditorToolbar';
+export { FindReplaceBar, type FindReplaceBarProps } from './app/FindReplaceBar';
+export { TabBar, type TabBarProps } from './app/TabBar';
 export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
 export {
@@ -39,6 +41,8 @@ export {
   type CommandHandlers,
 } from './app/use-command-shortcuts';
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
+export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
+export { clearSnapshot, readSnapshot, writeSnapshot, type RecoverySnapshot } from './app/recovery';
 export {
   useFormattingPrompts,
   type FormattingPrompts,

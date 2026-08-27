@@ -16,10 +16,16 @@ export interface NotoDataValue {
   workspace: Workspace | null;
   /** `undefined` while the first query is in flight. */
   documents: NotoDocument[] | undefined;
+  /**
+   * The open document. `undefined` while the first query is in flight, `null`
+   * when nothing is open — which is a real state now that documents are opened
+   * in tabs, rather than shorthand for "show the newest one".
+   */
   activeDocument: NotoDocument | null | undefined;
 
   selectDocument(id: string | null): void;
-  createDocument(): Promise<void>;
+  /** Creates a document and returns its id, so the caller can open a tab on it. */
+  createDocument(): Promise<string | null>;
   updateDocument(id: string, patch: UpdateDocumentInput): Promise<void>;
   /**
    * Soft-deletes a document. The row stays on disk as a tombstone so the sync

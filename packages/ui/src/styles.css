@@ -241,3 +241,50 @@
     animation: none;
   }
 }
+
+/*
+ * Find matches.
+ *
+ * ProseMirror's search plugin decorates them; these are the two classes it
+ * uses. The active one has to stand clear of the rest, because "3 of 12" in the
+ * find bar is only useful if the eye can tell which one is the third.
+ */
+
+.noto-prose .ProseMirror-search-match {
+  background: color-mix(in srgb, var(--noto-warning) 30%, transparent);
+  border-radius: 2px;
+}
+
+.noto-prose .ProseMirror-active-search-match {
+  background: color-mix(in srgb, var(--noto-warning) 65%, transparent);
+  border-radius: 2px;
+  /* Amber is amber in both themes, so the text on it is dark in both. */
+  color: var(--noto-on-warning);
+}
+
+/*
+ * Word wrap, off.
+ *
+ * Only the blocks that can outgrow the measure are affected: a code block, a
+ * table, and a paragraph holding one long unbroken string. Prose wraps whatever
+ * the setting says, because prose without wrapping is not a document.
+ */
+
+.noto-prose-nowrap pre {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.noto-prose-nowrap pre code {
+  white-space: inherit;
+}
+
+/* Long URLs and the like stop being broken mid-token and scroll instead. */
+.noto-prose-nowrap p,
+.noto-prose-nowrap li,
+.noto-prose-nowrap h1,
+.noto-prose-nowrap h2,
+.noto-prose-nowrap h3 {
+  overflow-wrap: normal;
+  word-break: normal;
+}
