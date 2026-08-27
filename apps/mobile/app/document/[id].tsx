@@ -1,4 +1,4 @@
-import { spacing } from '@noto/config';
+import { spacing, typeScale } from '@noto/config';
 import { contentFromPlainText, plainTextFromContent } from '@noto/core';
 import type { UpdateDocumentInput } from '@noto/types';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -144,7 +144,7 @@ export default function DocumentScreen() {
       headerRight: () => (
         <Pressable
           onPress={onDelete}
-          hitSlop={spacing.md}
+          hitSlop={spacing[3]}
           accessibilityRole="button"
           accessibilityLabel="Delete document"
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
@@ -157,39 +157,45 @@ export default function DocumentScreen() {
 
   if (status === 'loading' || !active) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.surface }]}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.brand} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.surface }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <TextInput
         value={active.title}
         onChangeText={(title) => edit({ title })}
         placeholder="Untitled"
-        placeholderTextColor={colors.textSubtle}
-        style={[styles.title, { color: colors.text }]}
+        placeholderTextColor={colors.textDisabled}
+        style={[styles.title, { color: colors.textPrimary }]}
       />
 
       <TextInput
         value={active.body}
         onChangeText={(body) => edit({ body })}
         placeholder="Start writing…"
-        placeholderTextColor={colors.textSubtle}
+        placeholderTextColor={colors.textDisabled}
         multiline
         textAlignVertical="top"
-        style={[styles.body, { color: colors.text }]}
+        style={[styles.body, { color: colors.textPrimary }]}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, gap: spacing.md, padding: spacing.lg },
+  screen: { flex: 1, gap: spacing[3], padding: spacing[4] },
   centered: { alignItems: 'center', flex: 1, justifyContent: 'center' },
-  title: { fontSize: 26, fontWeight: '700' },
-  body: { flex: 1, fontSize: 16, lineHeight: 24 },
-  headerAction: { fontSize: 15, fontWeight: '600' },
+  title: {
+    fontSize: typeScale.h1.fontSize,
+    fontWeight: typeScale.h1.fontWeight,
+    lineHeight: typeScale.h1.lineHeight,
+  },
+  /* The reading measure from the design system: a document set at body-large
+     with the editor's generous leading, not the app's chrome sizing. */
+  body: { flex: 1, fontSize: typeScale.bodyLarge.fontSize, lineHeight: 28 },
+  headerAction: { fontSize: typeScale.bodyLarge.fontSize, fontWeight: typeScale.button.fontWeight },
 });

@@ -12,6 +12,8 @@ import { type Editor, useFormatState } from '@noto/editor/react';
 import { type ComponentType, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
+import { Select } from '../components/Input';
+import { fieldClasses } from '../components/field-styles';
 import { ToolbarButton } from '../components/ToolbarButton';
 import {
   AlignCenterIcon,
@@ -92,8 +94,9 @@ const TABLE_CONTROLS = [
   { id: 'table.toggleHeaderRow', label: 'Header row' },
 ];
 
-const FIELD_CLASSES =
-  'bg-surface-raised border-border-subtle text-content placeholder:text-subtle focus-visible:outline-accent h-8 rounded-md border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1';
+/* The toolbar and its prompts share the design system's field styling at the
+   compact size: a 40px input here would push the controls out of line. */
+const FIELD_CLASSES = fieldClasses('sm');
 
 export interface EditorToolbarProps {
   editor: Editor | null;
@@ -130,17 +133,18 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
   return (
     <div className={className}>
       <div
-        className="flex flex-wrap items-center gap-0.5"
+        className="min-h-toolbar flex flex-wrap items-center gap-0.5 py-1.5"
         role="toolbar"
         aria-label="Formatting"
         aria-controls="noto-document-body"
       >
-        <select
+        <Select
           value={activeBlockType}
           onChange={(event) => runFormatAction(editor, event.target.value)}
           disabled={!editor}
           aria-label="Block type"
-          className={cn(FIELD_CLASSES, 'w-28')}
+          fieldSize="sm"
+          className="w-32"
         >
           {/* Code blocks and table cells are none of the four; the picker says
               so rather than claiming the block is a paragraph. */}
@@ -154,7 +158,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
               {type.label}
             </option>
           ))}
-        </select>
+        </Select>
 
         <Separator />
         {MARK_CONTROLS.map(renderControl)}
@@ -212,7 +216,10 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
       ) : null}
 
       {format.isInTable ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1" aria-label="Table">
+        <div
+          className="border-default bg-surface-secondary mb-3 flex flex-wrap items-center gap-1 rounded-md border p-1.5"
+          aria-label="Table"
+        >
           {TABLE_CONTROLS.map((control) => (
             <Button
               key={control.id}
@@ -240,7 +247,7 @@ export function EditorToolbar({ editor, prompts, className }: EditorToolbarProps
 }
 
 function Separator() {
-  return <span className="bg-border-subtle mx-0.5 h-5 w-px shrink-0" aria-hidden="true" />;
+  return <span className="bg-default mx-1.5 h-5 w-px shrink-0" aria-hidden="true" />;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -274,7 +281,7 @@ function PromptForm({
         onClose();
       }}
       aria-label={label}
-      className="border-border-subtle bg-surface-raised mt-2 flex flex-wrap items-center gap-2 rounded-md border p-2"
+      className="border-default bg-surface-secondary mb-3 flex flex-wrap items-center gap-2 rounded-md border p-3"
     >
       {children}
     </form>
@@ -416,7 +423,7 @@ function TablePrompt({ editor, onClose }: PromptProps) {
 
   return (
     <PromptForm label="Insert table" onSubmit={submit} onClose={onClose}>
-      <label className="text-muted flex items-center gap-1.5 text-sm">
+      <label className="text-secondary flex items-center gap-1.5 text-sm">
         Rows
         <input
           ref={inputRef}
@@ -428,7 +435,7 @@ function TablePrompt({ editor, onClose }: PromptProps) {
           className={cn(FIELD_CLASSES, 'w-16')}
         />
       </label>
-      <label className="text-muted flex items-center gap-1.5 text-sm">
+      <label className="text-secondary flex items-center gap-1.5 text-sm">
         Columns
         <input
           value={cols}
@@ -439,12 +446,12 @@ function TablePrompt({ editor, onClose }: PromptProps) {
           className={cn(FIELD_CLASSES, 'w-16')}
         />
       </label>
-      <label className="text-muted flex items-center gap-1.5 text-sm">
+      <label className="text-secondary flex items-center gap-1.5 text-sm">
         <input
           checked={withHeaderRow}
           onChange={(event) => setWithHeaderRow(event.target.checked)}
           type="checkbox"
-          className="accent-accent h-4 w-4"
+          className="accent-brand h-4 w-4"
         />
         Header row
       </label>

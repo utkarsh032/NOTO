@@ -53,7 +53,7 @@ function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-label={`Switch to the ${theme === 'dark' ? 'light' : 'dark'} theme`}
-      className="border-border-subtle text-muted hover:bg-surface-sunken hover:text-content focus-visible:outline-accent rounded-md border px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="border-default text-secondary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand rounded-md border px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       {theme === 'dark' ? 'Light' : 'Dark'}
     </button>
@@ -65,9 +65,9 @@ function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="border-border-subtle bg-surface/90 sticky top-0 z-20 border-b backdrop-blur">
+    <header className="border-default bg-background/90 sticky top-0 z-20 border-b backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="text-content text-lg font-semibold tracking-tight">
+        <Link href="/" className="text-primary text-lg font-semibold tracking-tight">
           Noto
         </Link>
 
@@ -77,8 +77,8 @@ function Header() {
               key={item.href}
               href={item.href}
               aria-current={path === item.href ? 'page' : undefined}
-              className={`hover:bg-surface-sunken rounded-md px-3 py-2 text-sm transition-colors ${
-                path === item.href ? 'text-content font-medium' : 'text-muted'
+              className={`hover:bg-surface-secondary rounded-md px-3 py-2 text-sm transition-colors ${
+                path === item.href ? 'text-primary font-medium' : 'text-secondary'
               }`}
             >
               {item.label}
@@ -90,13 +90,13 @@ function Header() {
           <ThemeToggle />
           <a
             href={WEB_APP_URL}
-            className="bg-accent text-accent-content hover:bg-accent-hover hidden rounded-md px-4 py-2 text-sm font-medium transition-colors sm:inline-flex"
+            className="bg-brand text-on-brand hover:bg-brand-hover hidden rounded-md px-4 py-2 text-sm font-medium transition-colors sm:inline-flex"
           >
             Open Noto
           </a>
           <button
             type="button"
-            className="border-border-subtle text-muted rounded-md border px-2.5 py-1.5 text-sm md:hidden"
+            className="border-default text-secondary rounded-md border px-2.5 py-1.5 text-sm md:hidden"
             aria-expanded={open}
             aria-controls="mobile-nav"
             onClick={() => setOpen((value) => !value)}
@@ -107,18 +107,14 @@ function Header() {
       </Container>
 
       {open ? (
-        <nav
-          id="mobile-nav"
-          className="border-border-subtle border-t md:hidden"
-          aria-label="Primary"
-        >
+        <nav id="mobile-nav" className="border-default border-t md:hidden" aria-label="Primary">
           <Container className="flex flex-col py-2">
             {NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="text-muted hover:bg-surface-sunken rounded-md px-2 py-2.5 text-sm"
+                className="text-secondary hover:bg-surface-secondary rounded-md px-2 py-2.5 text-sm"
               >
                 {item.label}
               </Link>
@@ -132,23 +128,23 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-border-subtle bg-surface-sunken mt-auto border-t py-12">
+    <footer className="border-default bg-surface-secondary mt-auto border-t py-12">
       <Container>
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           <div>
-            <p className="text-content text-base font-semibold">Noto</p>
-            <p className="text-muted mt-2 max-w-xs text-sm">
+            <p className="text-primary text-base font-semibold">Noto</p>
+            <p className="text-secondary mt-2 max-w-xs text-sm">
               Your notes. Your workspace. Local-first, on every platform you use.
             </p>
           </div>
 
           {FOOTER_GROUPS.map((group) => (
             <div key={group.title}>
-              <p className="text-content text-sm font-semibold">{group.title}</p>
+              <p className="text-primary text-sm font-semibold">{group.title}</p>
               <ul className="mt-3 space-y-2">
                 {group.links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-muted hover:text-content text-sm">
+                    <Link href={link.href} className="text-secondary hover:text-primary text-sm">
                       {link.label}
                     </Link>
                   </li>
@@ -158,7 +154,7 @@ function Footer() {
           ))}
         </div>
 
-        <div className="border-border-subtle text-subtle mt-10 flex flex-col gap-2 border-t pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-default text-tertiary mt-10 flex flex-col gap-2 border-t pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Noto. Documents stay on your device.</p>
           <p>
             Website build {BUILD_VERSION}
@@ -176,9 +172,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Non-production deployments say so, so a staging URL is never mistaken
           for the real download page. */}
       {IS_PREVIEW ? (
-        // The amber needs dark text in both themes, so this one colour is fixed
-        // rather than following the inverted-text token.
-        <p className="bg-warning px-4 py-1.5 text-center text-sm font-medium text-[#18181b]">
+        <p className="bg-warning text-on-warning text-caption px-4 py-1.5 text-center font-medium">
           This is the {BUILD_ENV} deployment of the Noto website. Downloads here may not be released
           yet.
         </p>
@@ -186,7 +180,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <a
         href="#main"
-        className="focus:bg-accent focus:text-accent-content sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:px-4 focus:py-2"
+        className="focus:bg-brand focus:text-on-brand sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:px-4 focus:py-2"
       >
         Skip to content
       </a>

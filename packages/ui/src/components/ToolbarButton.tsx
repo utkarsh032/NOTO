@@ -40,12 +40,14 @@ export function ToolbarButton({
       aria-pressed={isActive}
       title={shortcutHint ? `${label} (${shortcutHint})` : label}
       className={cn(
-        'inline-flex h-8 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
-        'focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-1',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
+        'focus-visible:outline-brand focus-visible:outline-2 focus-visible:outline-offset-1',
         'disabled:pointer-events-none disabled:opacity-40',
+        // Active is a brand tint, not a brand fill: a toolbar of filled green
+        // buttons would put the chrome ahead of the document.
         isActive
-          ? 'bg-accent-subtle text-content'
-          : 'text-muted hover:bg-surface-sunken hover:text-content',
+          ? 'bg-brand-soft text-brand-strong'
+          : 'text-secondary hover:bg-surface-secondary hover:text-primary',
       )}
     >
       {children}

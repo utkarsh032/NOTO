@@ -35,24 +35,24 @@ export function Changelog() {
             return (
               <Card key={entry.version}>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-content text-lg font-semibold">{entry.version}</h2>
+                  <h2 className="text-primary text-lg font-semibold">{entry.version}</h2>
                   {entry.date === null ? <Badge tone="accent">In progress</Badge> : null}
-                  <span className="text-subtle text-sm">{formatDate(entry.date)}</span>
+                  <span className="text-tertiary text-sm">{formatDate(entry.date)}</span>
                 </div>
 
-                <p className="text-muted mt-2">{entry.summary}</p>
+                <p className="text-secondary mt-2">{entry.summary}</p>
 
                 <div className="mt-5 space-y-4">
                   {grouped.map((group) => (
                     <div key={group.kind}>
-                      <h3 className="text-subtle text-xs font-semibold tracking-wide uppercase">
+                      <h3 className="text-tertiary text-xs font-semibold tracking-wide uppercase">
                         {CHANGE_KIND_LABEL[group.kind]}
                       </h3>
                       <ul className="mt-2 space-y-1.5">
                         {group.items.map((change) => (
                           <li
                             key={change.description}
-                            className="text-muted ml-5 list-disc text-sm"
+                            className="text-secondary ml-5 list-disc text-sm"
                           >
                             {change.description}
                           </li>
@@ -75,9 +75,9 @@ export function Changelog() {
           </ButtonLink>
         </div>
 
-        <p className="text-subtle mt-6 text-sm">
+        <p className="text-tertiary mt-6 text-sm">
           Looking for the downloads of a specific version? The{' '}
-          <Link href="/download" className="text-accent hover:underline">
+          <Link href="/download" className="text-brand hover:underline">
             download page
           </Link>{' '}
           always points at the latest stable release.
