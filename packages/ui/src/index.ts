@@ -30,6 +30,7 @@ export { useResolvedTheme } from './theme/use-resolved-theme';
 export { NotoApp } from './app/NotoApp';
 export { Sidebar } from './app/Sidebar';
 export { DocumentEditor, type DocumentEditorProps } from './app/DocumentEditor';
+export { EditorScrollArea, type EditorScrollAreaProps } from './app/EditorScrollArea';
 export { EditorToolbar, type EditorToolbarProps } from './app/EditorToolbar';
 export { FindReplaceBar, type FindReplaceBarProps } from './app/FindReplaceBar';
 export { TabBar, type TabBarProps } from './app/TabBar';
@@ -42,6 +43,7 @@ export {
 } from './app/use-command-shortcuts';
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
+export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
 export { clearSnapshot, readSnapshot, writeSnapshot, type RecoverySnapshot } from './app/recovery';
 export {
   useFormattingPrompts,

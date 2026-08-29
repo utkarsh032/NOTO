@@ -110,6 +110,14 @@ export const CORE_COMMANDS: readonly Command[] = [
     isEnabled: requiresDocument,
   },
   {
+    id: 'document.print',
+    title: 'Print Document',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+P',
+    keywords: ['pdf', 'paper', 'export'],
+    isEnabled: requiresDocument,
+  },
+  {
     id: 'document.close',
     title: 'Close Document',
     category: 'file',
@@ -468,6 +476,17 @@ export const CORE_COMMANDS: readonly Command[] = [
     category: 'view',
     shortcut: 'Alt+Z',
     keywords: ['wrap', 'lines', 'overflow'],
+  },
+  {
+    id: 'view.toggleInvisibles',
+    title: 'Show Characters',
+    category: 'view',
+    /*
+     * No accelerator. Word gives this one `Ctrl+Shift+8`, which Noto has
+     * already spent on the bullet list, and the alternatives are all one
+     * mistyped key away from something destructive. The toolbar carries it.
+     */
+    keywords: ['invisible', 'whitespace', 'formatting marks', 'pilcrow', 'spaces', 'tabs'],
   },
   {
     id: 'view.toggleTheme',

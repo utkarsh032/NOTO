@@ -57,7 +57,7 @@ export function Sidebar() {
    */
   if (collapsed) {
     return (
-      <aside className="bg-surface-secondary border-default w-sidebar-collapsed flex h-full shrink-0 flex-col border-r">
+      <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar-collapsed flex h-full shrink-0 flex-col border-r">
         <div className={cn(brandBar, 'justify-center')}>
           <button
             type="button"
@@ -85,7 +85,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="bg-surface-secondary border-default w-sidebar flex h-full shrink-0 flex-col border-r">
+    <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar flex h-full shrink-0 flex-col border-r">
       <header className={cn(brandBar, 'justify-between gap-2 px-5')}>
         {/* The wordmark carries the product name, so the alt text is the name
             itself rather than a description of the picture. */}
@@ -118,7 +118,7 @@ export function Sidebar() {
         </p>
       ) : null}
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Documents">
+      <nav className="noto-scroll flex-1 overflow-y-auto px-3 pb-4" aria-label="Documents">
         {documents === undefined ? (
           /* A skeleton in the shape of the list, rather than a spinner in a
              sidebar-sized hole. */

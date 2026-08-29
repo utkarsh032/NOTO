@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
     autoSaveDelayMs: AUTOSAVE_DELAY_MS,
     wordWrap: true,
     zoom: DEFAULT_ZOOM,
+    showInvisibles: false,
   },
   syncEnabled: false,
 };

@@ -4,6 +4,7 @@ import { TableKit } from '@tiptap/extension-table';
 import TextAlign from '@tiptap/extension-text-align';
 import StarterKit from '@tiptap/starter-kit';
 
+import { NotoInvisibles } from './invisibles';
 import { NotoKeymap } from './keymap';
 import { NotoSearch } from './search';
 
@@ -73,6 +74,9 @@ export function createNotoExtensions(options: NotoExtensionOptions = {}): Extens
 
     // Holds the find query and decorates its matches.
     NotoSearch,
+
+    // Draws spaces, tabs, line breaks and block ends. Idle until switched on.
+    NotoInvisibles,
 
     // Last, so its bindings take precedence over the defaults above.
     NotoKeymap,

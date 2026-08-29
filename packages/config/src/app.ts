@@ -1,5 +1,7 @@
 /** Constants that must agree across web, desktop and mobile. */
 
+import { layout } from './tokens';
+
 export const APP_NAME = 'Noto';
 export const APP_ID = 'com.noto.app';
 
@@ -56,3 +58,13 @@ export const ZOOM_LEVELS = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2] as const;
 
 /** The zoom a document opens at. */
 export const DEFAULT_ZOOM = 1;
+
+/**
+ * How far from the edge of the scroller the caret is kept, in pixels.
+ *
+ * The editor toolbar is sticky at the top of the same scroll container, so a
+ * caret scrolled to the literal top edge lands underneath it. This is the
+ * toolbar's height plus a line of breathing room, and it is applied at the
+ * bottom too — typing on the last visible line should not sit on the rim.
+ */
+export const EDITOR_SCROLL_MARGIN = layout.toolbarHeight + 24;

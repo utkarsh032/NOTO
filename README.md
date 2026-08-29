@@ -328,7 +328,7 @@ The foundation is in place and verified end to end:
 - Web, desktop and mobile applications all start and share the same core, editor,
   storage and design-token packages.
 - Documents persist locally — IndexedDB on web, SQLite on desktop and mobile.
-- 50 unit tests, 3 Playwright end-to-end tests, lint and typecheck all pass.
+- 118 unit tests, 39 Playwright end-to-end tests, lint and typecheck all pass.
 - The public website builds, with a download page that resolves the latest release from
   GitHub at runtime.
 - The build and release pipeline is in place: CI on every pull request, Cloudflare Workers
