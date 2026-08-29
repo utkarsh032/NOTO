@@ -1,5 +1,5 @@
 import { clampZoom, useSettingsStore } from '@noto/core';
-import { toEditorContent } from '@noto/editor';
+import { setShowInvisibles, toEditorContent } from '@noto/editor';
 import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,6 +11,7 @@ import { cn } from '../utils/cn';
 import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
 import { useNotoData } from './data-context';
+import { printDocument } from './print';
 import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
 import { useFormattingPrompts } from './use-formatting-prompts';
@@ -48,7 +49,9 @@ export function DocumentEditor({
   onRegisterFlush,
 }: DocumentEditorProps) {
   const { updateDocument } = useNotoData();
-  const { autoSaveDelayMs, wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
+  const { autoSaveDelayMs, showInvisibles, wordWrap, zoom } = useSettingsStore(
+    (state) => state.settings.editor,
+  );
 
   const [title, setTitle] = useState(activeDocument.title);
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -223,6 +226,26 @@ export function DocumentEditor({
     autofocus: true,
   });
 
+  /*
+   * Show Characters is a setting, not document state, so it is pushed into the
+   * editor rather than passed at creation: switching it must not rebuild the
+   * editor and lose the caret.
+   */
+  useEffect(() => {
+    setShowInvisibles(editor, showInvisibles);
+  }, [editor, showInvisibles]);
+
+  /*
+   * Printing writes first. The page that comes out of the printer is rendered
+   * from the DOM, so it already shows the latest keystroke — but a document
+   * that has just been printed and then lost to a crash would be the worst of
+   * both, and flushing costs nothing next to opening a print dialog.
+   */
+  const print = useCallback(async () => {
+    await flush();
+    await printDocument();
+  }, [flush]);
+
   const restore = useCallback(() => {
     if (!recovered || !editor) return;
 
@@ -261,10 +284,11 @@ export function DocumentEditor({
   const shortcutHandlers = useMemo(
     () => ({
       'document.save': () => void flush(),
+      'document.print': () => void print(),
       'edit.find': () => setFind({ open: true, replace: false }),
       'edit.replace': () => setFind({ open: true, replace: true }),
     }),
-    [flush],
+    [flush, print],
   );
 
   useCommandShortcuts(shortcutHandlers, {
@@ -287,12 +311,14 @@ export function DocumentEditor({
    */
   return (
     <div className="flex min-h-full flex-col">
-      {/* Sticky, so the controls are still there three pages into a document. */}
-      <div className="bg-background sticky top-0 z-10">
+      {/* Sticky, so the controls are still there three pages into a document.
+          None of it belongs on paper, hence `noto-print-hidden`. */}
+      <div className="noto-print-hidden bg-background sticky top-0 z-10">
         <EditorToolbar
           editor={editor}
           prompts={prompts}
           onFind={() => setFind({ open: true, replace: false })}
+          onPrint={() => void print()}
           className="border-default border-b px-4 sm:px-6"
         />
 
@@ -310,8 +336,10 @@ export function DocumentEditor({
         <RecoveryNotice snapshot={recovered} onRestore={restore} onDiscard={discardRecovery} />
       ) : null}
 
-      <div className="max-w-editor mx-auto w-full flex-1 px-4 py-6 sm:px-8 sm:py-8">
-        <article className="border-default bg-surface rounded-lg border px-5 py-8 shadow-sm sm:px-10 sm:py-10">
+      <div className="noto-print-sheet max-w-editor mx-auto w-full flex-1 px-4 py-6 sm:px-8 sm:py-8">
+        {/* `noto-print-document` is what the print rules strip the card back to
+            a page with: no border, no shadow, no measure of its own. */}
+        <article className="noto-print-document border-default bg-surface rounded-lg border px-5 py-8 shadow-sm sm:px-10 sm:py-10">
           <div className="mb-6">
             <div className="mb-1 flex items-baseline justify-between gap-4">
               {/*
@@ -326,7 +354,11 @@ export function DocumentEditor({
                 aria-label="Document title"
                 className="text-primary placeholder:text-disabled text-h1 w-full min-w-0 flex-1 bg-transparent outline-none"
               />
-              <StatusIndicator status={save.status} label={save.label} className="shrink-0" />
+              <StatusIndicator
+                status={save.status}
+                label={save.label}
+                className="noto-print-hidden shrink-0"
+              />
             </div>
 
             {/* Metadata is present but quiet: it is about the document, not the
@@ -383,7 +415,7 @@ function RecoveryNotice({ snapshot, onRestore, onDiscard }: RecoveryNoticeProps)
   return (
     <div
       role="status"
-      className="border-warning/40 bg-warning/10 mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 sm:mx-8"
+      className="noto-print-hidden border-warning/40 bg-warning/10 mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 sm:mx-8"
     >
       <AlertIcon className="text-warning h-5 w-5 shrink-0" />
       <p className="text-primary text-body-sm min-w-0 flex-1">

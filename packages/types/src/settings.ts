@@ -17,6 +17,12 @@ export interface EditorSettings {
   wordWrap: boolean;
   /** Presentation scale for the editing canvas. 1 is 100%. */
   zoom: number;
+  /**
+   * Draw the characters that take up space but have no shape — spaces, tabs,
+   * line breaks, paragraph ends. Off by default: it is a tool for working on
+   * structured text, not a way to read a document.
+   */
+  showInvisibles: boolean;
 }
 
 export interface AppearanceSettings {

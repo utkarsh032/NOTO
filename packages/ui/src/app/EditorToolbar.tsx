@@ -40,6 +40,8 @@ import {
   ItalicIcon,
   LinkIcon,
   OrderedListIcon,
+  PilcrowIcon,
+  PrinterIcon,
   QuoteIcon,
   RedoIcon,
   SearchIcon,
@@ -118,10 +120,12 @@ export interface EditorToolbarProps {
   prompts: FormattingPrompts;
   /** Opens the find bar, which the editor pane owns. */
   onFind?(): void;
+  /** Sends the document to the printer. */
+  onPrint?(): void;
   className?: string;
 }
 
-export function EditorToolbar({ editor, prompts, onFind, className }: EditorToolbarProps) {
+export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: EditorToolbarProps) {
   const format = useFormatState(editor);
   const platform = useMemo(() => detectShortcutPlatform(), []);
 
@@ -130,7 +134,7 @@ export function EditorToolbar({ editor, prompts, onFind, className }: EditorTool
    * reader sees every document, and survive a restart. The toolbar is simply
    * the nearest place to reach them.
    */
-  const { wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
+  const { showInvisibles, wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
   const updateEditor = useSettingsStore((state) => state.updateEditor);
 
   const hint = (commandId: string): string | undefined => {
@@ -249,6 +253,14 @@ export function EditorToolbar({ editor, prompts, onFind, className }: EditorTool
         >
           <SearchIcon />
         </ToolbarButton>
+        <ToolbarButton
+          label={title('document.print')}
+          shortcutHint={hint('document.print')}
+          disabled={!onPrint}
+          onClick={() => onPrint?.()}
+        >
+          <PrinterIcon />
+        </ToolbarButton>
 
         {/*
          * View controls sit at the far end, pushed there rather than ordered
@@ -257,6 +269,13 @@ export function EditorToolbar({ editor, prompts, onFind, className }: EditorTool
          */}
         <span className="flex-1" aria-hidden="true" />
 
+        <ToolbarButton
+          label={title('view.toggleInvisibles')}
+          isActive={showInvisibles}
+          onClick={() => updateEditor({ showInvisibles: !showInvisibles })}
+        >
+          <PilcrowIcon />
+        </ToolbarButton>
         <ToolbarButton
           label={title('view.toggleWordWrap')}
           shortcutHint={hint('view.toggleWordWrap')}

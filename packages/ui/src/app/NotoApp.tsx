@@ -23,6 +23,7 @@ import {
 } from '../components/icons';
 import { WritingIllustration } from '../components/illustrations';
 import { DocumentEditor } from './DocumentEditor';
+import { EditorScrollArea } from './EditorScrollArea';
 import { TabBar } from './TabBar';
 import { Sidebar } from './Sidebar';
 import { useNotoData } from './data-context';
@@ -95,6 +96,8 @@ export function NotoApp() {
       'view.zoomOut': () => updateEditor({ zoom: zoomOut(zoom) }),
       'view.zoomReset': () => updateEditor({ zoom: 1 }),
       'view.toggleWordWrap': () => updateEditor({ wordWrap: !editorSettings.wordWrap }),
+      'view.toggleInvisibles': () =>
+        updateEditor({ showInvisibles: !editorSettings.showInvisibles }),
       'view.toggleTheme': () => setTheme(nextThemeMode(theme)),
     }),
     [
@@ -105,6 +108,7 @@ export function NotoApp() {
       updateEditor,
       zoom,
       editorSettings.wordWrap,
+      editorSettings.showInvisibles,
       setTheme,
       theme,
     ],
@@ -217,7 +221,7 @@ export function NotoApp() {
       <main className="flex min-w-0 flex-1 flex-col">
         {/* Same height as the sidebar's brand bar, so the rule under the two
             of them is a single unbroken line across the window. */}
-        <header className="border-default bg-background h-header flex shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-6">
+        <header className="noto-print-hidden border-default bg-background h-header flex shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             {/* The expanded sidebar carries its own collapse control, so this
                 only appears when there is no other way back. */}
@@ -259,10 +263,14 @@ export function NotoApp() {
           tabs={tabs.tabs}
           onSelect={tabs.open}
           onClose={tabs.close}
-          className="border-default bg-surface-secondary shrink-0 border-b px-2 pt-1"
+          className="noto-print-hidden border-default bg-surface-secondary shrink-0 border-b px-2 pt-1"
         />
 
-        <div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
+        {/*
+         * Keyed by the open document so that switching tabs restores where the
+         * reader was, rather than dropping them back at the title.
+         */}
+        <EditorScrollArea scrollKey={activeDocumentId}>{content}</EditorScrollArea>
       </main>
     </div>
   );

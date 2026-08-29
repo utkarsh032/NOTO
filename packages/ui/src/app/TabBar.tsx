@@ -31,7 +31,7 @@ export function TabBar({ tabs, onSelect, onClose, className }: TabBarProps) {
        * Scrolls rather than shrinking. A tab narrowed to fit is a tab whose
        * title cannot be read, which defeats the point of having one.
        */
-      className={cn('flex items-stretch gap-1 overflow-x-auto', className)}
+      className={cn('noto-scroll-x flex items-stretch gap-1 overflow-x-auto', className)}
     >
       {tabs.map((tab) => (
         <Tab key={tab.id} tab={tab} onSelect={onSelect} onClose={onClose} />

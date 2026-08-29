@@ -288,3 +288,242 @@
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/*
+ * Where that sideways movement happens.
+ *
+ * The document body scrolls, not the pane around it: the toolbar is sticky at
+ * the top of the pane's scroller, and letting the pane move horizontally would
+ * slide the toolbar out of the window along with the text it acts on. The
+ * height stays automatic, so no vertical scrollbar appears here — this element
+ * grows and the pane scrolls it, exactly as before.
+ */
+.noto-prose-nowrap {
+  overflow-x: auto;
+}
+
+/*
+ * Show Characters.
+ *
+ * The markers are painted over the document rather than inserted into it. A
+ * space keeps its width and stays a space; the dot is a pseudo-element
+ * positioned on top of it, so selecting, copying and exporting the text are
+ * untouched by the setting. `¶` and `↵` have no character to sit on, so those
+ * are ProseMirror widgets — outside the document by construction — and they do
+ * take up room, which is correct: they mark a position the caret can occupy.
+ */
+
+.noto-invisible {
+  color: var(--noto-text-disabled);
+}
+
+.noto-prose .noto-invisible-space,
+.noto-prose .noto-invisible-tab {
+  position: relative;
+}
+
+.noto-prose .noto-invisible-space::before,
+.noto-prose .noto-invisible-tab::before {
+  color: var(--noto-text-disabled);
+  left: 0;
+  /* The overlay must never swallow a click meant for the text underneath. */
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  text-align: center;
+  top: 0;
+}
+
+.noto-prose .noto-invisible-space::before {
+  content: '·';
+}
+
+.noto-prose .noto-invisible-tab::before {
+  content: '→';
+  font-size: 0.85em;
+}
+
+.noto-prose .noto-invisible-break,
+.noto-prose .noto-invisible-paragraph {
+  /* Quiet enough to read past, present enough to count. */
+  opacity: 0.65;
+  user-select: none;
+}
+
+.noto-prose .noto-invisible-paragraph {
+  /* The pilcrow ends the line; it should not push the next word along. */
+  margin-left: 0.05em;
+}
+
+/*
+ * Scrolling.
+ *
+ * A scrollbar is chrome, and Noto's chrome is quiet: thin, on the surface
+ * colour, and only as dark as it needs to be to be found. `scrollbar-gutter`
+ * reserves the space whether or not the bar is showing, so a document that
+ * grows past a screenful does not shift sideways at the moment it does.
+ */
+
+.noto-scroll,
+.noto-scroll-x {
+  /* A scroll that runs out should not start scrolling the window behind it. */
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-color: var(--noto-border-strong) transparent;
+  scrollbar-width: thin;
+  /* Momentum on touch, where the pane is dragged rather than wheeled. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Reserved on the vertical scrollers only. A horizontal strip such as the tab
+ * bar has no vertical bar to leave room for, and asking for one would add a
+ * permanent gutter to its height.
+ */
+.noto-scroll {
+  scrollbar-gutter: stable;
+}
+
+/* Chromium and WebKit ignore `scrollbar-width`, so they get the same treatment
+   spelled their way. */
+.noto-scroll::-webkit-scrollbar,
+.noto-scroll-x::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.noto-scroll::-webkit-scrollbar-track,
+.noto-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.noto-scroll::-webkit-scrollbar-thumb,
+.noto-scroll-x::-webkit-scrollbar-thumb {
+  background: var(--noto-border-strong);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.noto-scroll::-webkit-scrollbar-thumb:hover,
+.noto-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--noto-text-disabled);
+  background-clip: padding-box;
+}
+
+/*
+ * Smooth scrolling is motion, and someone who has asked their system to stop
+ * animating has asked Noto too.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .noto-scroll,
+  .noto-scroll-x {
+    scroll-behavior: auto;
+  }
+}
+
+/*
+ * Print.
+ *
+ * What comes out of the printer is the same DOM the editor renders, with the
+ * application stripped off it — one render path, so the page can never drift
+ * from the document. Everything that is chrome rather than content carries
+ * `noto-print-hidden`; the scroller and the card around the document give up
+ * their clipping and their decoration; and the reader's zoom is dropped for a
+ * type size measured in points, because zoom is about a screen at arm's length
+ * and paper is not.
+ */
+@media print {
+  .noto-print-hidden {
+    display: none !important;
+  }
+
+  /*
+   * Every box between the page and the document gives up its height and its
+   * clipping. A scroll container prints only what is inside its box — one
+   * screenful, with the rest of the document silently missing — and the
+   * desktop shell hides the body's overflow outright so the window cannot be
+   * scrolled like a web page.
+   */
+  html,
+  body,
+  #root,
+  .noto-scroll {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* The measure is for reading on a screen; the paper already has one. */
+  .noto-print-sheet {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .noto-print-document {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* `!important` because zoom is applied inline, and an author rule marked
+     important is the one thing that outranks an inline style. */
+  .noto-prose {
+    font-size: 12pt !important;
+    line-height: 1.5;
+  }
+
+  /* Paper is white; a dark theme sent to a printer is a page of toner. */
+  .noto-prose,
+  .noto-prose h1,
+  .noto-prose h2,
+  .noto-prose h3 {
+    color: #000;
+  }
+
+  .noto-prose pre,
+  .noto-prose code,
+  .noto-prose th {
+    background: transparent;
+    border-color: #999;
+  }
+
+  /* A link is useless on paper unless it says where it goes. */
+  .noto-prose a {
+    color: #000;
+  }
+
+  .noto-prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  /* Nothing invisible on screen should become visible on paper. */
+  .noto-invisible {
+    display: none !important;
+  }
+
+  /* Where the page may and may not break. */
+  .noto-prose h1,
+  .noto-prose h2,
+  .noto-prose h3 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  .noto-prose blockquote,
+  .noto-prose img,
+  .noto-prose pre,
+  .noto-prose table,
+  .noto-prose tr {
+    break-inside: avoid;
+  }
+
+  .noto-prose p,
+  .noto-prose li {
+    orphans: 2;
+    widows: 2;
+  }
+}
