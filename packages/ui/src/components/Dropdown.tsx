@@ -13,6 +13,11 @@ export interface DropdownItem {
   disabled?: boolean;
   /** Draws a hairline above this item, separating it from what came before. */
   separated?: boolean;
+  /**
+   * The item puts focus somewhere itself — back in the editor, into a field it
+   * opened — so the menu should not pull it to the trigger on the way out.
+   */
+  keepsFocus?: boolean;
   onSelect(): void;
 }
 
@@ -130,7 +135,7 @@ export function Dropdown({ trigger, items, align = 'right', className, label }: 
                 onClick={() => {
                   setOpen(false);
                   item.onSelect();
-                  triggerRef.current?.focus();
+                  if (!item.keepsFocus) triggerRef.current?.focus();
                 }}
                 className={cn(
                   'text-body-sm flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',

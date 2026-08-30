@@ -1,7 +1,7 @@
 import type { Id } from '@noto/types';
 import { useEffect, useRef } from 'react';
 
-import { CloseIcon, DotIcon } from '../components/icons';
+import { CloseIcon, DocumentIcon, DotIcon, PlusIcon } from '../components/icons';
 import { cn } from '../utils/cn';
 import type { DocumentTab } from './use-document-tabs';
 
@@ -9,33 +9,50 @@ export interface TabBarProps {
   tabs: DocumentTab[];
   onSelect(id: Id): void;
   onClose(id: Id): void;
+  /** Opens a new document in a new tab. Omitted where there is nowhere to put one. */
+  onNew?(): void;
   className?: string;
 }
 
 /**
  * The open documents, as tabs.
  *
- * Nothing is rendered when a single document is open: one tab is a label, not a
- * choice, and the bar would be a permanent strip of chrome earning its height
- * only in the case it does not apply to.
+ * The strip is always there once anything is open, including for a single
+ * document: it is the row that says which document the pane below belongs to,
+ * and a bar that appears only on the second document makes the first one feel
+ * like a different screen.
  */
-export function TabBar({ tabs, onSelect, onClose, className }: TabBarProps) {
-  if (tabs.length < 2) return null;
+export function TabBar({ tabs, onSelect, onClose, onNew, className }: TabBarProps) {
+  if (tabs.length === 0) return null;
 
   return (
-    <div
-      role="tablist"
-      aria-label="Open documents"
-      aria-orientation="horizontal"
-      /*
-       * Scrolls rather than shrinking. A tab narrowed to fit is a tab whose
-       * title cannot be read, which defeats the point of having one.
-       */
-      className={cn('noto-scroll-x flex items-stretch gap-1 overflow-x-auto', className)}
-    >
-      {tabs.map((tab) => (
-        <Tab key={tab.id} tab={tab} onSelect={onSelect} onClose={onClose} />
-      ))}
+    <div className={cn('flex min-w-0 items-center gap-1', className)}>
+      <div
+        role="tablist"
+        aria-label="Open documents"
+        aria-orientation="horizontal"
+        /*
+         * Scrolls rather than shrinking. A tab narrowed to fit is a tab whose
+         * title cannot be read, which defeats the point of having one.
+         */
+        className="noto-scroll-x flex min-w-0 items-center gap-1 overflow-x-auto py-1.5"
+      >
+        {tabs.map((tab) => (
+          <Tab key={tab.id} tab={tab} onSelect={onSelect} onClose={onClose} />
+        ))}
+      </div>
+
+      {onNew ? (
+        <button
+          type="button"
+          onClick={onNew}
+          aria-label="New document"
+          title="New document"
+          className="border-default text-tertiary hover:border-strong hover:text-primary hover:bg-surface-secondary focus-visible:outline-brand inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-2 focus-visible:outline-offset-1"
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -66,12 +83,17 @@ function Tab({ tab, onSelect, onClose }: TabProps) {
       role="tab"
       aria-selected={tab.isActive}
       className={cn(
-        'group/tab flex shrink-0 items-center gap-1 rounded-t-md border-b-2 pr-1 pl-3 transition-colors',
+        'group/tab flex h-9 shrink-0 items-center gap-1.5 rounded-md border pr-1 pl-2.5 transition-colors',
         tab.isActive
-          ? 'border-brand bg-surface text-primary'
-          : 'text-secondary hover:bg-surface hover:text-primary border-transparent',
+          ? 'border-brand bg-brand-soft text-brand-strong'
+          : 'text-secondary hover:bg-surface-secondary hover:text-primary border-transparent',
       )}
     >
+      <DocumentIcon
+        className={cn('h-4 w-4 shrink-0', tab.isActive ? 'text-brand' : 'text-tertiary')}
+        aria-hidden="true"
+      />
+
       <button
         type="button"
         onClick={() => onSelect(tab.id)}
@@ -82,7 +104,7 @@ function Tab({ tab, onSelect, onClose }: TabProps) {
           onClose(tab.id);
         }}
         title={tab.title}
-        className="text-body-sm focus-visible:outline-brand max-w-44 truncate py-2 font-medium focus-visible:outline-2 focus-visible:-outline-offset-2"
+        className="text-body-sm focus-visible:outline-brand max-w-44 truncate py-1.5 font-medium focus-visible:outline-2 focus-visible:-outline-offset-2"
       >
         {tab.title || 'Untitled'}
       </button>
@@ -105,7 +127,7 @@ function Tab({ tab, onSelect, onClose }: TabProps) {
           onClick={() => onClose(tab.id)}
           aria-label={`Close ${tab.title || 'Untitled'}`}
           className={cn(
-            'text-tertiary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand absolute inset-0 flex items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:-outline-offset-1',
+            'text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand absolute inset-0 flex items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:-outline-offset-1',
             tab.isDirty && 'opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100',
           )}
         >
