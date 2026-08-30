@@ -41,6 +41,7 @@ export const EDITOR_ACTIONS: Readonly<Record<string, EditorAction>> = {
 
   'format.bulletList': (editor) => editor.chain().focus().toggleBulletList().run(),
   'format.orderedList': (editor) => editor.chain().focus().toggleOrderedList().run(),
+  'format.taskList': (editor) => editor.chain().focus().toggleTaskList().run(),
   'format.blockquote': (editor) => editor.chain().focus().toggleBlockquote().run(),
   'format.codeBlock': (editor) => editor.chain().focus().toggleCodeBlock().run(),
 
@@ -195,6 +196,7 @@ const ACTIVE_CHECKS: Readonly<Record<string, (editor: Editor) => boolean>> = {
 
   'format.bulletList': (editor) => editor.isActive('bulletList'),
   'format.orderedList': (editor) => editor.isActive('orderedList'),
+  'format.taskList': (editor) => editor.isActive('taskList'),
   'format.blockquote': (editor) => editor.isActive('blockquote'),
   'format.codeBlock': (editor) => editor.isActive('codeBlock'),
 

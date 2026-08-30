@@ -90,7 +90,15 @@ export function useNotoEditor({
    * of the document, which is not necessarily where the reader left off.
    */
   useEffect(() => {
-    if (!editor || !autofocus) return;
+    /*
+     * `isDestroyed` as well as `null`: an editor whose view has been torn down
+     * still exists as an object, and reading `commands` on it throws. React
+     * re-runs a subtree's effects when a Suspense boundary above it reveals,
+     * which is exactly when this hook can be handed the instance it just
+     * destroyed — the next render brings a fresh one, and this effect runs
+     * again with it.
+     */
+    if (!editor || editor.isDestroyed || !autofocus) return;
     editor.commands.focus('start', { scrollIntoView: false });
   }, [editor, autofocus]);
 

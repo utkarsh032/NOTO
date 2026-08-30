@@ -239,7 +239,9 @@ export function showsInvisibles(editor: Editor | null): boolean {
  * a user pressing undo straight afterwards means the sentence they just wrote.
  */
 export function setShowInvisibles(editor: Editor | null, show: boolean): void {
-  if (!editor) return;
+  // A destroyed editor still exists as an object; dispatching into its view
+  // does not. Both are ordinary states while a pane is being torn down.
+  if (!editor || editor.isDestroyed) return;
 
   const state = invisiblesKey.getState(editor.state);
   if (!state || state.enabled === show) return;

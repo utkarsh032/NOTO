@@ -38,6 +38,14 @@ export interface Command {
    * platform modifier at display time.
    */
   shortcut?: string;
+  /**
+   * Further accelerators that fire the same command.
+   *
+   * `shortcut` is the one shown in menus and hints; these are the keys other
+   * applications have taught people to reach for. The command palette answers
+   * to both `CmdOrCtrl+K` and `CmdOrCtrl+Shift+P` for exactly that reason.
+   */
+  aliases?: string[];
   keywords?: string[];
   /** Defaults to always available when omitted. */
   isEnabled?: (context: CommandContext) => boolean;
@@ -255,6 +263,15 @@ export const CORE_COMMANDS: readonly Command[] = [
     scope: 'editor',
     shortcut: 'CmdOrCtrl+Shift+7',
     keywords: ['ordered', 'numbers'],
+    isEnabled: requiresEditable,
+  },
+  {
+    id: 'format.taskList',
+    title: 'Checklist',
+    category: 'format',
+    scope: 'editor',
+    shortcut: 'CmdOrCtrl+Shift+9',
+    keywords: ['task', 'todo', 'checkbox', 'tick'],
     isEnabled: requiresEditable,
   },
   {
@@ -498,7 +515,92 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Command Palette',
     category: 'navigation',
     shortcut: 'CmdOrCtrl+K',
-    keywords: ['search', 'go to', 'jump'],
+    aliases: ['CmdOrCtrl+Shift+P'],
+    keywords: ['search', 'go to', 'jump', 'palette'],
+  },
+
+  /* The seven screens, so every one of them is reachable from the palette. */
+  {
+    id: 'navigation.home',
+    title: 'Go to Home',
+    category: 'navigation',
+    keywords: ['start', 'greeting'],
+  },
+  {
+    id: 'navigation.workspace',
+    title: 'Go to Workspace',
+    category: 'navigation',
+    keywords: ['editor', 'writing', 'document'],
+  },
+  {
+    id: 'navigation.documents',
+    title: 'Open Documents',
+    category: 'navigation',
+    keywords: ['files', 'browse', 'all'],
+  },
+  {
+    id: 'navigation.memory',
+    title: 'Open Noto Memory',
+    category: 'navigation',
+    keywords: ['captured', 'clipboard', 'screenshots'],
+  },
+  {
+    id: 'navigation.search',
+    title: 'Search Everything',
+    category: 'navigation',
+    shortcut: 'CmdOrCtrl+Shift+F',
+    keywords: ['find', 'look up'],
+  },
+  {
+    id: 'navigation.account',
+    title: 'Account & Devices',
+    category: 'navigation',
+    keywords: ['profile', 'devices', 'sessions'],
+  },
+
+  /*
+   * Capture surfaces. These are global accelerators on the desktop — the point
+   * of a quick note is that it opens from wherever you are — so they stay on
+   * modifier combinations no editor binding uses.
+   */
+  {
+    id: 'app.quickNote',
+    title: 'Quick Note',
+    category: 'app',
+    shortcut: 'CmdOrCtrl+Alt+N',
+    keywords: ['jot', 'scratch', 'capture', 'floating'],
+  },
+  {
+    id: 'app.quickPaste',
+    title: 'Quick Paste',
+    category: 'app',
+    shortcut: 'CmdOrCtrl+Alt+V',
+    keywords: ['clipboard', 'history', 'paste'],
+  },
+  {
+    id: 'app.floatingNoto',
+    title: 'Floating Noto',
+    category: 'app',
+    keywords: ['mini', 'window', 'overlay'],
+  },
+  {
+    id: 'app.smartSidebar',
+    title: 'Smart Sidebar',
+    category: 'app',
+    keywords: ['rail', 'edge', 'overlay'],
+  },
+  {
+    id: 'app.aiAssistant',
+    title: 'Noto AI',
+    category: 'app',
+    keywords: ['ai', 'assistant', 'ask', 'rewrite'],
+  },
+  {
+    id: 'app.shortcuts',
+    title: 'Keyboard Shortcuts',
+    category: 'app',
+    shortcut: 'CmdOrCtrl+/',
+    keywords: ['keys', 'accelerators', 'help'],
   },
   {
     id: 'app.settings',
@@ -737,8 +839,14 @@ export function findCommandForEvent(
   platform: ShortcutPlatform,
 ): Command | undefined {
   return commands.find((command) => {
-    if (!command.shortcut) return false;
-    if (!matchesShortcut(command.shortcut, event, platform)) return false;
+    const accelerators = [command.shortcut, ...(command.aliases ?? [])].filter(
+      (accelerator): accelerator is string => Boolean(accelerator),
+    );
+    if (accelerators.length === 0) return false;
+    if (!accelerators.some((accelerator) => matchesShortcut(accelerator, event, platform))) {
+      return false;
+    }
+
     return command.isEnabled?.(context) ?? true;
   });
 }
