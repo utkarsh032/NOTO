@@ -1,11 +1,39 @@
 export { cn } from './utils/cn';
+export * from './utils/format';
+
+/* ── Primitives ────────────────────────────────────────────────────────── */
 
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './components/Button';
+export {
+  IconButton,
+  type IconButtonProps,
+  type IconButtonSize,
+  type IconButtonVariant,
+} from './components/IconButton';
 export { Input, Select, type InputProps, type SelectProps } from './components/Input';
+export { SearchInput, type SearchInputProps } from './components/SearchInput';
+export { Toggle, type ToggleProps } from './components/Toggle';
 export { fieldClasses } from './components/field-styles';
 export { Card, CardHeader, type CardHeaderProps, type CardProps } from './components/Card';
 export { Panel, type PanelProps } from './components/Panel';
 export { Badge, type BadgeProps, type BadgeTone } from './components/Badge';
+export { Avatar, type AvatarProps } from './components/Avatar';
+export { KeyHint, type KeyHintProps } from './components/KeyHint';
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedOption,
+} from './components/SegmentedControl';
+export { Tabs, type TabItem, type TabsProps } from './components/Tabs';
+export { Tooltip, type TooltipProps } from './components/Tooltip';
+export { Dropdown, type DropdownItem, type DropdownProps } from './components/Dropdown';
+export { Dialog, type DialogProps, type DialogSize } from './components/Dialog';
+export { ConfirmDialog, type ConfirmDialogProps } from './components/ConfirmDialog';
+export { PromptDialog, type PromptDialogProps } from './components/PromptDialog';
+export { VirtualList, type VirtualListProps } from './components/VirtualList';
+
+/* ── States ────────────────────────────────────────────────────────────── */
+
 export {
   Skeleton,
   SkeletonText,
@@ -18,22 +46,131 @@ export {
   type StatusIndicatorProps,
   type StatusKind,
 } from './components/StatusIndicator';
+export { SyncStatus, type SyncStatusProps } from './components/SyncStatus';
 export { EmptyState, type EmptyStateProps } from './components/EmptyState';
 export { ErrorState, type ErrorStateProps } from './components/ErrorState';
+export { LoadingState, type LoadingStateProps } from './components/LoadingState';
+export { ToastViewport } from './components/Toast';
+export {
+  dismissToast,
+  showToast,
+  useToasts,
+  type Toast,
+  type ToastTone,
+} from './components/toast-store';
 export { ToolbarButton, type ToolbarButtonProps } from './components/ToolbarButton';
 export * from './components/icons';
 export * from './components/illustrations';
 
+/* ── Theme ─────────────────────────────────────────────────────────────── */
+
 export { ThemeProvider, type ThemeProviderProps } from './theme/ThemeProvider';
 export { useResolvedTheme } from './theme/use-resolved-theme';
 
+/* ── Application shell ─────────────────────────────────────────────────── */
+
 export { NotoApp } from './app/NotoApp';
-export { Sidebar } from './app/Sidebar';
-export { DocumentEditor, type DocumentEditorProps } from './app/DocumentEditor';
-export { EditorScrollArea, type EditorScrollAreaProps } from './app/EditorScrollArea';
-export { EditorToolbar, type EditorToolbarProps } from './app/EditorToolbar';
-export { FindReplaceBar, type FindReplaceBarProps } from './app/FindReplaceBar';
+export { NotoAppShell, type NotoAppShellProps } from './app/NotoAppShell';
+export { Sidebar, type SidebarProps } from './app/Sidebar';
+export { Header, type HeaderProps } from './app/Header';
+export { NavItem, type NavItemProps } from './app/NavItem';
+export { UserMenu, type UserMenuProps } from './app/UserMenu';
+export { MobileNav, type MobileNavProps } from './app/MobileNav';
+export { PageContainer, type PageContainerProps } from './app/PageContainer';
+export { PRIMARY_NAV, SECONDARY_NAV, isEntryActive, type NavEntry } from './app/navigation';
+export {
+  navigate,
+  parseRoute,
+  replaceRoute,
+  routeToHash,
+  useRouteHash,
+  type Route,
+  type RouteName,
+} from './app/router';
+export { useRoute } from './app/use-route';
+export { useViewport, type Viewport } from './app/use-viewport';
+export { useDebouncedValue } from './app/use-debounced-value';
+export { useNotoActions, type NotoActions } from './app/use-noto-actions';
+export { useAccount, firstNameOf, type AccountValue } from './app/use-account';
+
+/*
+ * The screens themselves are deliberately not exported.
+ *
+ * `NotoApp` loads them lazily, one chunk each, so opening Noto costs Home and
+ * the shell rather than the editor, the settings screen and everything else at
+ * once. Re-exporting them here would put them all back in the entry chunk of
+ * any application that imports this package.
+ */
+
+/* ── Documents ─────────────────────────────────────────────────────────── */
+
+export { DocumentRow, type DocumentRowProps } from './app/documents/DocumentRow';
+export { DocumentCard, type DocumentCardProps } from './app/documents/DocumentCard';
+export { DocumentMenu, type DocumentMenuProps } from './app/documents/DocumentMenu';
+export {
+  useDocumentOperations,
+  type DocumentOperations,
+} from './app/documents/use-document-operations';
+
+/* ── Editor ────────────────────────────────────────────────────────────── */
+
+/*
+ * The editor components are not exported either, for the same reason as the
+ * screens and more so: they carry Tiptap and ProseMirror with them, which is
+ * the largest thing Noto ships. Re-exporting them here would anchor all of it
+ * to the entry chunk, and Home — the screen Noto opens on — has no editor in
+ * it. They are reached through the workspace screen, which is loaded lazily.
+ *
+ * Only the pure helpers cross this boundary.
+ */
+export { buildOutline, scrollToHeading, type OutlineEntry } from './app/editor/outline';
+export {
+  EditorStatusBar,
+  type EditorSaveState,
+  type EditorStatusBarProps,
+} from './app/editor/EditorStatusBar';
 export { TabBar, type TabBarProps } from './app/TabBar';
+
+/* ── Memory and search ─────────────────────────────────────────────────── */
+
+export { MemoryCard, type MemoryCardProps } from './app/memory/MemoryCard';
+export { MEMORY_KINDS, MEMORY_KIND_ORDER, type MemoryKindInfo } from './app/memory/memory-kinds';
+export { useMemory, type MemoryQuery, type MemoryValue } from './app/memory/use-memory';
+export { Highlight, type HighlightProps } from './app/search/Highlight';
+export { SearchResultRow, type SearchResultRowProps } from './app/search/SearchResultRow';
+export {
+  matchesScope,
+  useSearch,
+  type SearchHit,
+  type SearchResults,
+  type SearchScope,
+} from './app/search/use-search';
+
+/* ── Settings and account ──────────────────────────────────────────────── */
+
+export {
+  SettingsRow,
+  SettingsSection,
+  type SettingsRowProps,
+  type SettingsSectionProps,
+} from './app/settings/SettingsSection';
+export { DeviceCard, type DeviceCardProps } from './app/account/DeviceCard';
+export { SessionRow, type SessionRowProps } from './app/account/SessionRow';
+
+/* ── Overlays ──────────────────────────────────────────────────────────── */
+
+export { CommandPalette, type CommandPaletteProps } from './app/overlays/CommandPalette';
+export { QuickNote, type QuickNoteProps } from './app/overlays/QuickNote';
+export { QuickPaste, type QuickPasteProps } from './app/overlays/QuickPaste';
+export { ShortcutsDialog, type ShortcutsDialogProps } from './app/overlays/ShortcutsDialog';
+export { AIAssistantPanel, type AIAssistantPanelProps } from './app/overlays/AIAssistantPanel';
+export { FloatingNoto, type FloatingNotoProps } from './app/overlays/FloatingNoto';
+export { SmartSidebar, type SmartSidebarProps } from './app/overlays/SmartSidebar';
+export { ImportDialog, type ImportDialogProps } from './app/overlays/ImportDialog';
+export { ExportDialog, type ExportDialogProps } from './app/overlays/ExportDialog';
+
+/* ── Data and platform seam ────────────────────────────────────────────── */
+
 export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
 export {
@@ -50,3 +187,31 @@ export {
   type FormattingPrompts,
   type FormattingPromptKind,
 } from './app/use-formatting-prompts';
+export {
+  EXPORT_FORMATS,
+  IMPORT_ACCEPT,
+  documentToHtml,
+  documentToMarkdown,
+  documentToText,
+  downloadDocument,
+  parseImportedFile,
+  serialiseDocument,
+  type ExportFormat,
+  type ExportFormatInfo,
+  type ImportedDocument,
+} from './app/export';
+
+/* ── Mock data, until the services behind it exist ─────────────────────── */
+
+export { WRITING_TEMPLATES, type TemplateId, type WritingTemplate } from './mock/templates';
+export { buildMemoryItems, memoryStorageBytes } from './mock/memory';
+export { buildVersions } from './mock/versions';
+export {
+  MOCK_DEVICES,
+  MOCK_PLAN,
+  MOCK_SECURITY,
+  MOCK_SESSIONS,
+  MOCK_USER,
+  type AccountPlan,
+  type SecurityState,
+} from './mock/account';

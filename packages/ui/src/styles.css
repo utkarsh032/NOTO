@@ -365,7 +365,8 @@
  */
 
 .noto-scroll,
-.noto-scroll-x {
+.noto-scroll-x,
+.noto-scroll-y {
   /* A scroll that runs out should not start scrolling the window behind it. */
   overscroll-behavior: contain;
   scroll-behavior: smooth;
@@ -376,29 +377,41 @@
 }
 
 /*
+ * `.noto-scroll-y` is the same vertical scroller under a different name, for a
+ * panel that sits inside `main` beside the editor's. The editor's pane is found
+ * by class in the print rules and in the end-to-end tests, and two elements
+ * answering to `.noto-scroll` in one region would make "the document's
+ * scroller" ambiguous.
+ */
+
+/*
  * Reserved on the vertical scrollers only. A horizontal strip such as the tab
  * bar has no vertical bar to leave room for, and asking for one would add a
  * permanent gutter to its height.
  */
-.noto-scroll {
+.noto-scroll,
+.noto-scroll-y {
   scrollbar-gutter: stable;
 }
 
 /* Chromium and WebKit ignore `scrollbar-width`, so they get the same treatment
    spelled their way. */
 .noto-scroll::-webkit-scrollbar,
-.noto-scroll-x::-webkit-scrollbar {
+.noto-scroll-x::-webkit-scrollbar,
+.noto-scroll-y::-webkit-scrollbar {
   height: 10px;
   width: 10px;
 }
 
 .noto-scroll::-webkit-scrollbar-track,
-.noto-scroll-x::-webkit-scrollbar-track {
+.noto-scroll-x::-webkit-scrollbar-track,
+.noto-scroll-y::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .noto-scroll::-webkit-scrollbar-thumb,
-.noto-scroll-x::-webkit-scrollbar-thumb {
+.noto-scroll-x::-webkit-scrollbar-thumb,
+.noto-scroll-y::-webkit-scrollbar-thumb {
   background: var(--noto-border-strong);
   background-clip: padding-box;
   border: 3px solid transparent;
@@ -406,7 +419,8 @@
 }
 
 .noto-scroll::-webkit-scrollbar-thumb:hover,
-.noto-scroll-x::-webkit-scrollbar-thumb:hover {
+.noto-scroll-x::-webkit-scrollbar-thumb:hover,
+.noto-scroll-y::-webkit-scrollbar-thumb:hover {
   background: var(--noto-text-disabled);
   background-clip: padding-box;
 }
@@ -417,7 +431,8 @@
  */
 @media (prefers-reduced-motion: reduce) {
   .noto-scroll,
-  .noto-scroll-x {
+  .noto-scroll-x,
+  .noto-scroll-y {
     scroll-behavior: auto;
   }
 }
@@ -526,4 +541,47 @@
     orphans: 2;
     widows: 2;
   }
+}
+
+/*
+ * Checklists.
+ *
+ * The checkbox is a real input inside the list item, so it is focusable and
+ * announced as a checkbox; the marker is removed because the box is the marker.
+ * A ticked line is dimmed rather than struck through — a plan reads better with
+ * its finished lines still legible.
+ */
+
+.noto-prose ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.25em;
+}
+
+.noto-prose ul[data-type='taskList'] li {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.6em;
+}
+
+.noto-prose ul[data-type='taskList'] li > label {
+  flex: 0 0 auto;
+  /* Aligns the box with the first line of text rather than the block. */
+  margin-top: 0.35em;
+  user-select: none;
+}
+
+.noto-prose ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.noto-prose ul[data-type='taskList'] input[type='checkbox'] {
+  accent-color: var(--noto-brand);
+  cursor: pointer;
+  height: 1em;
+  width: 1em;
+}
+
+.noto-prose ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--noto-text-tertiary);
 }

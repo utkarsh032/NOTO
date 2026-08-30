@@ -15,7 +15,7 @@ async function openBlankDocument(page: Page) {
   await page.goto('/');
   // The empty state's button, not the sidebar's: their labels differ only in
   // case, which Playwright's name matching ignores.
-  await page.getByRole('main').getByRole('button', { name: 'New document' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'New document', exact: true }).click();
 
   const title = page.getByRole('textbox', { name: 'Document title' });
   await expect(title).toHaveValue('Untitled');

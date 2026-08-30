@@ -5,7 +5,6 @@ import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/t
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
-import { StatusIndicator, type StatusKind } from '../components/StatusIndicator';
 import { AlertIcon } from '../components/icons';
 import { cn } from '../utils/cn';
 import { EditorToolbar } from './EditorToolbar';
@@ -22,16 +21,17 @@ export interface DocumentEditorProps {
   onDirtyChange?(documentId: string, dirty: boolean): void;
   /** Hands the shell a way to flush this editor's queue, for Save All. */
   onRegisterFlush?(flush: (() => void) | null): void;
+  /**
+   * Reports whether this document is saved, saving or has unwritten edits.
+   *
+   * The status bar sits outside the editor's scroller — below the document
+   * rather than inside it — so the state has to travel out to the pane that
+   * draws it. There is exactly one indicator, and this is what feeds it.
+   */
+  onSaveStateChange?(state: SaveState): void;
 }
 
-type SaveState = 'saved' | 'unsaved' | 'saving';
-
-/** Noto is local-first, so this says "saved", not "synced". */
-const SAVE_STATE: Record<SaveState, { status: StatusKind; label: string }> = {
-  saved: { status: 'saved', label: 'Saved' },
-  unsaved: { status: 'pending', label: 'Unsaved changes' },
-  saving: { status: 'busy', label: 'Saving…' },
-};
+export type SaveState = 'saved' | 'unsaved' | 'saving';
 
 /**
  * The editing surface for one document.
@@ -47,6 +47,7 @@ export function DocumentEditor({
   document: activeDocument,
   onDirtyChange,
   onRegisterFlush,
+  onSaveStateChange,
 }: DocumentEditorProps) {
   const { updateDocument } = useNotoData();
   const { autoSaveDelayMs, showInvisibles, wordWrap, zoom } = useSettingsStore(
@@ -118,7 +119,8 @@ export function DocumentEditor({
 
   useEffect(() => {
     onDirtyChange?.(documentId, saveState !== 'saved');
-  }, [onDirtyChange, documentId, saveState]);
+    onSaveStateChange?.(saveState);
+  }, [onDirtyChange, onSaveStateChange, documentId, saveState]);
 
   /*
    * Flushing on unmount is what makes switching documents inside the autosave
@@ -297,8 +299,6 @@ export function DocumentEditor({
     isEditable: true,
   });
 
-  const save = SAVE_STATE[saveState];
-
   /*
    * A white canvas on the application's off-white background, at a comfortable
    * measure. The card is what makes the document the object on the screen
@@ -353,11 +353,6 @@ export function DocumentEditor({
                 placeholder="Untitled"
                 aria-label="Document title"
                 className="text-primary placeholder:text-disabled text-h1 w-full min-w-0 flex-1 bg-transparent outline-none"
-              />
-              <StatusIndicator
-                status={save.status}
-                label={save.label}
-                className="noto-print-hidden shrink-0"
               />
             </div>
 

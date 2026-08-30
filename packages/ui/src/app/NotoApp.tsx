@@ -1,5 +1,6 @@
 import {
   clampZoom,
+  formatShortcut,
   nextThemeMode,
   useSettingsStore,
   useUiStore,
@@ -7,49 +8,97 @@ import {
   zoomOut,
 } from '@noto/core';
 import type { ThemeMode } from '@noto/types';
-import { type ReactNode, useCallback, useMemo, useRef } from 'react';
+import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
-import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
+import { LoadingState } from '../components/LoadingState';
 import { Skeleton } from '../components/Skeleton';
-import {
-  MonitorIcon,
-  MoonIcon,
-  PlusIcon,
-  SidebarIcon,
-  SunIcon,
-  type IconProps,
-} from '../components/icons';
-import { WritingIllustration } from '../components/illustrations';
-import { DocumentEditor } from './DocumentEditor';
-import { EditorScrollArea } from './EditorScrollArea';
-import { TabBar } from './TabBar';
+import { ToastViewport } from '../components/Toast';
+import { showToast } from '../components/toast-store';
+import { Header } from './Header';
+import { MobileNav } from './MobileNav';
+import { NotoAppShell } from './NotoAppShell';
 import { Sidebar } from './Sidebar';
+import { HomeScreen } from './screens/HomeScreen';
+import { CommandPalette } from './overlays/CommandPalette';
+import { FloatingNoto } from './overlays/FloatingNoto';
+import { QuickNote } from './overlays/QuickNote';
+import { QuickPaste } from './overlays/QuickPaste';
+import { ShortcutsDialog } from './overlays/ShortcutsDialog';
+import { SmartSidebar } from './overlays/SmartSidebar';
 import { useNotoData } from './data-context';
-import { useCommandShortcuts } from './use-command-shortcuts';
+import { navigate } from './router';
+import { useAccount } from './use-account';
+import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
 import { useDocumentTabs } from './use-document-tabs';
 import { useResponsiveSidebar } from './use-responsive-sidebar';
+import { useRoute } from './use-route';
+import { useViewport } from './use-viewport';
 
-/** What the theme control shows, and what it says it will do when pressed. */
-const THEME_CONTROL: Record<
-  ThemeMode,
-  { icon: (props: IconProps) => ReactNode; label: string; next: string }
-> = {
-  light: { icon: SunIcon, label: 'Light', next: 'dark' },
-  dark: { icon: MoonIcon, label: 'Dark', next: 'system' },
-  system: { icon: MonitorIcon, label: 'System', next: 'light' },
+/*
+ * Every screen but Home is a chunk of its own.
+ *
+ * Home is what Noto opens on, so it is part of the shell; the workspace brings
+ * the whole editor with it, and settings, memory, search and the account screen
+ * are each a page most sessions never visit. Loading them on the click that
+ * asks for them is the difference between a fast start and a bundle that grows
+ * every time a screen is added.
+ */
+const WorkspaceScreen = lazy(() =>
+  import('./screens/WorkspaceScreen').then((module) => ({ default: module.WorkspaceScreen })),
+);
+const DocumentsScreen = lazy(() =>
+  import('./screens/DocumentsScreen').then((module) => ({ default: module.DocumentsScreen })),
+);
+const MemoryScreen = lazy(() =>
+  import('./screens/MemoryScreen').then((module) => ({ default: module.MemoryScreen })),
+);
+const SearchScreen = lazy(() =>
+  import('./screens/SearchScreen').then((module) => ({ default: module.SearchScreen })),
+);
+const SettingsScreen = lazy(() =>
+  import('./screens/SettingsScreen').then((module) => ({ default: module.SettingsScreen })),
+);
+const AccountScreen = lazy(() =>
+  import('./screens/AccountScreen').then((module) => ({ default: module.AccountScreen })),
+);
+
+/** Which overlay is up. Only one of the modal ones can be at a time. */
+interface Overlays {
+  palette: boolean;
+  quickNote: boolean;
+  quickPaste: boolean;
+  shortcuts: boolean;
+  floating: boolean;
+  smartSidebar: boolean;
+}
+
+const NO_OVERLAYS: Overlays = {
+  palette: false,
+  quickNote: false,
+  quickPaste: false,
+  shortcuts: false,
+  floating: false,
+  smartSidebar: false,
 };
 
 /**
- * The Noto application shell, shared by the web and desktop applications.
+ * The Noto application, shared by web and desktop.
  *
  * It reads everything it needs from the surrounding `NotoDataContext`, so the
  * two platforms differ only in how they store documents — not in how Noto looks
  * or behaves.
+ *
+ * Its own job is small and worth keeping small: hold the route, hold which
+ * overlays are open, and bind the accelerators that belong to the window rather
+ * than to the document. Each screen owns everything else about itself.
  */
 export function NotoApp() {
-  const { status, error, workspace, activeDocument } = useNotoData();
+  const { status, error, activeDocument } = useNotoData();
+  const route = useRoute();
+  const viewport = useViewport();
+  const { user } = useAccount();
   const tabs = useDocumentTabs();
 
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
@@ -58,6 +107,18 @@ export function NotoApp() {
   const setTheme = useSettingsStore((state) => state.setTheme);
   const editorSettings = useSettingsStore((state) => state.settings.editor);
   const updateEditor = useSettingsStore((state) => state.updateEditor);
+
+  const [overlays, setOverlays] = useState<Overlays>(NO_OVERLAYS);
+
+  const platform = useMemo(() => detectShortcutPlatform(), []);
+
+  const show = useCallback((which: keyof Overlays) => {
+    setOverlays((current) => ({ ...NO_OVERLAYS, ...current, [which]: true }));
+  }, []);
+
+  const hide = useCallback((which: keyof Overlays) => {
+    setOverlays((current) => ({ ...current, [which]: false }));
+  }, []);
 
   /*
    * Save All flushes every mounted editor. Only the front tab is mounted today,
@@ -83,14 +144,15 @@ export function NotoApp() {
    * Shell-level accelerators. Save is deliberately absent: the editor binds it,
    * because the editor is what holds the unsaved draft.
    */
-  const shortcutHandlers = useMemo(
+  const commandHandlers = useMemo(
     () => ({
-      'document.new': () => void tabs.create(),
+      'document.new': () => void tabs.create().then(() => navigate('workspace')),
       'document.saveAll': saveAll,
       'document.close': () => {
         if (activeDocumentId) tabs.close(activeDocumentId);
       },
       'document.closeAll': tabs.closeAll,
+
       'view.toggleSidebar': toggleSidebar,
       'view.zoomIn': () => updateEditor({ zoom: zoomIn(zoom) }),
       'view.zoomOut': () => updateEditor({ zoom: zoomOut(zoom) }),
@@ -99,6 +161,25 @@ export function NotoApp() {
       'view.toggleInvisibles': () =>
         updateEditor({ showInvisibles: !editorSettings.showInvisibles }),
       'view.toggleTheme': () => setTheme(nextThemeMode(theme)),
+
+      'navigation.commandPalette': () => show('palette'),
+      'navigation.home': () => navigate('home'),
+      'navigation.workspace': () => navigate('workspace'),
+      'navigation.documents': () => navigate('documents'),
+      'navigation.memory': () => navigate('memory'),
+      'navigation.search': () => navigate('search'),
+      'navigation.account': () => navigate('account'),
+
+      'app.quickNote': () => show('quickNote'),
+      'app.quickPaste': () => show('quickPaste'),
+      'app.floatingNoto': () => show('floating'),
+      'app.smartSidebar': () => show('smartSidebar'),
+      'app.aiAssistant': () => {
+        navigate('workspace');
+        showToast('Noto AI is in the panel beside the document.');
+      },
+      'app.shortcuts': () => show('shortcuts'),
+      'app.settings': () => navigate('settings'),
     }),
     [
       tabs,
@@ -111,15 +192,20 @@ export function NotoApp() {
       editorSettings.showInvisibles,
       setTheme,
       theme,
+      show,
     ],
   );
 
-  useCommandShortcuts(shortcutHandlers, {
-    hasActiveDocument: Boolean(activeDocument),
-    hasSelection: false,
-    isEditable: Boolean(activeDocument),
-  });
+  const commandContext = useMemo(
+    () => ({
+      hasActiveDocument: Boolean(activeDocument),
+      hasSelection: false,
+      isEditable: Boolean(activeDocument),
+    }),
+    [activeDocument],
+  );
 
+  useCommandShortcuts(commandHandlers, commandContext);
   useResponsiveSidebar();
 
   if (status === 'error') {
@@ -175,103 +261,136 @@ export function NotoApp() {
     );
   }
 
-  /*
-   * `undefined` means the selection is still resolving — a document that was
-   * just created is briefly absent from the list. Render nothing in that window
-   * rather than flashing the "create a document" prompt after every create.
-   */
-  let content: ReactNode = null;
-  if (activeDocument) {
-    // Keyed so switching documents remounts the editor with fresh state.
-    content = (
-      <DocumentEditor
-        key={activeDocument.id}
-        document={activeDocument}
-        onDirtyChange={tabs.setDirty}
-        onRegisterFlush={(flush) => registerFlush(activeDocument.id, flush)}
-      />
-    );
-  } else if (activeDocument === null) {
-    content = (
-      <EmptyState
-        title="Nothing open"
-        description="Select a document, or create a new one to start writing."
-        illustration={<WritingIllustration />}
-        action={
-          <Button
-            variant="primary"
-            onClick={() => void tabs.create()}
-            leading={<PlusIcon className="h-5 w-5" />}
-          >
-            New document
-          </Button>
-        }
-        className="h-full"
-      />
-    );
-  }
-
-  const themeControl = THEME_CONTROL[theme];
-  const ThemeIcon = themeControl.icon;
+  const isMobile = viewport === 'mobile';
 
   return (
-    <div className="bg-background flex h-full">
-      <Sidebar />
-
-      <main className="flex min-w-0 flex-1 flex-col">
-        {/* Same height as the sidebar's brand bar, so the rule under the two
-            of them is a single unbroken line across the window. */}
-        <header className="noto-print-hidden border-default bg-background h-header flex shrink-0 items-center justify-between gap-4 border-b px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            {/* The expanded sidebar carries its own collapse control, so this
-                only appears when there is no other way back. */}
-            {sidebarCollapsed ? (
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                aria-label="Expand sidebar"
-                className="text-tertiary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand -ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1"
-              >
-                <SidebarIcon className="h-5 w-5" />
-              </button>
-            ) : null}
-
-            {/*
-             * Where the open document lives. The document's own title is
-             * deliberately not repeated here: the editor holds it in local
-             * state until autosave runs, so a breadcrumb reading it from the
-             * store would say "Untitled" over a title the user has just typed.
-             */}
-            {workspace && activeDocument ? (
-              <p className="text-secondary text-body-sm min-w-0 truncate">{workspace.name}</p>
-            ) : null}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setTheme(nextThemeMode(theme))}
-            aria-label={`Appearance: ${themeControl.label}. Switch to ${themeControl.next}.`}
-            title={`Appearance: ${themeControl.label}`}
-            className="text-tertiary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1"
-          >
-            <ThemeIcon className="h-5 w-5" />
-          </button>
-        </header>
-
-        {/* Between the header and the document, where a tab bar belongs. */}
-        <TabBar
-          tabs={tabs.tabs}
-          onSelect={tabs.open}
-          onClose={tabs.close}
-          className="noto-print-hidden border-default bg-surface-secondary shrink-0 border-b px-2 pt-1"
-        />
+    <>
+      <NotoAppShell
+        sidebar={
+          isMobile ? null : (
+            <Sidebar
+              route={route}
+              onQuickNote={() => show('quickNote')}
+              quickNoteShortcut={formatShortcut('CmdOrCtrl+Alt+N', platform)}
+            />
+          )
+        }
+        header={
+          <Header
+            user={user}
+            theme={theme}
+            onTheme={(mode: ThemeMode) => setTheme(mode)}
+            onSearch={() => show('palette')}
+            searchShortcut={formatShortcut('CmdOrCtrl+K', platform)}
+            onOpenAccount={() => navigate('account')}
+            onOpenSettings={() => navigate('settings')}
+            onOpenShortcuts={() => show('shortcuts')}
+            onExpandSidebar={!isMobile && sidebarCollapsed ? toggleSidebar : undefined}
+            compact={isMobile}
+            notificationCount={0}
+          />
+        }
+        bottomNav={
+          isMobile ? <MobileNav route={route} onQuickNote={() => show('quickNote')} /> : null
+        }
+      >
+        {route.name === 'home' ? (
+          <HomeScreen
+            onQuickNote={() => show('quickNote')}
+            onQuickPaste={() => show('quickPaste')}
+          />
+        ) : null}
 
         {/*
-         * Keyed by the open document so that switching tabs restores where the
-         * reader was, rather than dropping them back at the title.
+         * One boundary around the lazy screens, keyed by route so that moving
+         * between two of them shows the placeholder rather than holding the
+         * previous screen on screen while the next one arrives.
          */}
-        <EditorScrollArea scrollKey={activeDocumentId}>{content}</EditorScrollArea>
-      </main>
-    </div>
+        <Suspense key={route.name} fallback={<ScreenLoading />}>
+          {route.name === 'workspace' ? (
+            <WorkspaceScreen
+              documentId={route.param}
+              onRegisterFlush={registerFlush}
+              onShortcuts={() => show('shortcuts')}
+            />
+          ) : null}
+
+          {route.name === 'documents' ? <DocumentsScreen /> : null}
+          {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
+          {route.name === 'search' ? (
+            <SearchScreen
+              query={route.param}
+              onAskAI={() => {
+                navigate('workspace');
+                showToast('Noto AI is in the panel beside the document.');
+              }}
+            />
+          ) : null}
+          {route.name === 'settings' ? <SettingsScreen /> : null}
+          {route.name === 'account' ? <AccountScreen /> : null}
+        </Suspense>
+      </NotoAppShell>
+
+      {/*
+       * Overlays live outside the shell so nothing about the layout can clip
+       * them, and so a dialog is never a child of the pane it is about.
+       */}
+      <CommandPalette
+        open={overlays.palette}
+        onClose={() => hide('palette')}
+        onRunCommand={(commandId) => commandHandlers[commandId as keyof typeof commandHandlers]?.()}
+        context={commandContext}
+      />
+
+      <QuickNote open={overlays.quickNote} onClose={() => hide('quickNote')} />
+      <QuickPaste open={overlays.quickPaste} onClose={() => hide('quickPaste')} />
+      <ShortcutsDialog open={overlays.shortcuts} onClose={() => hide('shortcuts')} />
+
+      <FloatingNoto
+        open={overlays.floating}
+        onClose={() => hide('floating')}
+        onQuickNote={() => show('quickNote')}
+        onQuickPaste={() => show('quickPaste')}
+        onAskAI={() => {
+          hide('floating');
+          navigate('workspace');
+        }}
+      />
+
+      <SmartSidebar
+        open={overlays.smartSidebar}
+        onClose={() => hide('smartSidebar')}
+        onQuickNote={() => show('quickNote')}
+        onQuickPaste={() => show('quickPaste')}
+        onSearch={() => show('palette')}
+        onAskAI={() => {
+          hide('smartSidebar');
+          navigate('workspace');
+        }}
+      />
+
+      <ToastViewport />
+    </>
+  );
+}
+
+/**
+ * What fills the pane while a screen's chunk is fetched.
+ *
+ * The shell is already on screen by then — sidebar, header and all — so this is
+ * only ever the content area, and it holds the page's shape so nothing under
+ * the pointer moves when the screen lands.
+ */
+function ScreenLoading() {
+  return (
+    <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="mx-auto w-full max-w-[1280px] px-5 py-6 sm:px-8 sm:py-8">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="mt-3 h-4 w-80" />
+        <div className="mt-8">
+          <LoadingState label="Opening" rows={5} />
+        </div>
+      </div>
+    </main>
   );
 }

@@ -1,46 +1,59 @@
-import { useUiStore } from '@noto/core';
-import type { Id } from '@noto/types';
-import { useEffect, useRef, useState } from 'react';
+import { APP_NAME, APP_VERSION } from '@noto/config';
+import { useSettingsStore, useUiStore } from '@noto/core';
+import { useMemo } from 'react';
 
 import notoIcon from '../assets/noto-icon.png';
 import notoWordmark from '../assets/noto-wordmark.png';
 import { Button } from '../components/Button';
-import { EmptyState } from '../components/EmptyState';
+import { KeyHint } from '../components/KeyHint';
 import { Skeleton } from '../components/Skeleton';
-import {
-  ClockIcon,
-  DocumentIcon,
-  PencilIcon,
-  PlusIcon,
-  SidebarIcon,
-  TrashIcon,
-} from '../components/icons';
-import { EmptyPageIllustration } from '../components/illustrations';
+import { SyncStatus } from '../components/SyncStatus';
+import { ClockIcon, PinIcon, PlusIcon, SidebarIcon } from '../components/icons';
+import { QuickNoteIllustration } from '../components/illustrations';
 import { cn } from '../utils/cn';
+import { NavItem } from './NavItem';
+import { SidebarDocumentList } from './SidebarDocumentList';
 import { useNotoData } from './data-context';
+import { PRIMARY_NAV, SECONDARY_NAV, isEntryActive } from './navigation';
+import { navigate } from './router';
+import type { Route } from './router';
 import { useDocumentTabs } from './use-document-tabs';
+import { useNotoActions } from './use-noto-actions';
+
+export interface SidebarProps {
+  route: Route;
+  /** Opens the floating Quick Note window. */
+  onQuickNote(): void;
+  /** Formatted for this platform — "Ctrl Alt N" or "⌥⌘N". */
+  quickNoteShortcut: string;
+}
 
 /**
  * The sidebar.
  *
  * Quiet by design: a light secondary surface rather than a dark full-height
- * navigation, few separators, and the brand colour spent only on the active
- * row. The document list is the thing here; everything else gets out of its way.
+ * navigation, one rule between the two groups of destinations, and the brand
+ * colour spent only on the active row and the New Document button. Navigation
+ * sits at the top, the documents themselves fill the middle, and the two things
+ * that are always true — how to jot something down, and whether the work is
+ * safe — are pinned to the bottom where they can be found without reading.
  */
-export function Sidebar() {
+export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps) {
   const { workspace, documents, activeDocument, updateDocument, deleteDocument } = useNotoData();
   const tabs = useDocumentTabs();
+  const actions = useNotoActions();
+
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const syncEnabled = useSettingsStore((state) => state.settings.syncEnabled);
 
-  /*
-   * Deleting is confirmed inline rather than in a modal: the row itself asks,
-   * and anything else in the list dismisses the question.
-   */
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  /* Noto is local-first: with sync off, "saved on this device" is the truth. */
+  const syncState = syncEnabled ? 'idle' : 'disabled';
 
-  /* Renaming happens in place, in the row, rather than in a dialog about it. */
-  const [renamingId, setRenamingId] = useState<Id | null>(null);
+  const pinned = useMemo(
+    () => (documents ?? []).filter((document) => document.isFavorite),
+    [documents],
+  );
 
   /*
    * The brand bar matches the global header's height, so the rule under the two
@@ -52,8 +65,8 @@ export function Sidebar() {
 
   /*
    * Collapsed, the sidebar keeps a 72px rail rather than disappearing: the mark
-   * is what tells the eye the panel is still there, and clicking it is the
-   * shortest way back without hunting for the toggle in the header.
+   * is what tells the eye the panel is still there, the destinations stay
+   * reachable as icons, and clicking the mark is the shortest way back.
    */
   if (collapsed) {
     return (
@@ -72,13 +85,54 @@ export function Sidebar() {
         <div className="flex flex-col items-center py-3">
           <button
             type="button"
-            onClick={() => void tabs.create()}
+            onClick={() => void actions.newDocument()}
             aria-label="New document"
             title="New document"
             className="bg-brand text-on-brand hover:bg-brand-hover focus-visible:ring-brand focus-visible:ring-offset-surface-secondary flex h-9 w-9 items-center justify-center rounded-md shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <PlusIcon className="h-5 w-5" />
           </button>
+        </div>
+
+        <nav
+          aria-label="Primary"
+          className="noto-scroll flex flex-1 flex-col items-center gap-1 overflow-y-auto py-1"
+        >
+          {PRIMARY_NAV.map((entry) => (
+            <NavItem
+              key={entry.id}
+              collapsed
+              label={entry.label}
+              icon={<entry.icon className="h-5 w-5" />}
+              isActive={isEntryActive(entry, route)}
+              onSelect={() => navigate(entry.route)}
+            />
+          ))}
+
+          <span className="bg-default my-1.5 h-px w-8" aria-hidden="true" />
+
+          {SECONDARY_NAV.map((entry) => (
+            <NavItem
+              key={entry.id}
+              collapsed
+              label={entry.label}
+              icon={<entry.icon className="h-5 w-5" />}
+              isActive={isEntryActive(entry, route)}
+              onSelect={() => navigate(entry.route)}
+            />
+          ))}
+        </nav>
+
+        <div className="flex flex-col items-center gap-2 pb-3">
+          <SyncStatus status={syncState} variant="rail" />
+          {/* The rail has no room for the name, and none is needed: the number
+              under the mark can only be one thing's version. */}
+          <p
+            className="text-disabled text-caption text-center tabular-nums"
+            title={`${APP_NAME} ${APP_VERSION}`}
+          >
+            {APP_VERSION}
+          </p>
         </div>
       </aside>
     );
@@ -87,9 +141,14 @@ export function Sidebar() {
   return (
     <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar flex h-full shrink-0 flex-col border-r">
       <header className={cn(brandBar, 'justify-between gap-2 px-5')}>
-        {/* The wordmark carries the product name, so the alt text is the name
-            itself rather than a description of the picture. */}
-        <img src={notoWordmark} alt="Noto" className="h-6 w-auto" draggable={false} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {/* The wordmark carries the product name, so the alt text is the name
+              itself rather than a description of the picture. */}
+          <img src={notoWordmark} alt="Noto" className="h-6 w-auto self-start" draggable={false} />
+          {/* What Noto is for, in three words. It sits under the mark rather
+              than being read out as part of it. */}
+          <p className="text-tertiary text-caption truncate">Write. Remember. Find.</p>
+        </div>
         <button
           type="button"
           onClick={toggleSidebar}
@@ -100,10 +159,10 @@ export function Sidebar() {
         </button>
       </header>
 
-      <div className="px-3 pt-4 pb-3">
+      <div className="px-3 pt-4 pb-2">
         <Button
           variant="primary"
-          onClick={() => void tabs.create()}
+          onClick={() => void actions.newDocument()}
           leading={<PlusIcon className="h-5 w-5" />}
           className="w-full"
         >
@@ -111,151 +170,91 @@ export function Sidebar() {
         </Button>
       </div>
 
-      {/* Read against the list it labels, this says which workspace these are. */}
-      {workspace ? (
-        <p className="text-tertiary text-caption truncate px-5 pt-1 pb-2 tracking-wide uppercase">
-          {workspace.name}
-        </p>
-      ) : null}
-
-      <nav className="noto-scroll flex-1 overflow-y-auto px-3 pb-4" aria-label="Documents">
-        {documents === undefined ? (
-          /* A skeleton in the shape of the list, rather than a spinner in a
-             sidebar-sized hole. */
-          <ul className="flex flex-col gap-1" aria-hidden="true">
-            {Array.from({ length: 5 }, (_, index) => (
-              <li key={index} className="px-2.5 py-2">
-                <Skeleton className="h-3.5 w-3/4" />
-                <Skeleton className="mt-1.5 h-3 w-1/2" />
-              </li>
-            ))}
-          </ul>
-        ) : documents.length === 0 ? (
-          <EmptyState
-            title="No documents yet"
-            description="Create your first document and start writing."
-            illustration={<EmptyPageIllustration />}
-            className="px-2 py-8"
+      <nav aria-label="Primary" className="flex flex-col gap-0.5 px-3 pt-2">
+        {PRIMARY_NAV.map((entry) => (
+          <NavItem
+            key={entry.id}
+            label={entry.label}
+            icon={<entry.icon className="h-5 w-5" />}
+            isActive={isEntryActive(entry, route)}
+            onSelect={() => navigate(entry.route)}
           />
-        ) : (
-          /* Named, because the sidebar holds two lists and a screen reader
-             moving between them needs to be told which is which. */
-          <ul className="flex flex-col gap-0.5" aria-label="All documents">
-            {documents.map((document) => {
-              const isActive = document.id === activeDocument?.id;
+        ))}
 
-              if (renamingId === document.id) {
-                return (
-                  <li key={document.id}>
-                    <RenameRow
-                      title={document.title}
-                      onCommit={(title) => {
-                        setRenamingId(null);
-                        if (title !== document.title) void updateDocument(document.id, { title });
-                      }}
-                      onCancel={() => setRenamingId(null)}
-                    />
-                  </li>
-                );
-              }
+        <span className="bg-default my-2 h-px" aria-hidden="true" />
 
-              return (
-                <li key={document.id} className="group/row relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmingId(null);
-                      tabs.open(document.id);
-                    }}
-                    onDoubleClick={() => setRenamingId(document.id)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      'flex w-full items-start gap-2.5 rounded-md py-2 pr-9 pl-2.5 text-left transition-colors',
-                      'focus-visible:outline-brand focus-visible:outline-2 focus-visible:-outline-offset-2',
-                      isActive
-                        ? 'bg-brand-soft text-brand-strong'
-                        : 'text-secondary hover:bg-surface hover:text-primary',
-                    )}
-                  >
-                    <DocumentIcon
-                      className={cn(
-                        'mt-0.5 h-4 w-4 shrink-0',
-                        isActive ? 'text-brand' : 'text-disabled',
-                      )}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="text-body-sm block truncate font-medium">
-                        {document.title}
-                      </span>
-                      {/* Neutral even on the active row: the tint and the title
-                          colour carry the state, and a second green shouts. */}
-                      <span className="text-tertiary text-caption block truncate font-normal">
-                        {document.excerpt || 'Empty document'}
-                      </span>
-                    </span>
-                  </button>
+        {SECONDARY_NAV.map((entry) => (
+          <NavItem
+            key={entry.id}
+            label={entry.label}
+            icon={<entry.icon className="h-5 w-5" />}
+            isActive={isEntryActive(entry, route)}
+            onSelect={() => navigate(entry.route)}
+          />
+        ))}
+      </nav>
 
-                  {confirmingId === document.id ? (
-                    /* Sits below the row rather than over it, so the two choices
-                       never cover the title they are about. */
-                    <div className="flex items-center justify-end gap-1 px-2 pt-1 pb-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmingId(null)}
-                        aria-label={`Keep ${document.title}`}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => {
-                          setConfirmingId(null);
-                          void deleteDocument(document.id);
-                        }}
-                        aria-label={`Confirm moving ${document.title} to trash`}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  ) : (
-                    /*
-                     * Hidden until the row is hovered, but always reachable by
-                     * keyboard — focus-visible brings them back.
-                     */
-                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100">
-                      <button
-                        type="button"
-                        onClick={() => setRenamingId(document.id)}
-                        aria-label={`Rename ${document.title}`}
-                        title="Rename"
-                        className={cn(
-                          'text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand',
-                          'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
-                        )}
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingId(document.id)}
-                        aria-label={`Move ${document.title} to trash`}
-                        title="Move to trash"
-                        className={cn(
-                          'text-tertiary hover:bg-surface hover:text-danger focus-visible:outline-brand',
-                          'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
-                        )}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
+      {/*
+       * The documents themselves. This is the part that scrolls; everything
+       * above and below it stays where the hand last found it.
+       */}
+      <div className="noto-scroll mt-4 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        {pinned.length > 0 ? (
+          <section className="mb-5" aria-labelledby="noto-pinned-heading">
+            <h2
+              id="noto-pinned-heading"
+              className="text-tertiary text-caption flex items-center gap-1.5 px-2.5 pb-1 tracking-wide uppercase"
+            >
+              <PinIcon className="h-3.5 w-3.5" />
+              Pinned
+            </h2>
+            <SidebarDocumentList
+              showPin
+              documents={pinned}
+              activeId={activeDocument?.id ?? null}
+              label="Pinned documents"
+              onOpen={actions.openDocument}
+              onRename={(id, title) => void updateDocument(id, { title })}
+              onDelete={(id) => void deleteDocument(id)}
+            />
+          </section>
+        ) : null}
+
+        <section aria-labelledby="noto-documents-heading">
+          {/* Read against the list it labels, this says which workspace these are. */}
+          <h2
+            id="noto-documents-heading"
+            className="text-tertiary text-caption truncate px-2.5 pb-1 tracking-wide uppercase"
+          >
+            {workspace?.name ?? 'Documents'}
+          </h2>
+
+          {documents === undefined ? (
+            /* A skeleton in the shape of the list, rather than a spinner in a
+               sidebar-sized hole. */
+            <ul className="flex flex-col gap-1" aria-hidden="true">
+              {Array.from({ length: 5 }, (_, index) => (
+                <li key={index} className="px-2.5 py-2">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="mt-1.5 h-3 w-1/2" />
                 </li>
-              );
-            })}
-          </ul>
-        )}
+              ))}
+            </ul>
+          ) : documents.length === 0 ? (
+            <p className="text-tertiary text-caption px-2.5 py-3">
+              No documents yet. Start one and it will appear here.
+            </p>
+          ) : (
+            <SidebarDocumentList
+              documents={documents}
+              activeId={activeDocument?.id ?? null}
+              label="All documents"
+              onOpen={actions.openDocument}
+              onRename={(id, title) => void updateDocument(id, { title })}
+              onDelete={(id) => void deleteDocument(id)}
+            />
+          )}
+        </section>
 
         {/*
          * Documents opened before and since closed. This is what "recent
@@ -276,7 +275,7 @@ export function Sidebar() {
                 <li key={document.id}>
                   <button
                     type="button"
-                    onClick={() => tabs.open(document.id)}
+                    onClick={() => actions.openDocument(document.id)}
                     className="text-secondary hover:bg-surface hover:text-primary focus-visible:outline-brand text-body-sm w-full truncate rounded-md px-2.5 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     {document.title || 'Untitled'}
@@ -286,61 +285,34 @@ export function Sidebar() {
             </ul>
           </section>
         ) : null}
-      </nav>
+      </div>
+
+      {/* Quick Note, promoted. It is the one thing in Noto that is meant to be
+          reached without looking, so the card exists to teach the shortcut. */}
+      <div className="px-3 pb-3">
+        <button
+          type="button"
+          onClick={onQuickNote}
+          className="border-default bg-surface hover:border-strong focus-visible:outline-brand flex w-full flex-col items-center gap-1 rounded-xl border px-4 py-4 text-center transition-colors hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <QuickNoteIllustration className="h-11 w-11" />
+          <span className="text-primary text-body-sm font-semibold">Quick Note</span>
+          <span className="text-tertiary text-caption">
+            Jot down ideas instantly, anytime, anywhere.
+          </span>
+          <KeyHint keys={quickNoteShortcut} className="mt-1.5" />
+        </button>
+      </div>
+
+      <div className="border-default flex items-center justify-between gap-2 border-t px-4 py-3">
+        <SyncStatus status={syncState} />
+        <span
+          className="text-disabled text-caption tabular-nums"
+          title={`${APP_NAME} ${APP_VERSION}`}
+        >
+          {APP_VERSION}
+        </span>
+      </div>
     </aside>
-  );
-}
-
-interface RenameRowProps {
-  title: string;
-  onCommit(title: string): void;
-  onCancel(): void;
-}
-
-/**
- * Renaming a document, in the row the document already occupies.
- *
- * Committing on blur as well as on Enter is deliberate: the field appears under
- * the pointer, so clicking away is at least as likely as pressing a key, and
- * losing a rename to a stray click would be its own small betrayal. Escape is
- * the way out that keeps the old name.
- */
-function RenameRow({ title, onCommit, onCancel }: RenameRowProps) {
-  const [value, setValue] = useState(title);
-  const ref = useRef<HTMLInputElement>(null);
-  const committedRef = useRef(false);
-
-  useEffect(() => {
-    ref.current?.select();
-  }, []);
-
-  const commit = () => {
-    if (committedRef.current) return;
-    committedRef.current = true;
-
-    const next = value.trim();
-    onCommit(next === '' ? title : next);
-  };
-
-  return (
-    <input
-      ref={ref}
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          commit();
-        }
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          committedRef.current = true;
-          onCancel();
-        }
-      }}
-      aria-label={`Rename ${title}`}
-      className="border-brand bg-surface text-primary text-body-sm focus-visible:outline-brand w-full rounded-md border px-2 py-1.5 font-medium focus-visible:outline-2 focus-visible:-outline-offset-2"
-    />
   );
 }
