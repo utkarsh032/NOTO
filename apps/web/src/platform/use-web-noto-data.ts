@@ -1,6 +1,7 @@
 import {
   createDocument as buildDocument,
   deleteDocument as applyDelete,
+  restoreDocument as applyRestore,
   updateDocument as applyUpdate,
 } from '@noto/core';
 import type { UpdateDocumentInput, Workspace } from '@noto/types';
@@ -55,6 +56,18 @@ export function useWebNotoData(): NotoDataValue {
     [workspaceId],
   );
 
+  /*
+   * Trash: the same live query with the tombstones left in. Kept separate from
+   * `documents` so that nothing which lists documents has to remember to
+   * exclude the deleted ones.
+   */
+  const trashedDocuments = useLiveQuery(async () => {
+    if (!workspaceId) return undefined;
+
+    const rows = await db.documents.listByWorkspace(workspaceId, { includeDeleted: true });
+    return rows.filter((row) => row.deletedAt !== null);
+  }, [workspaceId]);
+
   const createDocument = useCallback(async () => {
     if (!workspaceId) return null;
 
@@ -83,6 +96,17 @@ export function useWebNotoData(): NotoDataValue {
     setSelectedId((current) => (current === id ? null : current));
   }, []);
 
+  const restoreDocument = useCallback(async (id: string) => {
+    const existing = await db.documents.get(id);
+    if (!existing) return;
+
+    await db.documents.put(applyRestore(existing));
+  }, []);
+
+  const purgeDocument = useCallback(async (id: string) => {
+    await db.documents.purge(id);
+  }, []);
+
   /*
    * `undefined` means "not resolved yet", and is deliberately distinct from
    * `null`: a document that was just created is briefly absent from the live
@@ -106,21 +130,27 @@ export function useWebNotoData(): NotoDataValue {
       error,
       workspace,
       documents,
+      trashedDocuments,
       activeDocument,
       selectDocument: setSelectedId,
       createDocument,
       updateDocument,
       deleteDocument,
+      restoreDocument,
+      purgeDocument,
     }),
     [
       status,
       error,
       workspace,
       documents,
+      trashedDocuments,
       activeDocument,
       createDocument,
       updateDocument,
       deleteDocument,
+      restoreDocument,
+      purgeDocument,
     ],
   );
 }

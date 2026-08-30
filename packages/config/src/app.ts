@@ -5,6 +5,16 @@ import { layout } from './tokens';
 export const APP_NAME = 'Noto';
 export const APP_ID = 'com.noto.app';
 
+/**
+ * The released product version, shown in the interface.
+ *
+ * Kept here rather than read from a manifest because the UI is shared by web,
+ * desktop and mobile, and only one of those three can import a `package.json`
+ * at build time. `pnpm version:set` rewrites this line along with the
+ * manifests, and `pnpm version:check` fails the release if it ever drifts.
+ */
+export const APP_VERSION = '1.2.0';
+
 /** Name of the local database on every platform (IndexedDB store / SQLite file stem). */
 export const DATABASE_NAME = 'noto';
 

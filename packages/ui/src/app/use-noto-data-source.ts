@@ -1,6 +1,7 @@
 import {
   createDocument as buildDocument,
   deleteDocument as applyDelete,
+  restoreDocument as applyRestore,
   updateDocument as applyUpdate,
 } from '@noto/core';
 import type { NotoDatabase } from '@noto/database';
@@ -30,6 +31,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
   const [error, setError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [documents, setDocuments] = useState<NotoDocument[] | undefined>(undefined);
+  const [trashedDocuments, setTrashed] = useState<NotoDocument[] | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
@@ -66,6 +68,16 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
 
     void database.documents.listByWorkspace(workspace.id).then((rows) => {
       if (!cancelled) setDocuments(rows);
+    });
+
+    /*
+     * Trash is the same query with the tombstones left in, filtered down to
+     * them. Asking the repository for deleted rows only is not part of the
+     * contract, and one extra pass over a list this size is not worth widening
+     * it for.
+     */
+    void database.documents.listByWorkspace(workspace.id, { includeDeleted: true }).then((rows) => {
+      if (!cancelled) setTrashed(rows.filter((row) => row.deletedAt !== null));
     });
 
     return () => {
@@ -112,6 +124,25 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
     setRevision((value) => value + 1);
   }, []);
 
+  const restoreDocument = useCallback(async (id: string) => {
+    const database = databaseRef.current;
+    if (!database) return;
+
+    const existing = await database.documents.get(id);
+    if (!existing) return;
+
+    await database.documents.put(applyRestore(existing));
+    setRevision((value) => value + 1);
+  }, []);
+
+  const purgeDocument = useCallback(async (id: string) => {
+    const database = databaseRef.current;
+    if (!database) return;
+
+    await database.documents.purge(id);
+    setRevision((value) => value + 1);
+  }, []);
+
   /*
    * `undefined` means "not resolved yet", and is deliberately distinct from
    * `null`: a document that was just created is briefly absent from
@@ -135,21 +166,27 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       error,
       workspace,
       documents,
+      trashedDocuments,
       activeDocument,
       selectDocument: setSelectedId,
       createDocument,
       updateDocument,
       deleteDocument,
+      restoreDocument,
+      purgeDocument,
     }),
     [
       status,
       error,
       workspace,
       documents,
+      trashedDocuments,
       activeDocument,
       createDocument,
       updateDocument,
       deleteDocument,
+      restoreDocument,
+      purgeDocument,
     ],
   );
 }

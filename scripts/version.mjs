@@ -2,10 +2,11 @@
 /**
  * Keeps every release-facing version number in the workspace on one value.
  *
- * Noto releases as a single product, so the root manifest, the four apps and
- * the Expo app config all carry the same semantic version. The release
- * pipeline calls `set` from the pushed tag; `check` is the guard that stops a
- * tag being cut against a manifest that was never bumped.
+ * Noto releases as a single product, so the root manifest, the four apps, the
+ * Expo app config and the `APP_VERSION` the interface displays all carry the
+ * same semantic version. The release pipeline calls `set` from the pushed tag;
+ * `check` is the guard that stops a tag being cut against a manifest that was
+ * never bumped.
  *
  *   node scripts/version.mjs get
  *   node scripts/version.mjs set 1.0.0
@@ -31,7 +32,14 @@ const MANIFESTS = [
 
 const EXPO_CONFIG = 'apps/mobile/app.json';
 
-const ALL_FILES = [...MANIFESTS, EXPO_CONFIG];
+/**
+ * The same version as a source constant, because the shared UI shows it and
+ * cannot import a manifest on every platform.
+ */
+const APP_CONSTANT = 'packages/config/src/app.ts';
+const APP_CONSTANT_PATTERN = /(export const APP_VERSION = ')([^']*)(';)/;
+
+const ALL_FILES = [...MANIFESTS, EXPO_CONFIG, APP_CONSTANT];
 
 // Semantic versioning, with the optional prerelease and build parts that the
 // beta and nightly channels rely on.
@@ -64,6 +72,19 @@ function androidVersionCode(version) {
   return Math.max(1, major * 1_000_000 + minor * 1_000 + patch);
 }
 
+function readAppConstant() {
+  const source = readFileSync(path.join(root, APP_CONSTANT), 'utf8');
+  const match = source.match(APP_CONSTANT_PATTERN);
+  if (!match) fail(`could not find APP_VERSION in ${APP_CONSTANT}.`);
+  return match[2];
+}
+
+function writeAppConstant(version) {
+  const file = path.join(root, APP_CONSTANT);
+  const source = readFileSync(file, 'utf8');
+  writeFileSync(file, source.replace(APP_CONSTANT_PATTERN, `$1${version}$3`), 'utf8');
+}
+
 function get() {
   return readJson('package.json').version;
 }
@@ -82,6 +103,8 @@ function set(version) {
   expo.expo.android = { ...expo.expo.android, versionCode: androidVersionCode(version) };
   expo.expo.ios = { ...expo.expo.ios, buildNumber: String(androidVersionCode(version)) };
   writeJson(EXPO_CONFIG, expo);
+
+  writeAppConstant(version);
 
   // `JSON.stringify` and Prettier disagree about when a short array fits on one
   // line, and CI checks formatting. Re-formatting here keeps a version bump from
@@ -109,6 +132,9 @@ function check(expected) {
 
   const expoVersion = readJson(EXPO_CONFIG).expo.version;
   if (expoVersion !== expected) mismatched.push(`${EXPO_CONFIG}: ${expoVersion}`);
+
+  const appVersion = readAppConstant();
+  if (appVersion !== expected) mismatched.push(`${APP_CONSTANT}: ${appVersion}`);
 
   if (mismatched.length > 0) {
     fail(

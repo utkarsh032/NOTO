@@ -31,6 +31,7 @@ import {
   AlignRightIcon,
   BoldIcon,
   BulletListIcon,
+  ChecklistIcon,
   ClearFormattingIcon,
   CodeBlockIcon,
   CodeIcon,
@@ -84,6 +85,7 @@ const MARK_CONTROLS: Control[] = [
 const BLOCK_CONTROLS: Control[] = [
   { id: 'format.bulletList', icon: BulletListIcon },
   { id: 'format.orderedList', icon: OrderedListIcon },
+  { id: 'format.taskList', icon: ChecklistIcon },
   { id: 'format.blockquote', icon: QuoteIcon },
   { id: 'format.codeBlock', icon: CodeBlockIcon },
 ];

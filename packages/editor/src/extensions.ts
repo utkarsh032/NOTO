@@ -1,5 +1,6 @@
 import type { Extensions } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { TableKit } from '@tiptap/extension-table';
 import TextAlign from '@tiptap/extension-text-align';
 import StarterKit from '@tiptap/starter-kit';
@@ -71,6 +72,14 @@ export function createNotoExtensions(options: NotoExtensionOptions = {}): Extens
     TableKit.configure({
       table: { resizable: true },
     }),
+
+    /*
+     * Checklists. `nested` so a task can hold sub-tasks, which is how a plan
+     * written in one actually grows — and the two nodes are added together
+     * because a task item outside a task list is not a valid document.
+     */
+    TaskList,
+    TaskItem.configure({ nested: true }),
 
     // Holds the find query and decorates its matches.
     NotoSearch,

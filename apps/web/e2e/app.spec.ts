@@ -1,15 +1,18 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 
 /*
- * Both the sidebar and the empty state offer to create a document, and their
- * labels differ only in case — which Playwright ignores. Each is located inside
- * the region it belongs to rather than by name alone.
+ * Three controls offer to create a document: the sidebar's button, Home's
+ * quick-action card, and the empty state under Recent Documents. Each is
+ * located inside the region it belongs to, and the two inside `main` are told
+ * apart by an exact match — Playwright's exact matching is case-sensitive,
+ * which is the only thing separating the card's "New Document" from the empty
+ * state's "New document".
  */
 const sidebarNew = (page: Page) =>
-  page.getByRole('complementary').getByRole('button', { name: 'New Document' });
+  page.getByRole('complementary').getByRole('button', { name: 'New Document', exact: true });
 
 const emptyStateNew = (page: Page) =>
-  page.getByRole('main').getByRole('button', { name: 'New document' });
+  page.getByRole('main').getByRole('button', { name: 'New document', exact: true });
 
 /** Title a freshly created document carries — `UNTITLED_DOCUMENT_TITLE`. */
 const UNTITLED = 'Untitled';
