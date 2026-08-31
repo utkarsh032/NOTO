@@ -19,6 +19,7 @@ function readSettings(): Settings {
       ...parsed,
       appearance: { ...DEFAULT_SETTINGS.appearance, ...parsed.appearance },
       editor: { ...DEFAULT_SETTINGS.editor, ...parsed.editor },
+      updates: { ...DEFAULT_SETTINGS.updates, ...parsed.updates },
     };
   } catch {
     return DEFAULT_SETTINGS;

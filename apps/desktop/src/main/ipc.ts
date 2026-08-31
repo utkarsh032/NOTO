@@ -1,8 +1,9 @@
 import type { SqlValue } from '@noto/database/sqlite';
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 
-import { SHELL_CHANNELS, SQL_CHANNELS } from '../shared/channels';
+import { SHELL_CHANNELS, SQL_CHANNELS, UPDATER_CHANNELS } from '../shared/channels';
 import { execute, select } from './sqlite';
+import { checkForUpdates, installUpdate, setUpdatePublisher } from './updater';
 
 /**
  * The renderer stays sandboxed and never touches the file system; it sends
@@ -41,4 +42,30 @@ export function registerShellHandlers(): void {
         );
       }),
   );
+}
+
+/**
+ * Updating, driven from the renderer.
+ *
+ * The shared shell decides when to look and what to say about it, because that
+ * policy is the same on web and desktop and is written once. All the main
+ * process contributes is the part a browser cannot do: asking the update feed,
+ * and restarting into what it sent.
+ *
+ * Status is pushed to every open window rather than answered to the one that
+ * asked. A download that finishes has no request outstanding to reply to, and
+ * there is no window it is less true for.
+ */
+export function registerUpdateHandlers(): void {
+  setUpdatePublisher((report) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(UPDATER_CHANNELS.status, report);
+    }
+  });
+
+  ipcMain.handle(UPDATER_CHANNELS.check, () => checkForUpdates());
+
+  ipcMain.handle(UPDATER_CHANNELS.install, () => {
+    installUpdate();
+  });
 }
