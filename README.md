@@ -35,7 +35,8 @@ Noto/
 │   ├── website/    Public site: downloads, docs index, changelog (static)
 │   ├── web/        React + Vite + Tailwind, IndexedDB via Dexie
 │   ├── desktop/    React + Electron (Forge), SQLite in the main process
-│   └── mobile/     React Native + Expo Router, SQLite via expo-sqlite
+│   ├── mobile/     Expo shell: a WebView, the SQLite connection, print, share
+│   └── mobile-webview/  The interface that shell runs — @noto/ui, built by Vite
 │
 ├── packages/
 │   ├── core/       Document/folder/workspace logic, commands, Zustand stores
@@ -61,20 +62,29 @@ storage layer to a visitor who only wants a download link. It shares the design 
 ```text
                      @noto/ui  (shell + design system)
                             │
-        ┌───────────────────┴───────────────────┐
-      WEB                 DESKTOP              MOBILE
-   NotoDataContext     NotoDataContext      useNotoStore
+        ┌───────────────────┼───────────────────┐
+      WEB                 DESKTOP             MOBILE
+   NotoDataContext     NotoDataContext     NotoDataContext
         │                   │                   │
-      Dexie              SQLite              SQLite
+      Dexie           SQLite over IPC    SQLite over a
+        │             (main process)     WebView bridge
         └───────────────────┴───────────────────┘
                             │
                      @noto/database
                    (one storage contract)
 ```
 
-Web and desktop render the **same** shell (`NotoApp`) and differ only in the data source
-they provide through `NotoDataContext`. `packages/database` defines one storage contract
-with three implementations, so the SQL and the query semantics are written once.
+All three platforms render the **same** shell (`NotoApp`) and differ only in the data
+source they provide through `NotoDataContext`. `packages/database` defines one storage
+contract with three implementations, so the SQL and the query semantics are written once.
+
+Android reaches that shell through a WebView. Tiptap and ProseMirror need a DOM, so a
+native React Native editor would have had to be a second, smaller Noto kept in step by
+hand — and the leading React Native rich-text editors are themselves Tiptap in a WebView.
+Instead the Expo application packages the `@noto/ui` build into the APK and supplies its
+data across a `postMessage` bridge to the native SQLite connection, which is the same
+arrangement Electron uses over IPC. Tabs, find and replace, history, formatting and every
+screen are therefore not ported to Android; they are the same code running there.
 
 Shared packages are **internal packages**: they export TypeScript source and are compiled
 by the consuming bundler (Vite or Metro). There is no build step for `packages/*`.
@@ -85,21 +95,22 @@ by the consuming bundler (Vite or Metro). There is no build step for `packages/*
 
 Run from the repository root:
 
-| Command                      | What it does                                  |
-| ---------------------------- | --------------------------------------------- |
-| `pnpm dev:web`               | Web dev server on <http://localhost:5173>     |
-| `pnpm dev:website`           | Website dev server on <http://localhost:5174> |
-| `pnpm dev:desktop`           | Electron app with hot reload                  |
-| `pnpm dev:mobile`            | Expo dev server                               |
-| `pnpm build`                 | Production build (web + website)              |
-| `pnpm lint`                  | ESLint across every package                   |
-| `pnpm typecheck`             | `tsc --noEmit` across every package           |
-| `pnpm test`                  | Vitest unit tests                             |
-| `pnpm test:e2e`              | Playwright end-to-end tests (web)             |
-| `pnpm format`                | Prettier write                                |
-| `pnpm release:desktop`       | Windows: environment-aware release build      |
-| `pnpm package:desktop`       | macOS/Linux: package for this platform        |
-| `pnpm release:prepare 1.0.0` | Set the version and stub the release notes    |
+| Command                                  | What it does                                  |
+| ---------------------------------------- | --------------------------------------------- |
+| `pnpm dev:web`                           | Web dev server on <http://localhost:5173>     |
+| `pnpm dev:website`                       | Website dev server on <http://localhost:5174> |
+| `pnpm dev:desktop`                       | Electron app with hot reload                  |
+| `pnpm dev:mobile`                        | Expo dev server                               |
+| `pnpm dev --filter=@noto/mobile-webview` | The Android interface, in a browser           |
+| `pnpm build`                             | Production build (web + website)              |
+| `pnpm lint`                              | ESLint across every package                   |
+| `pnpm typecheck`                         | `tsc --noEmit` across every package           |
+| `pnpm test`                              | Vitest unit tests                             |
+| `pnpm test:e2e`                          | Playwright end-to-end tests (web)             |
+| `pnpm format`                            | Prettier write                                |
+| `pnpm release:desktop`                   | Windows: environment-aware release build      |
+| `pnpm package:desktop`                   | macOS/Linux: package for this platform        |
+| `pnpm release:prepare 1.0.0`             | Set the version and stub the release notes    |
 
 Playwright needs its browser once: `pnpm --filter @noto/web exec playwright install chromium`.
 
@@ -325,8 +336,8 @@ same reason. Remove the pin once Forge bumps its packager dependency.
 
 The foundation is in place and verified end to end:
 
-- Web, desktop and mobile applications all start and share the same core, editor,
-  storage and design-token packages.
+- Web, desktop and mobile applications all start and render the same shell, editor
+  and design system; mobile runs it in a WebView over a native SQLite connection.
 - Documents persist locally — IndexedDB on web, SQLite on desktop and mobile.
 - 118 unit tests, 39 Playwright end-to-end tests, lint and typecheck all pass.
 - The public website builds, with a download page that resolves the latest release from

@@ -16,16 +16,21 @@
     "@noto/config": "workspace:*",
     "@noto/core": "workspace:*",
     "@noto/database": "workspace:*",
+    "@noto/mobile-webview": "workspace:*",
     "@noto/types": "workspace:*",
     "expo": "~57.0.12",
+    "expo-file-system": "~57.0.6",
+    "expo-print": "~57.0.1",
     "expo-router": "~57.0.12",
+    "expo-sharing": "~57.0.16",
     "expo-splash-screen": "^57.0.8",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "^19.2.8",
     "react-native": "0.86.2",
     "react-native-safe-area-context": "~5.9.0",
-    "react-native-screens": "~4.27.0"
+    "react-native-screens": "~4.27.0",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@noto/eslint-config": "workspace:*",

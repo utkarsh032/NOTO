@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      `viewport-fit=cover` lets the page paint under the status and navigation
+      bars; the native side sends the real inset sizes across the bridge and the
+      layout pads itself with them.
+
+      Scaling is pinned because Noto has a zoom control of its own. Leaving the
+      browser's pinch-zoom on top of it gives the document two independent zoom
+      levels that disagree, and the second one is invisible to the status bar.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Noto</title>
+
+    <!--
+      The stylesheet is inlined into the bundle and injected once the script
+      runs, so between first paint and that moment the page has whatever colour
+      the WebView defaults to — white, including for a dark-theme user. These
+      two rules cover exactly that gap; everything after it comes from the
+      design tokens. The values are `--noto-background` in each theme.
+    -->
+    <style>
+      html {
+        background-color: #fafbfa;
+      }
+      html[data-theme='dark'] {
+        background-color: #0f1411;
+      }
+    </style>
+
+    <script>
+      // Applied before first paint so a dark-theme user never sees a light flash.
+      (() => {
+        try {
+          const stored = localStorage.getItem('noto.settings');
+          const mode = stored ? JSON.parse(stored)?.appearance?.theme : 'system';
+          const dark =
+            mode === 'dark' ||
+            (mode !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        } catch {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

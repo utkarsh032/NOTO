@@ -3,29 +3,54 @@
 Noto is one product with four applications. The applications are thin; almost
 everything that matters lives in the shared packages.
 
+Thin is meant literally on Android: that application is a WebView around the
+same `@noto/ui` build the web and desktop applications render, plus the native
+SQLite connection behind it. See [The mobile shell](#the-mobile-shell).
+
 ```text
                         @noto/ui  (design system + application shell)
                               │
       ┌───────────────┬───────┴───────┬────────────────┐
       ▼               ▼               ▼                ▼
    website           web           desktop          mobile
-   (static)      React + Vite    React + Electron   React Native
+   (static)      React + Vite    React + Electron   Expo + WebView
       │               │               │                │
       │               ▼               ▼                ▼
       │           IndexedDB        SQLite            SQLite
-      │            (Dexie)      (main process)    (expo-sqlite)
+      │            (Dexie)      (main process)   (expo-sqlite, over
+      │                                           a WebView bridge)
       ▼
   @noto/config  (tokens, constants, release metadata)
 ```
 
 ## The applications
 
-| App            | Stack                      | Local storage          |
-| -------------- | -------------------------- | ---------------------- |
-| `apps/website` | React + Vite (static)      | none                   |
-| `apps/web`     | React + Vite               | IndexedDB via Dexie    |
-| `apps/desktop` | React + Electron Forge     | SQLite, main process   |
-| `apps/mobile`  | React Native + Expo Router | SQLite via expo-sqlite |
+| App                   | Stack                       | Local storage          |
+| --------------------- | --------------------------- | ---------------------- |
+| `apps/website`        | React + Vite (static)       | none                   |
+| `apps/web`            | React + Vite                | IndexedDB via Dexie    |
+| `apps/desktop`        | React + Electron Forge      | SQLite, main process   |
+| `apps/mobile`         | Expo shell around a WebView | SQLite via expo-sqlite |
+| `apps/mobile-webview` | React + Vite (`@noto/ui`)   | none; asks the shell   |
+
+## The mobile shell
+
+Tiptap and ProseMirror need a DOM. A native React Native editor could not have
+run `@noto/editor` at all, so Android would have meant a second, smaller Noto —
+one that drifts from web and desktop with every release, and whose editor would
+have ended up in a WebView regardless, because that is what the React Native
+rich-text libraries are.
+
+So Android runs the real interface instead. `apps/mobile-webview` builds
+`@noto/ui` with Vite; `apps/mobile/plugins/with-android-webapp.cjs` copies that
+build into the Android project at prebuild, where Gradle packages it; and
+`apps/mobile` loads it from `file:///android_asset/webapp/index.html`. Tabs,
+find and replace, history, formatting, the outline and all seven screens are not
+ported to Android — they are the same code, running there.
+
+What the native side still owns is everything a WebView cannot do: the SQLite
+connection, printing, saving an exported file to the share sheet, safe-area
+insets and the hardware back button.
 
 The website is a separate application from the web app on purpose. It is a
 public marketing and download site: it must load fast for someone who has never

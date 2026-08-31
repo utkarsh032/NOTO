@@ -20,7 +20,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       "expo-router",
@@ -36,8 +37,10 @@
           }
         }
       ],
+      "./plugins/with-android-webapp.cjs",
       "./plugins/with-android-release-signing.cjs",
-      "./plugins/with-android-app-size.cjs"
+      "./plugins/with-android-app-size.cjs",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

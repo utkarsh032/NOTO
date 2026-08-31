@@ -1,0 +1,65 @@
+/*
+ * Inter, self-hosted. The phone has no network to fetch a webfont from — the
+ * whole bundle is read out of the APK — so the family the design system
+ * specifies ships with the application.
+ */
+@import '@fontsource-variable/inter';
+
+@import 'tailwindcss';
+@import '@noto/config/tokens.css';
+@import '@noto/ui/styles.css';
+
+/*
+ * Tailwind v4 scans the files it is imported from. The shared packages live
+ * outside this app, so their sources are registered explicitly or their
+ * utility classes would be stripped from the production build.
+ */
+@source '../../../packages/ui/src';
+@source '../../../packages/editor/src';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--noto-background);
+  color: var(--noto-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+
+  /*
+   * The page fills the window and scrolls internally, so a scroll that reaches
+   * the end has nowhere further to go. Without this Android answers it with an
+   * overscroll glow and a rubber-band, both of which read as the editor coming
+   * loose from the screen.
+   */
+  overscroll-behavior: none;
+
+  /* A tap on a button is a press, not a link being followed. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Safe areas.
+ *
+ * `env(safe-area-inset-*)` is not answered for Android's status and navigation
+ * bars inside a WebView, so the native side measures them and pushes the sizes
+ * in as these properties. They start at zero: an inset that has not arrived yet
+ * should cost no layout rather than guess at one.
+ *
+ * The padding goes on the root element rather than on `body` so the inset area
+ * still paints the application background instead of showing through.
+ */
+:root {
+  --noto-safe-top: 0px;
+  --noto-safe-bottom: 0px;
+  --noto-safe-left: 0px;
+  --noto-safe-right: 0px;
+}
+
+#root {
+  box-sizing: border-box;
+  padding: var(--noto-safe-top) var(--noto-safe-right) var(--noto-safe-bottom) var(--noto-safe-left);
+}
