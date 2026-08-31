@@ -1,4 +1,3 @@
-import { APP_NAME, APP_VERSION } from '@noto/config';
 import { useSettingsStore, useUiStore } from '@noto/core';
 import { useMemo } from 'react';
 
@@ -13,6 +12,7 @@ import { QuickNoteIllustration } from '../components/illustrations';
 import { cn } from '../utils/cn';
 import { NavItem } from './NavItem';
 import { SidebarDocumentList } from './SidebarDocumentList';
+import { SidebarUpdateButton, SidebarVersion } from './SidebarUpdate';
 import { useNotoData } from './data-context';
 import { PRIMARY_NAV, SECONDARY_NAV, isEntryActive } from './navigation';
 import { navigate } from './router';
@@ -124,15 +124,11 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
         </nav>
 
         <div className="flex flex-col items-center gap-2 pb-3">
+          <SidebarUpdateButton collapsed />
           <SyncStatus status={syncState} variant="rail" />
           {/* The rail has no room for the name, and none is needed: the number
               under the mark can only be one thing's version. */}
-          <p
-            className="text-disabled text-caption text-center tabular-nums"
-            title={`${APP_NAME} ${APP_VERSION}`}
-          >
-            {APP_VERSION}
-          </p>
+          <SidebarVersion collapsed />
         </div>
       </aside>
     );
@@ -304,14 +300,12 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
         </button>
       </div>
 
-      <div className="border-default flex items-center justify-between gap-2 border-t px-4 py-3">
-        <SyncStatus status={syncState} />
-        <span
-          className="text-disabled text-caption tabular-nums"
-          title={`${APP_NAME} ${APP_VERSION}`}
-        >
-          {APP_VERSION}
-        </span>
+      <div className="border-default border-t px-4 py-3">
+        <SidebarUpdateButton />
+        <div className="flex items-center justify-between gap-2">
+          <SyncStatus status={syncState} />
+          <SidebarVersion />
+        </div>
       </div>
     </aside>
   );

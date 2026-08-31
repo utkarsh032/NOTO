@@ -74,6 +74,7 @@ export { NotoAppShell, type NotoAppShellProps } from './app/NotoAppShell';
 export { Sidebar, type SidebarProps } from './app/Sidebar';
 export { Header, type HeaderProps } from './app/Header';
 export { NavItem, type NavItemProps } from './app/NavItem';
+export { SidebarUpdateButton, SidebarVersion, type SidebarUpdateProps } from './app/SidebarUpdate';
 export { UserMenu, type UserMenuProps } from './app/UserMenu';
 export { MobileNav, type MobileNavProps } from './app/MobileNav';
 export { PageContainer, type PageContainerProps } from './app/PageContainer';
@@ -181,6 +182,22 @@ export {
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
 export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
+export {
+  checkForUpdates,
+  dismissUpdate,
+  installUpdate,
+  isUpdateDismissed,
+  isUpdateWaiting,
+  openUpdatePrompt,
+  reportUpdateStatus,
+  setUpdateProvider,
+  updateCapabilities,
+  useUpdateStatus,
+  useUpdateWatcher,
+  type UpdateProvider,
+  type UpdateState,
+  type UpdateStatus,
+} from './app/updates';
 export { clearSnapshot, readSnapshot, writeSnapshot, type RecoverySnapshot } from './app/recovery';
 export {
   useFormattingPrompts,

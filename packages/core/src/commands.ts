@@ -608,6 +608,12 @@ export const CORE_COMMANDS: readonly Command[] = [
     category: 'app',
     shortcut: 'CmdOrCtrl+,',
   },
+  {
+    id: 'app.checkForUpdates',
+    title: 'Check for Updates',
+    category: 'app',
+    keywords: ['update', 'upgrade', 'version', 'release', 'new'],
+  },
 ];
 
 export function createCommandRegistry(commands: readonly Command[] = CORE_COMMANDS) {

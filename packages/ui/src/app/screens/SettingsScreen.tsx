@@ -1,4 +1,4 @@
-import { AUTOSAVE_DELAY_MS, APP_NAME, APP_VERSION, ZOOM_LEVELS } from '@noto/config';
+import { AUTOSAVE_DELAY_MS, APP_NAME, APP_VERSION, RELEASES_URL, ZOOM_LEVELS } from '@noto/config';
 import { CORE_COMMANDS, formatShortcut, useSettingsStore } from '@noto/core';
 import type { EditorFontFamily, ThemeMode } from '@noto/types';
 import { useMemo, useState } from 'react';
@@ -16,6 +16,8 @@ import {
   CloudIcon,
   DatabaseIcon,
   DocumentsIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
   FolderIcon,
   HistoryIcon,
   InfoIcon,
@@ -29,10 +31,17 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
-import { formatBytes } from '../../utils/format';
+import { formatBytes, relativeTime } from '../../utils/format';
 import { PageContainer } from '../PageContainer';
 import { SettingsRow, SettingsSection } from '../settings/SettingsSection';
 import { detectShortcutPlatform } from '../use-command-shortcuts';
+import {
+  checkForUpdates,
+  installUpdate,
+  isUpdateWaiting,
+  updateCapabilities,
+  useUpdateStatus,
+} from '../updates';
 import { useAccount } from '../use-account';
 import { useNotoData } from '../data-context';
 import { navigate } from '../router';
@@ -49,6 +58,7 @@ type CategoryId =
   | 'ai'
   | 'privacy'
   | 'sync'
+  | 'updates'
   | 'about';
 
 interface Category {
@@ -69,6 +79,7 @@ const CATEGORIES: Category[] = [
   { id: 'ai', label: 'AI Assistant', icon: SparklesIcon },
   { id: 'privacy', label: 'Privacy & Security', icon: ShieldIcon },
   { id: 'sync', label: 'Sync & Backup', icon: CloudIcon },
+  { id: 'updates', label: 'Updates', icon: DownloadIcon },
   { id: 'about', label: `About ${APP_NAME}`, icon: InfoIcon },
 ];
 
@@ -90,6 +101,7 @@ export function SettingsScreen() {
   const setAccentColor = useSettingsStore((state) => state.setAccentColor);
   const updateEditor = useSettingsStore((state) => state.updateEditor);
   const setSyncEnabled = useSettingsStore((state) => state.setSyncEnabled);
+  const updatePreferences = useSettingsStore((state) => state.updateUpdatePreferences);
   const reset = useSettingsStore((state) => state.reset);
 
   const { documents, workspace } = useNotoData();
@@ -99,6 +111,9 @@ export function SettingsScreen() {
   const [resetting, setResetting] = useState(false);
 
   const platform = useMemo(() => detectShortcutPlatform(), []);
+
+  const update = useUpdateStatus();
+  const { installLabel, appliesOnRestart } = updateCapabilities();
 
   const usedBytes = useMemo(
     () =>
@@ -612,9 +627,130 @@ export function SettingsScreen() {
             </SettingsSection>
           ) : null}
 
+          {category === 'updates' ? (
+            <SettingsSection
+              title="Updates"
+              description="How Noto finds out about new releases, and what it does about them."
+            >
+              <SettingsRow
+                label="Current version"
+                description={
+                  update.state === 'unsupported'
+                    ? (update.message ?? 'This build of Noto does not update itself.')
+                    : update.checkedAt
+                      ? `Last checked ${relativeTime(update.checkedAt).toLowerCase()}.`
+                      : 'Noto has not looked for a newer release yet this session.'
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    {isUpdateWaiting(update) ? (
+                      <Badge tone="brand" dot>
+                        {update.version} available
+                      </Badge>
+                    ) : (
+                      <Badge>{APP_VERSION}</Badge>
+                    )}
+                    <Button
+                      size="sm"
+                      loading={update.state === 'checking' || update.state === 'downloading'}
+                      onClick={() => void checkForUpdates({ manual: true })}
+                    >
+                      Check now
+                    </Button>
+                  </div>
+                }
+              />
+
+              {/* Only shown when there is something to press. A permanent
+                  "install" button with nothing to install is furniture. */}
+              {isUpdateWaiting(update) ? (
+                <SettingsRow
+                  label={`${APP_NAME} ${update.version}`}
+                  description={
+                    update.state === 'ready'
+                      ? 'Downloaded and waiting. Noto restarts to finish.'
+                      : 'Published and ready to download.'
+                  }
+                  control={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leading={<DownloadIcon className="h-4 w-4" />}
+                      onClick={() => void installUpdate()}
+                    >
+                      {installLabel}
+                    </Button>
+                  }
+                />
+              ) : null}
+
+              <SettingsRow
+                label="Check for updates automatically"
+                description="Asks GitHub for the newest release every few hours. This is the only thing Noto sends over the network on its own — switch it off and it never looks unless you press Check now."
+                control={
+                  <Toggle
+                    hideLabel
+                    label="Check for updates automatically"
+                    checked={settings.updates.checkAutomatically}
+                    onChange={(checked) => updatePreferences({ checkAutomatically: checked })}
+                  />
+                }
+              />
+
+              <SettingsRow
+                label="Install updates automatically"
+                description={
+                  appliesOnRestart
+                    ? 'A new version is installed the next time you open Noto, without asking. Off, Noto tells you it is ready and waits for you.'
+                    : 'Noto in a browser cannot replace itself — reload the page to move to a new version. This is a desktop setting.'
+                }
+                control={
+                  <Toggle
+                    hideLabel
+                    label="Install updates automatically"
+                    disabled={!appliesOnRestart}
+                    checked={appliesOnRestart && settings.updates.automatic}
+                    onChange={(checked) => updatePreferences({ automatic: checked })}
+                  />
+                }
+              />
+
+              <SettingsRow
+                label="Release notes"
+                description="Every release, what changed in it, and the files it published."
+                control={
+                  <a
+                    href={RELEASES_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-strong text-body-sm focus-visible:outline-brand inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  >
+                    Open on GitHub
+                    <ExternalLinkIcon className="h-4 w-4" />
+                  </a>
+                }
+              />
+            </SettingsSection>
+          ) : null}
+
           {category === 'about' ? (
             <SettingsSection title={`About ${APP_NAME}`}>
-              <SettingsRow label="Version" control={<Badge>{APP_VERSION}</Badge>} />
+              <SettingsRow
+                label="Version"
+                description={
+                  isUpdateWaiting(update) ? `${update.version} has been released.` : undefined
+                }
+                control={
+                  <div className="flex items-center gap-2">
+                    <Badge>{APP_VERSION}</Badge>
+                    {isUpdateWaiting(update) ? (
+                      <Button size="sm" onClick={() => setCategory('updates')}>
+                        Update
+                      </Button>
+                    ) : null}
+                  </div>
+                }
+              />
               <SettingsRow
                 label="What Noto is"
                 description="A local-first writing, document, memory and search workspace for desktop, web and mobile."

@@ -32,6 +32,11 @@ export const STORAGE_KEYS = {
   sidebarCollapsed: 'noto.ui.sidebar-collapsed',
   /** Which documents are open, in which order, and which one is in front. */
   tabs: 'noto.tabs',
+  /**
+   * The version the user last said "later" to, so the update prompt asks once
+   * per release rather than once per launch.
+   */
+  dismissedUpdate: 'noto.update.dismissed',
 } as const;
 
 /**
