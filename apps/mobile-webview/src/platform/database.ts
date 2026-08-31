@@ -3,12 +3,12 @@ import type { NotoDatabase } from '@noto/database';
 import { createSqliteDatabase } from '@noto/database/sqlite';
 import type { Workspace } from '@noto/types';
 
-import { createExpoSqlDriver } from './sqlite-driver';
+import { createBridgeSqlDriver } from './bridge-sql-driver';
 
 let opening: Promise<{ database: NotoDatabase; workspace: Workspace }> | null = null;
 
 async function open(): Promise<{ database: NotoDatabase; workspace: Workspace }> {
-  const database = createSqliteDatabase(await createExpoSqlDriver());
+  const database = createSqliteDatabase(createBridgeSqlDriver());
   await database.open();
 
   const existing = await database.workspaces.list({ limit: 1 });
@@ -22,8 +22,8 @@ async function open(): Promise<{ database: NotoDatabase; workspace: Workspace }>
 }
 
 /**
- * Opens the mobile store, creating the offline default workspace on first
- * launch. The promise is cached so concurrent screens share one connection.
+ * Opens the device's store, creating the offline default workspace on first
+ * launch. The promise is cached so a re-render never opens it twice.
  */
 export function openMobileDatabase(): Promise<{
   database: NotoDatabase;

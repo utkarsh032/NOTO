@@ -31,9 +31,29 @@ export interface AppearanceSettings {
   reducedMotion: boolean;
 }
 
+export interface UpdateSettings {
+  /**
+   * Ask GitHub in the background whether a newer release exists.
+   *
+   * On by default, and the only thing in Noto that reaches the network without
+   * being asked to — which is why it can be switched off. Off means Noto never
+   * looks unless the user presses the button.
+   */
+  checkAutomatically: boolean;
+  /**
+   * Apply a downloaded update without asking first.
+   *
+   * Off by default: an update replaces the application under someone who is in
+   * the middle of writing, so the default is to say a new version is ready and
+   * let them choose when. On, Noto installs it the next time it starts.
+   */
+  automatic: boolean;
+}
+
 export interface Settings {
   appearance: AppearanceSettings;
   editor: EditorSettings;
+  updates: UpdateSettings;
   /** Opt-in; Noto stays fully local until the user enables sync. */
   syncEnabled: boolean;
 }

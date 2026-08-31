@@ -28,6 +28,8 @@ const MANIFESTS = [
   'apps/website/package.json',
   'apps/desktop/package.json',
   'apps/mobile/package.json',
+  // The interface the Android application runs; it ships inside that APK.
+  'apps/mobile-webview/package.json',
 ];
 
 const EXPO_CONFIG = 'apps/mobile/app.json';

@@ -1,13 +1,4 @@
-import {
-  CORE_COMMANDS,
-  canZoomIn,
-  canZoomOut,
-  formatShortcut,
-  formatZoom,
-  useSettingsStore,
-  zoomIn,
-  zoomOut,
-} from '@noto/core';
+import { CORE_COMMANDS, formatShortcut, useSettingsStore } from '@noto/core';
 import {
   MAX_TABLE_SIZE,
   MIN_TABLE_SIZE,
@@ -21,6 +12,7 @@ import { type Editor, useFormatState } from '@noto/editor/react';
 import { type ComponentType, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
+import { Dropdown, type DropdownItem } from '../components/Dropdown';
 import { Select } from '../components/Input';
 import { fieldClasses } from '../components/field-styles';
 import { ToolbarButton } from '../components/ToolbarButton';
@@ -31,7 +23,9 @@ import {
   AlignRightIcon,
   BoldIcon,
   BulletListIcon,
+  CheckIcon,
   ChecklistIcon,
+  ChevronDownIcon,
   ClearFormattingIcon,
   CodeBlockIcon,
   CodeIcon,
@@ -40,6 +34,9 @@ import {
   ImageIcon,
   ItalicIcon,
   LinkIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  MoreIcon,
   OrderedListIcon,
   PilcrowIcon,
   PrinterIcon,
@@ -51,8 +48,6 @@ import {
   UnderlineIcon,
   UndoIcon,
   WrapTextIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
 } from '../components/icons';
 import { cn } from '../utils/cn';
 import { detectShortcutPlatform } from './use-command-shortcuts';
@@ -79,20 +74,25 @@ const MARK_CONTROLS: Control[] = [
   { id: 'format.italic', icon: ItalicIcon },
   { id: 'format.underline', icon: UnderlineIcon },
   { id: 'format.strike', icon: StrikethroughIcon },
-  { id: 'format.code', icon: CodeIcon },
 ];
 
-const BLOCK_CONTROLS: Control[] = [
+const LIST_CONTROLS: Control[] = [
   { id: 'format.bulletList', icon: BulletListIcon },
   { id: 'format.orderedList', icon: OrderedListIcon },
   { id: 'format.taskList', icon: ChecklistIcon },
-  { id: 'format.blockquote', icon: QuoteIcon },
-  { id: 'format.codeBlock', icon: CodeBlockIcon },
 ];
 
+/*
+ * Alignment is split rather than shortened. Left and centre are what a writer
+ * reaches for; right and justify are real but rare, so they wait in the
+ * overflow menu instead of spending two slots on the bar.
+ */
 const ALIGN_CONTROLS: Control[] = [
   { id: 'format.alignLeft', icon: AlignLeftIcon },
   { id: 'format.alignCenter', icon: AlignCenterIcon },
+];
+
+const OVERFLOW_ALIGN_CONTROLS: Control[] = [
   { id: 'format.alignRight', icon: AlignRightIcon },
   { id: 'format.alignJustify', icon: AlignJustifyIcon },
 ];
@@ -136,7 +136,7 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
    * reader sees every document, and survive a restart. The toolbar is simply
    * the nearest place to reach them.
    */
-  const { showInvisibles, wordWrap, zoom } = useSettingsStore((state) => state.settings.editor);
+  const { showInvisibles, wordWrap } = useSettingsStore((state) => state.settings.editor);
   const updateEditor = useSettingsStore((state) => state.updateEditor);
 
   const hint = (commandId: string): string | undefined => {
@@ -161,10 +161,84 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
 
   const activeBlockType = BLOCK_TYPES.find((type) => format.active[type.id])?.id ?? '';
 
+  const [fullscreen, toggleFullscreen] = useFullscreen();
+
+  /*
+   * The overflow menu. Rare, not lesser: everything here is a command with a
+   * shortcut of its own, and the menu exists so the bar can stay eight groups
+   * wide rather than fourteen.
+   */
+  const overflowItems: DropdownItem[] = [
+    ...OVERFLOW_ALIGN_CONTROLS.map((control) => ({
+      id: control.id,
+      label: title(control.id),
+      icon: <control.icon className="h-4 w-4" />,
+      trailing: format.active[control.id] ? <CheckIcon className="h-4 w-4" /> : undefined,
+      disabled: !editor,
+      onSelect: () => runEditorAction(editor, control.id),
+    })),
+    {
+      id: 'format.codeBlock',
+      label: title('format.codeBlock'),
+      icon: <CodeBlockIcon className="h-4 w-4" />,
+      trailing: format.active['format.codeBlock'] ? <CheckIcon className="h-4 w-4" /> : undefined,
+      disabled: !editor,
+      separated: true,
+      onSelect: () => runEditorAction(editor, 'format.codeBlock'),
+    },
+    {
+      id: 'insert.horizontalRule',
+      label: title('insert.horizontalRule'),
+      icon: <DividerIcon className="h-4 w-4" />,
+      disabled: !editor,
+      onSelect: () => runEditorAction(editor, 'insert.horizontalRule'),
+    },
+    {
+      id: 'edit.find',
+      label: title('edit.find'),
+      icon: <SearchIcon className="h-4 w-4" />,
+      trailing: hint('edit.find'),
+      disabled: !editor || !onFind,
+      separated: true,
+      onSelect: () => onFind?.(),
+    },
+    {
+      id: 'document.print',
+      label: title('document.print'),
+      icon: <PrinterIcon className="h-4 w-4" />,
+      trailing: hint('document.print'),
+      disabled: !onPrint,
+      onSelect: () => onPrint?.(),
+    },
+    {
+      id: 'view.toggleInvisibles',
+      label: title('view.toggleInvisibles'),
+      icon: <PilcrowIcon className="h-4 w-4" />,
+      trailing: showInvisibles ? <CheckIcon className="h-4 w-4" /> : undefined,
+      separated: true,
+      keepsFocus: true,
+      onSelect: () => {
+        updateEditor({ showInvisibles: !showInvisibles });
+        editor?.commands.focus();
+      },
+    },
+    {
+      id: 'view.toggleWordWrap',
+      label: title('view.toggleWordWrap'),
+      icon: <WrapTextIcon className="h-4 w-4" />,
+      trailing: wordWrap ? <CheckIcon className="h-4 w-4" /> : undefined,
+      keepsFocus: true,
+      onSelect: () => {
+        updateEditor({ wordWrap: !wordWrap });
+        editor?.commands.focus();
+      },
+    },
+  ];
+
   return (
     <div className={className}>
       <div
-        className="min-h-toolbar flex flex-wrap items-center gap-0.5 py-1.5"
+        className="min-h-toolbar noto-scroll-x flex items-center gap-0.5 overflow-x-auto py-1.5"
         role="toolbar"
         aria-label="Formatting"
         aria-controls="noto-document-body"
@@ -194,6 +268,8 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         <Separator />
         {MARK_CONTROLS.map(renderControl)}
 
+        <Separator />
+        {renderControl({ id: 'format.code', icon: CodeIcon })}
         <ToolbarButton
           label={title('format.link')}
           shortcutHint={hint('format.link')}
@@ -203,14 +279,6 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         >
           <LinkIcon />
         </ToolbarButton>
-
-        <Separator />
-        {BLOCK_CONTROLS.map(renderControl)}
-
-        <Separator />
-        {ALIGN_CONTROLS.map(renderControl)}
-
-        <Separator />
         <ToolbarButton
           label={title('insert.image')}
           disabled={!editor}
@@ -218,6 +286,50 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         >
           <ImageIcon />
         </ToolbarButton>
+
+        <Separator />
+        {LIST_CONTROLS.map(renderControl)}
+        {/*
+         * The chevron beside the three list buttons changes which kind of list
+         * the caret is in, rather than offering a fourth thing to insert: it is
+         * the same three commands, reached the way a picker is reached.
+         */}
+        <Dropdown
+          align="left"
+          label="List type"
+          items={LIST_CONTROLS.map((control) => ({
+            id: control.id,
+            label: title(control.id),
+            icon: <control.icon className="h-4 w-4" />,
+            trailing: format.active[control.id] ? <CheckIcon className="h-4 w-4" /> : undefined,
+            disabled: !editor,
+            onSelect: () => runEditorAction(editor, control.id),
+          }))}
+          trigger={(triggerProps) => (
+            <button
+              {...triggerProps}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              disabled={!editor}
+              aria-label="List type"
+              title="List type"
+              className="text-secondary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand inline-flex h-8 w-5 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none disabled:opacity-40"
+            >
+              <ChevronDownIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        />
+
+        <Separator />
+        {renderControl({ id: 'format.clear', icon: ClearFormattingIcon })}
+
+        <Separator />
+        {ALIGN_CONTROLS.map(renderControl)}
+
+        <Separator />
+        {renderControl({ id: 'format.blockquote', icon: QuoteIcon })}
+
+        <Separator />
         <ToolbarButton
           label={title('insert.table')}
           disabled={!editor}
@@ -225,12 +337,37 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         >
           <TableIcon />
         </ToolbarButton>
-        {renderControl({ id: 'insert.horizontalRule', icon: DividerIcon })}
 
-        <Separator />
-        {renderControl({ id: 'format.clear', icon: ClearFormattingIcon })}
+        {/*
+         * Everything that is real but rarely reached for. It is a menu rather
+         * than eight more glyphs: a bar the eye has to scan is a bar that costs
+         * more than the controls on it are worth.
+         */}
+        <Dropdown
+          align="left"
+          label="More formatting"
+          items={overflowItems}
+          trigger={(triggerProps) => (
+            <button
+              {...triggerProps}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              aria-label="More formatting"
+              title="More formatting"
+              className="text-secondary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand ml-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-1"
+            >
+              <MoreIcon className="h-4 w-4" />
+            </button>
+          )}
+        />
 
-        <Separator />
+        {/*
+         * History and the window sit at the far end, pushed there rather than
+         * ordered there: undo acts on what you just did rather than on the
+         * selection, and full screen acts on the window, not the document.
+         */}
+        <span className="flex-1" aria-hidden="true" />
+
         <ToolbarButton
           label={title('edit.undo')}
           shortcutHint={hint('edit.undo')}
@@ -247,76 +384,14 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         >
           <RedoIcon />
         </ToolbarButton>
-        <ToolbarButton
-          label={title('edit.find')}
-          shortcutHint={hint('edit.find')}
-          disabled={!editor || !onFind}
-          onClick={() => onFind?.()}
-        >
-          <SearchIcon />
-        </ToolbarButton>
-        <ToolbarButton
-          label={title('document.print')}
-          shortcutHint={hint('document.print')}
-          disabled={!onPrint}
-          onClick={() => onPrint?.()}
-        >
-          <PrinterIcon />
-        </ToolbarButton>
-
-        {/*
-         * View controls sit at the far end, pushed there rather than ordered
-         * there: they act on the window, not on the document, and grouping them
-         * apart is what says so.
-         */}
-        <span className="flex-1" aria-hidden="true" />
-
-        <ToolbarButton
-          label={title('view.toggleInvisibles')}
-          isActive={showInvisibles}
-          onClick={() => updateEditor({ showInvisibles: !showInvisibles })}
-        >
-          <PilcrowIcon />
-        </ToolbarButton>
-        <ToolbarButton
-          label={title('view.toggleWordWrap')}
-          shortcutHint={hint('view.toggleWordWrap')}
-          isActive={wordWrap}
-          onClick={() => updateEditor({ wordWrap: !wordWrap })}
-        >
-          <WrapTextIcon />
-        </ToolbarButton>
 
         <Separator />
         <ToolbarButton
-          label={title('view.zoomOut')}
-          shortcutHint={hint('view.zoomOut')}
-          disabled={!canZoomOut(zoom)}
-          onClick={() => updateEditor({ zoom: zoomOut(zoom) })}
+          label={fullscreen ? 'Exit full screen' : 'Full screen'}
+          isActive={fullscreen}
+          onClick={toggleFullscreen}
         >
-          <ZoomOutIcon />
-        </ToolbarButton>
-        {/*
-         * The level doubles as the reset control, which is where the hand
-         * already is after pressing either side of it.
-         */}
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => updateEditor({ zoom: 1 })}
-          title={`${title('view.zoomReset')}${hint('view.zoomReset') ? ` (${hint('view.zoomReset')})` : ''}`}
-          aria-label={`${title('view.zoomReset')}. Currently ${formatZoom(zoom)}.`}
-          className="text-secondary text-caption hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand h-8 min-w-12 shrink-0 rounded-md px-1 tabular-nums transition-colors focus-visible:outline-2 focus-visible:-outline-offset-1"
-        >
-          {formatZoom(zoom)}
-        </button>
-        <ToolbarButton
-          label={title('view.zoomIn')}
-          shortcutHint={hint('view.zoomIn')}
-          disabled={!canZoomIn(zoom)}
-          onClick={() => updateEditor({ zoom: zoomIn(zoom) })}
-        >
-          <ZoomInIcon />
+          {fullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
         </ToolbarButton>
       </div>
 
@@ -364,6 +439,35 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
       ) : null}
     </div>
   );
+}
+
+/**
+ * Whether the window is showing the application full screen, and the switch.
+ *
+ * Read from the browser rather than remembered, because Escape and the F11 key
+ * both leave full screen without going through the button — a flag kept here
+ * would say "exit" over a window that is already back to its normal size.
+ */
+function useFullscreen(): [boolean, () => void] {
+  const [fullscreen, setFullscreen] = useState(
+    () => typeof document !== 'undefined' && document.fullscreenElement !== null,
+  );
+
+  useEffect(() => {
+    const sync = () => setFullscreen(document.fullscreenElement !== null);
+
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+
+  const toggle = () => {
+    /* Refused when the gesture is not one the browser trusts; nothing to do
+       about that but leave the window as it is. */
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  };
+
+  return [fullscreen, toggle];
 }
 
 function Separator() {

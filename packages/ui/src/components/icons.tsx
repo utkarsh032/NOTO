@@ -232,6 +232,14 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function MinusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -741,6 +749,22 @@ export function ExportIcon(props: IconProps) {
     <Icon {...props}>
       <path d="M12 15V4" />
       <path d="m7.5 8.5 4.5-4.5 4.5 4.5" />
+      <path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+    </Icon>
+  );
+}
+
+/**
+ * A new version, waiting. The arrow points into the tray the way `ImportIcon`
+ * does, but out of a circle: an update arrives from somewhere, where an import
+ * comes from a file the user chose.
+ */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="9" r="6" />
+      <path d="M12 6.5v5" />
+      <path d="m9.9 9.4 2.1 2.1 2.1-2.1" />
       <path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
     </Icon>
   );

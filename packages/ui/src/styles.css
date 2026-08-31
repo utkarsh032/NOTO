@@ -76,6 +76,13 @@
   margin-bottom: 0.2em;
 }
 
+/* ProseMirror wraps every list item's text in a paragraph. Left alone, each
+   item would carry a paragraph's gap under it as well as a list item's, and a
+   four-line list would read as four separate paragraphs. */
+.noto-prose li > p {
+  margin-bottom: 0;
+}
+
 .noto-prose blockquote {
   border-left: 3px solid var(--noto-border-strong);
   color: var(--noto-text-secondary);

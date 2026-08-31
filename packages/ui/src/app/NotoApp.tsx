@@ -27,6 +27,7 @@ import { QuickNote } from './overlays/QuickNote';
 import { QuickPaste } from './overlays/QuickPaste';
 import { ShortcutsDialog } from './overlays/ShortcutsDialog';
 import { SmartSidebar } from './overlays/SmartSidebar';
+import { UpdateDialog } from './overlays/UpdateDialog';
 import { useNotoData } from './data-context';
 import { navigate } from './router';
 import { useAccount } from './use-account';
@@ -34,6 +35,7 @@ import { useCommandShortcuts, detectShortcutPlatform } from './use-command-short
 import { useDocumentTabs } from './use-document-tabs';
 import { useResponsiveSidebar } from './use-responsive-sidebar';
 import { useRoute } from './use-route';
+import { useUpdateWatcher, checkForUpdates } from './updates';
 import { useViewport } from './use-viewport';
 
 /*
@@ -180,6 +182,7 @@ export function NotoApp() {
       },
       'app.shortcuts': () => show('shortcuts'),
       'app.settings': () => navigate('settings'),
+      'app.checkForUpdates': () => void checkForUpdates({ manual: true }),
     }),
     [
       tabs,
@@ -207,6 +210,7 @@ export function NotoApp() {
 
   useCommandShortcuts(commandHandlers, commandContext);
   useResponsiveSidebar();
+  useUpdateWatcher();
 
   if (status === 'error') {
     return (
@@ -368,6 +372,8 @@ export function NotoApp() {
           navigate('workspace');
         }}
       />
+
+      <UpdateDialog />
 
       <ToastViewport />
     </>

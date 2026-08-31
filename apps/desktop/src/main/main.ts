@@ -4,7 +4,7 @@ import { APP_NAME, layout } from '@noto/config';
 import { BrowserWindow, app } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 
-import { registerShellHandlers, registerSqlHandlers } from './ipc';
+import { registerShellHandlers, registerSqlHandlers, registerUpdateHandlers } from './ipc';
 import { closeConnection, openConnection } from './sqlite';
 import { initialiseUpdates } from './updater';
 
@@ -71,6 +71,7 @@ void app.whenReady().then(() => {
   openConnection(app.getPath('userData'));
   registerSqlHandlers();
   registerShellHandlers();
+  registerUpdateHandlers();
   createWindow();
   initialiseUpdates();
 

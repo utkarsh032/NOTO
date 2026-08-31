@@ -1,17 +1,34 @@
-import { clampZoom, plainTextFromContent, useSettingsStore, useTabsStore } from '@noto/core';
+import {
+  clampZoom,
+  plainTextFromContent,
+  useSettingsStore,
+  useTabsStore,
+  useUiStore,
+} from '@noto/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../../components/Button';
+import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
 import { IconButton } from '../../components/IconButton';
-import { PanelRightIcon, PlusIcon } from '../../components/icons';
+import {
+  ExportIcon,
+  KeyboardIcon,
+  MoreIcon,
+  PanelRightIcon,
+  PlusIcon,
+  PrinterIcon,
+  SidebarIcon,
+} from '../../components/icons';
 import { WritingIllustration } from '../../components/illustrations';
 import { DocumentEditor, type SaveState } from '../DocumentEditor';
 import { EditorScrollArea } from '../EditorScrollArea';
 import { TabBar } from '../TabBar';
 import { ContextPanel, type ContextTab } from '../editor/ContextPanel';
 import { EditorStatusBar } from '../editor/EditorStatusBar';
+import { useDocumentOperations } from '../documents/use-document-operations';
 import { useNotoData } from '../data-context';
+import { printDocument } from '../print';
 import { replaceRoute } from '../router';
 import { useDocumentTabs } from '../use-document-tabs';
 import { useNotoActions } from '../use-noto-actions';
@@ -39,10 +56,18 @@ export function WorkspaceScreen({
   const { activeDocument, workspace } = useNotoData();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
+  const operations = useDocumentOperations();
+
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   const zoom = useSettingsStore((state) => clampZoom(state.settings.editor.zoom));
 
-  const [panelOpen, setPanelOpen] = useState(false);
+  /*
+   * Open to begin with. The outline is how a long document is navigated, and a
+   * panel that has to be found before it can help is one most people never
+   * find; the control beside the tabs is there to put it away.
+   */
+  const [panelOpen, setPanelOpen] = useState(true);
   const [panelTab, setPanelTab] = useState<ContextTab>('outline');
   const [saveState, setSaveState] = useState<SaveState>('saved');
 
@@ -102,28 +127,76 @@ export function WorkspaceScreen({
     <>
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/*
-         * The tab strip. It draws nothing while a single document is open — one
-         * tab is a label, not a choice — but the row stays, because the control
-         * that opens the panel beside the document belongs at this height
-         * whether or not there is more than one document to choose between.
+         * The tab strip: which documents are open, and the two controls that
+         * decide how much of the window the document itself gets.
          */}
-        <div className="noto-print-hidden border-default bg-surface-secondary flex min-h-11 shrink-0 items-stretch border-b">
+        <div className="noto-print-hidden border-default bg-surface flex min-h-12 shrink-0 items-stretch gap-2 border-b px-2">
           <TabBar
             tabs={tabs.tabs}
             onSelect={tabs.open}
             onClose={tabs.close}
-            className="min-w-0 flex-1 px-2 pt-1"
+            onNew={() => void actions.newDocument()}
+            className="min-w-0 flex-1"
           />
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 px-2">
-            <IconButton
-              label={panelOpen ? 'Hide document details' : 'Show document details'}
-              icon={<PanelRightIcon className="h-5 w-5" />}
-              isActive={panelOpen}
-              disabled={!activeDocument}
-              onClick={() => setPanelOpen((open) => !open)}
-              size="sm"
-              className="hidden lg:inline-flex"
+          <div className="ml-auto flex shrink-0 items-center gap-1 self-center">
+            {/* The two panels, as one pair: what they do is the same thing to
+                opposite edges of the window. */}
+            <div className="border-default hidden items-center rounded-md border lg:flex">
+              <IconButton
+                label="Toggle sidebar"
+                icon={<SidebarIcon className="h-4 w-4" />}
+                onClick={toggleSidebar}
+                size="sm"
+                className="rounded-r-none"
+              />
+              <span className="bg-default h-5 w-px" aria-hidden="true" />
+              <IconButton
+                label={panelOpen ? 'Hide document details' : 'Show document details'}
+                icon={<PanelRightIcon className="h-4 w-4" />}
+                isActive={panelOpen}
+                disabled={!activeDocument}
+                onClick={() => setPanelOpen((open) => !open)}
+                size="sm"
+                className="rounded-l-none"
+              />
+            </div>
+
+            <Dropdown
+              label="Document menu"
+              items={[
+                {
+                  id: 'export',
+                  label: 'Export…',
+                  icon: <ExportIcon className="h-4 w-4" />,
+                  disabled: !activeDocument,
+                  onSelect: () => {
+                    if (activeDocument) operations.exportDocument(activeDocument);
+                  },
+                },
+                {
+                  id: 'print',
+                  label: 'Print…',
+                  icon: <PrinterIcon className="h-4 w-4" />,
+                  disabled: !activeDocument,
+                  onSelect: () => void printDocument(),
+                },
+                {
+                  id: 'shortcuts',
+                  label: 'Keyboard shortcuts',
+                  icon: <KeyboardIcon className="h-4 w-4" />,
+                  separated: true,
+                  onSelect: onShortcuts,
+                },
+              ]}
+              trigger={(triggerProps) => (
+                <IconButton
+                  {...triggerProps}
+                  label="Document menu"
+                  icon={<MoreIcon className="h-5 w-5" />}
+                  size="sm"
+                />
+              )}
             />
           </div>
         </div>
@@ -176,10 +249,11 @@ export function WorkspaceScreen({
           document={activeDocument}
           tab={panelTab}
           onTab={setPanelTab}
-          onClose={() => setPanelOpen(false)}
           location={workspace?.name ?? 'This workspace'}
         />
       ) : null}
+
+      {operations.dialogs}
     </>
   );
 }

@@ -25,6 +25,15 @@ export const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${GITHUB_SLU
 /** Electron's free update service for public GitHub repositories. */
 export const UPDATE_SERVICE_URL = 'https://update.electronjs.org';
 
+/**
+ * How often a running copy of Noto looks for a newer release.
+ *
+ * Long on purpose. A release happens a handful of times a month, the check is
+ * a network request the user did not ask for, and GitHub's unauthenticated
+ * rate limit is shared by everyone behind the same address.
+ */
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
 // ── Update channels ──────────────────────────────────────────────────────────
 
 export type UpdateChannel = 'stable' | 'beta' | 'nightly';

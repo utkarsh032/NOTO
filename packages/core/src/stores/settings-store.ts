@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from '@noto/config';
-import type { EditorSettings, Settings, ThemeMode } from '@noto/types';
+import type { EditorSettings, Settings, ThemeMode, UpdateSettings } from '@noto/types';
 import { create } from 'zustand';
 
 /**
@@ -19,6 +19,7 @@ export interface SettingsStore {
   setTheme(theme: ThemeMode): void;
   setAccentColor(color: string): void;
   updateEditor(patch: Partial<EditorSettings>): void;
+  updateUpdatePreferences(patch: Partial<UpdateSettings>): void;
   setSyncEnabled(enabled: boolean): void;
   reset(): void;
 }
@@ -42,6 +43,11 @@ export const useSettingsStore = create<SettingsStore>()((set) => ({
   updateEditor: (patch) =>
     set((state) => ({
       settings: { ...state.settings, editor: { ...state.settings.editor, ...patch } },
+    })),
+
+  updateUpdatePreferences: (patch) =>
+    set((state) => ({
+      settings: { ...state.settings, updates: { ...state.settings.updates, ...patch } },
     })),
 
   setSyncEnabled: (syncEnabled) =>

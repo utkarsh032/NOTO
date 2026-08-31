@@ -89,6 +89,16 @@ jobs:
             echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
 
+      # The Android application is a WebView around the shared `@noto/ui`
+      # interface, so that interface has to exist before the native project is
+      # generated: `with-android-webapp.cjs` copies it into the Android asset
+      # folder during prebuild, and fails the build if it is not there.
+      #
+      # Built after the version is resolved, so `APP_VERSION` inside the
+      # interface is the version being released rather than the one on main.
+      - name: Build the interface
+        run: pnpm build --filter=@noto/mobile-webview...
+
       # `apps/mobile/android` is generated, not committed, so the native project
       # is regenerated from app.json on every run.
       # Bounded because this step hangs rather than fails. A healthy prebuild

@@ -7,6 +7,8 @@ export type BadgeTone =
 
 export interface BadgeProps {
   tone?: BadgeTone;
+  /** Draws a dot in the badge's own colour before the label. */
+  dot?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -30,7 +32,7 @@ const TONE: Record<BadgeTone, string> = {
   capture: 'text-capture bg-capture/10',
 };
 
-export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
+export function Badge({ tone = 'neutral', dot = false, children, className }: BadgeProps) {
   return (
     <span
       className={cn(
@@ -39,6 +41,9 @@ export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
         className,
       )}
     >
+      {/* Decoration, not information: the label beside it says the same thing,
+          which is what keeps the state off colour alone. */}
+      {dot ? <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" /> : null}
       {children}
     </span>
   );

@@ -403,13 +403,50 @@ export function serialiseDocument(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Delivery                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** A file Noto is ready to hand over, once a platform decides how. */
+export interface DownloadRequest {
+  /** The name Noto would give the file, extension included. */
+  fileName: string;
+  /** The serialised document. */
+  contents: string;
+  mimeType: string;
+  format: ExportFormat;
+}
+
+export type DownloadHandler = (request: DownloadRequest) => void | Promise<void>;
+
+let downloadHandler: DownloadHandler | null = null;
+
 /**
- * Hands the file to the browser.
+ * Installs the platform's save implementation, replacing any previous one.
  *
- * An object URL and a synthetic click: it is the only route that works
- * identically in a browser tab and inside Electron's renderer, and it never
- * sends the document anywhere. The URL is revoked on the next tick, once the
- * download has been handed off.
+ * Registered rather than passed down, for the same reason the print handler is:
+ * exactly one exists per running application and it is set once at startup.
+ *
+ * Web and desktop leave this unset — an anchor download is the right answer in
+ * a browser tab and in Electron's renderer alike. Mobile sets it, because a
+ * WebView has nowhere to download *to*: the file has to cross into the native
+ * side to reach the share sheet.
+ */
+export function setDownloadHandler(next: DownloadHandler | null): void {
+  downloadHandler = next;
+}
+
+/**
+ * Hands the file to the platform.
+ *
+ * An object URL and a synthetic click, unless a handler is installed: that is
+ * the only route that works identically in a browser tab and inside Electron's
+ * renderer, and it never sends the document anywhere. The URL is revoked on the
+ * next tick, once the download has been handed off.
+ *
+ * The return value says the export was *accepted*, not that it finished. A
+ * handler runs on its own; the anchor path has never reported completion
+ * either, since a browser download outlives the click that started it.
  */
 export function downloadDocument(
   document: Pick<NotoDocument, 'title' | 'content'>,
@@ -418,14 +455,35 @@ export function downloadDocument(
   const info = EXPORT_FORMATS.find((candidate) => candidate.id === format);
   if (!info?.supported) return false;
 
-  const blob = new Blob([serialiseDocument(document, format)], {
+  const contents = serialiseDocument(document, format);
+  const fileName = `${slugify(document.title || 'untitled') || 'untitled'}.${info.extension}`;
+
+  // Captured before the await: a handler torn down mid-export would otherwise
+  // turn into a silent no-op, after the dialog has already said "Exported".
+  const handler = downloadHandler;
+
+  if (handler) {
+    void (async () => {
+      try {
+        await handler({ fileName, contents, mimeType: info.mimeType, format });
+      } catch (error) {
+        // A dismissed share sheet arrives here alongside a real failure, and
+        // neither is a reason to take the editor down around them.
+        console.error('Noto could not export the document.', error);
+      }
+    })();
+
+    return true;
+  }
+
+  const blob = new Blob([contents], {
     type: `${info.mimeType};charset=utf-8`,
   });
   const url = URL.createObjectURL(blob);
 
   const anchor = window.document.createElement('a');
   anchor.href = url;
-  anchor.download = `${slugify(document.title || 'untitled') || 'untitled'}.${info.extension}`;
+  anchor.download = fileName;
   window.document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

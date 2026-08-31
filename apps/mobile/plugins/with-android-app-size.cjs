@@ -48,8 +48,11 @@ const PROPERTIES = {
   // Compresses the Hermes bytecode bundle in the APK. Costs a decompression at
   // launch and saves a couple of megabytes of download.
   'android.enableBundleCompression': 'true',
-  // Noto's mobile UI is text only — it renders no images, so Fresco's animated
-  // codecs are pure payload. Turn these back on before adding an <Image>.
+  // Fresco decodes images for React Native's <Image>, and Noto's native shell
+  // renders none — it is a WebView and a loading spinner. Documents that
+  // contain images still show them: those are decoded by Chromium inside the
+  // WebView, which does not go through Fresco. Turn these back on only if the
+  // native side itself gains an <Image>.
   'expo.gif.enabled': 'false',
   'expo.webp.enabled': 'false',
   // Compresses the native libraries inside the APK. This is a deliberate

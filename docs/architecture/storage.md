@@ -17,6 +17,8 @@ Every platform stores documents locally, and every platform does it differently.
       ▼               ▼               ▼
    vitest         browser      desktop main process
                               and mobile (expo-sqlite)
+                              — both reached across
+                                a process boundary
 ```
 
 | Adapter | Entry point             | Used by                       |
@@ -45,6 +47,30 @@ Renderer                    Preload                Main process
 The renderer talks to a SQL driver that forwards statements over a single IPC
 channel. That is the only route from document content to storage, and it is why
 `sandbox: true` can stay on.
+
+## Mobile: SQLite across the WebView bridge
+
+Android runs the shared interface inside a WebView, which has no durable storage
+worth trusting a document to — a `file://` page gets an opaque origin, and
+IndexedDB is unavailable to it. The database therefore stays where it already
+was, on the native side, and the interface reaches it the same way Electron's
+renderer does.
+
+```text
+WebView                                    Native (Expo)
+───────                                    ─────────────
+@noto/database  ──SQL──▶  postMessage  ──▶  expo-sqlite
+ (bridge driver)         (one channel)       noto.db
+                ◀──rows──  injectJavaScript
+```
+
+Only `execute` and `select` cross. Transactions are driven from the WebView with
+plain `BEGIN`/`COMMIT` statements, which is safe because there is one connection
+and messages arrive in order — exactly the reasoning behind the desktop driver.
+
+This is also why the move to a WebView interface did not strand anyone: it is
+the same database file, opened by the same `@noto/database` schema, so notes
+written by the older native screens open unchanged.
 
 ## Web: IndexedDB
 

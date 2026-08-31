@@ -1,7 +1,14 @@
-import { NotoApp, NotoDataContext, setPrintHandler, useNotoDataSource } from '@noto/ui';
+import {
+  NotoApp,
+  NotoDataContext,
+  setPrintHandler,
+  setUpdateProvider,
+  useNotoDataSource,
+} from '@noto/ui';
 import { useCallback, useEffect } from 'react';
 
 import { openDesktopDatabase } from './platform/database';
+import { desktopUpdateProvider, subscribeToUpdateStatus } from './platform/updates';
 
 /**
  * Desktop entry point. It supplies SQLite-backed data to the shared Noto shell;
@@ -29,6 +36,22 @@ export function App() {
     });
 
     return () => setPrintHandler(null);
+  }, []);
+
+  /*
+   * Updating, likewise: the browser can only ask GitHub what the newest release
+   * is, where the desktop can fetch it and restart into it. What is done about
+   * a new version — whether to ask, and what the prompt says — stays in the
+   * shared shell, so both platforms behave the same way.
+   */
+  useEffect(() => {
+    setUpdateProvider(desktopUpdateProvider);
+    const unsubscribe = subscribeToUpdateStatus();
+
+    return () => {
+      unsubscribe();
+      setUpdateProvider(null);
+    };
   }, []);
 
   return (

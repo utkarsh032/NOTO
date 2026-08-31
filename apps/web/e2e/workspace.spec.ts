@@ -51,6 +51,19 @@ async function newDocument(page: Page, title: string) {
   await setTitle(page, title);
 }
 
+/**
+ * Runs a command that lives behind the toolbar's overflow menu.
+ *
+ * Show Characters, word wrap and print are all one menu deep: the bar keeps the
+ * controls a writer reaches for while writing, and these wait behind "More
+ * formatting". Every action re-focuses the editor before it runs, so the caret
+ * is back in the document by the time the menu closes.
+ */
+async function runOverflowCommand(page: Page, name: string) {
+  await page.getByRole('button', { name: 'More formatting' }).click();
+  await page.getByRole('menuitem', { name }).click();
+}
+
 async function firstVisit(page: Page) {
   await page.goto('/');
   // `exact` makes the match case-sensitive, which is what separates the empty
@@ -64,8 +77,9 @@ test.describe('tabs', () => {
     await firstVisit(page);
     await setTitle(page, 'First');
 
-    // One document is a label, not a choice, so no bar is drawn for it.
-    await expect(tabList(page)).toHaveCount(0);
+    // The strip is drawn as soon as anything is open, including for one
+    // document: it is what says which document the pane below belongs to.
+    await expect(tabList(page).getByRole('tab')).toHaveCount(1);
 
     await newDocument(page, 'Second');
     await expect(tabList(page)).toBeVisible();
@@ -311,7 +325,7 @@ test.describe('view', () => {
 
     await expect(canvas).not.toHaveClass(/noto-prose-nowrap/);
 
-    await page.getByRole('button', { name: 'Toggle Word Wrap' }).click();
+    await runOverflowCommand(page, 'Toggle Word Wrap');
     await expect(canvas).toHaveClass(/noto-prose-nowrap/);
 
     await page.keyboard.press('Alt+z');

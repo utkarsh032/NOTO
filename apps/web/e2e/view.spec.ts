@@ -40,6 +40,19 @@ async function firstVisit(page: Page) {
   await expect(titleField(page)).toHaveValue('Untitled');
 }
 
+/**
+ * Runs a command that lives behind the toolbar's overflow menu.
+ *
+ * Show Characters, word wrap and print are all one menu deep: the bar keeps the
+ * controls a writer reaches for while writing, and these wait behind "More
+ * formatting". Every action re-focuses the editor before it runs, so the caret
+ * is back in the document by the time the menu closes.
+ */
+async function runOverflowCommand(page: Page, name: string) {
+  await page.getByRole('button', { name: 'More formatting' }).click();
+  await page.getByRole('menuitem', { name }).click();
+}
+
 /** Types `count` short paragraphs, enough to overflow a short window. */
 async function typeParagraphs(page: Page, count: number) {
   await body(page).click();
@@ -58,7 +71,7 @@ test.describe('show characters', () => {
     const spaces = body(page).locator('.noto-invisible-space');
     await expect(spaces).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Show Characters' }).click();
+    await runOverflowCommand(page, 'Show Characters');
 
     await expect(spaces).toHaveCount(2);
     await expect(body(page)).toContainText('two words here');
@@ -69,7 +82,7 @@ test.describe('show characters', () => {
      * visible at all — so the proof is that switching it off leaves exactly the
      * characters that were typed, with nothing added and nothing lost.
      */
-    await page.getByRole('button', { name: 'Show Characters' }).click();
+    await runOverflowCommand(page, 'Show Characters');
     await expect(body(page)).toHaveText('two words here');
   });
 
@@ -80,7 +93,7 @@ test.describe('show characters', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('second');
 
-    await page.getByRole('button', { name: 'Show Characters' }).click();
+    await runOverflowCommand(page, 'Show Characters');
 
     await expect(body(page).locator('.noto-invisible-paragraph')).toHaveCount(2);
   });
@@ -90,7 +103,7 @@ test.describe('show characters', () => {
     await body(page).click();
     await page.keyboard.type('one two');
 
-    await page.getByRole('button', { name: 'Show Characters' }).click();
+    await runOverflowCommand(page, 'Show Characters');
     await expect(body(page).locator('.noto-invisible-space')).toHaveCount(1);
 
     // The decorations are maintained incrementally, so a keystroke after the
@@ -101,18 +114,19 @@ test.describe('show characters', () => {
 
   test('is a setting, so it survives a reload', async ({ page }) => {
     await firstVisit(page);
-    await page.getByRole('button', { name: 'Show Characters' }).click();
-    await expect(page.getByRole('button', { name: 'Show Characters' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await body(page).click();
+    await page.keyboard.type('a b');
+
+    await runOverflowCommand(page, 'Show Characters');
+    await expect(body(page).locator('.noto-invisible-space')).toHaveCount(1);
 
     await page.reload();
 
-    await expect(page.getByRole('button', { name: 'Show Characters' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // Proved by what the editor draws rather than by the state of a control:
+    // the setting is only worth persisting if it still changes the page.
+    await body(page).click();
+    await page.keyboard.type(' c d');
+    await expect(body(page).locator('.noto-invisible-space')).not.toHaveCount(0);
   });
 });
 
@@ -173,7 +187,7 @@ test.describe('scrolling', () => {
     await body(page).click();
     await page.keyboard.type('x'.repeat(400));
 
-    await page.getByRole('button', { name: 'Toggle Word Wrap' }).click();
+    await runOverflowCommand(page, 'Toggle Word Wrap');
     await expect(canvas(page)).toHaveClass(/noto-prose-nowrap/);
 
     // The unwrapped line overflows its own box, not the pane's — otherwise the
@@ -206,7 +220,7 @@ test.describe('print', () => {
     await body(page).click();
     await page.keyboard.type('on paper');
 
-    await page.getByRole('button', { name: 'Print Document' }).click();
+    await runOverflowCommand(page, 'Print Document');
     await expect.poll(() => printCalls(page)).toBe(1);
 
     await page.keyboard.press('ControlOrMeta+p');
@@ -236,7 +250,7 @@ test.describe('print', () => {
     await firstVisit(page);
     await body(page).click();
     await page.keyboard.type('a b');
-    await page.getByRole('button', { name: 'Show Characters' }).click();
+    await runOverflowCommand(page, 'Show Characters');
     await expect(body(page).locator('.noto-invisible-space')).toHaveCount(1);
 
     await page.emulateMedia({ media: 'print' });

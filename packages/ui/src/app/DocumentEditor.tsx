@@ -300,67 +300,66 @@ export function DocumentEditor({
   });
 
   /*
-   * A white canvas on the application's off-white background, at a comfortable
-   * measure. The card is what makes the document the object on the screen
-   * rather than a region of the window chrome.
+   * One card: the toolbar at its head, the page under it, the same white
+   * surface throughout. The document is the object on the screen, and a
+   * formatting bar floating on the background above a second, narrower card
+   * reads as two objects — chrome and page — rather than one thing being
+   * written in.
    *
-   * The toolbar sits outside that measure and spans the pane: twenty controls
-   * do not fit across an 800px column without wrapping to a second row, and a
-   * toolbar that changes height as the window resizes is not a fixed thing the
-   * hand can learn.
+   * The measure stays inside the card. The card takes the width of the pane so
+   * the document fills the window it was given, and the text is held to a
+   * comfortable line length within it.
    */
   return (
-    <div className="flex min-h-full flex-col">
-      {/* Sticky, so the controls are still there three pages into a document.
-          None of it belongs on paper, hence `noto-print-hidden`. */}
-      <div className="noto-print-hidden bg-background sticky top-0 z-10">
-        <EditorToolbar
-          editor={editor}
-          prompts={prompts}
-          onFind={() => setFind({ open: true, replace: false })}
-          onPrint={() => void print()}
-          className="border-default border-b px-4 sm:px-6"
-        />
-
-        {find.open ? (
-          <FindReplaceBar
+    <div className="flex min-h-full flex-col px-4 pb-4 sm:px-6">
+      {/*
+       * Sticky, so the controls are still there three pages into a document.
+       * The strip above it is painted too, or the page would show through the
+       * gap between the card's top edge and the window's. None of it belongs on
+       * paper, hence `noto-print-hidden`.
+       */}
+      <div className="noto-print-hidden bg-background sticky top-0 z-10 pt-4">
+        <div className="border-default bg-surface rounded-t-xl border border-b-0">
+          <EditorToolbar
             editor={editor}
-            showReplace={find.replace}
-            onToggleReplace={(replace) => setFind({ open: true, replace })}
-            onClose={closeFind}
+            prompts={prompts}
+            onFind={() => setFind({ open: true, replace: false })}
+            onPrint={() => void print()}
+            className="border-default border-b px-2"
           />
-        ) : null}
+
+          {find.open ? (
+            <FindReplaceBar
+              editor={editor}
+              showReplace={find.replace}
+              onToggleReplace={(replace) => setFind({ open: true, replace })}
+              onClose={closeFind}
+            />
+          ) : null}
+        </div>
       </div>
 
       {recovered ? (
         <RecoveryNotice snapshot={recovered} onRestore={restore} onDiscard={discardRecovery} />
       ) : null}
 
-      <div className="noto-print-sheet max-w-editor mx-auto w-full flex-1 px-4 py-6 sm:px-8 sm:py-8">
-        {/* `noto-print-document` is what the print rules strip the card back to
-            a page with: no border, no shadow, no measure of its own. */}
-        <article className="noto-print-document border-default bg-surface rounded-lg border px-5 py-8 shadow-sm sm:px-10 sm:py-10">
+      {/* `noto-print-document` is what the print rules strip the card back to
+          a page with: no border, no shadow, no measure of its own. */}
+      <article className="noto-print-document noto-print-sheet border-default bg-surface flex-1 rounded-b-xl border border-t-0 px-6 py-8 sm:px-10 sm:py-10">
+        <div className="max-w-editor mx-auto w-full">
           <div className="mb-6">
-            <div className="mb-1 flex items-baseline justify-between gap-4">
-              {/*
-               * An input carries an intrinsic minimum width, so on a narrow
-               * window it refuses to shrink and runs under the save state
-               * beside it. `min-w-0` is what lets the flex row hold.
-               */}
-              <input
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                placeholder="Untitled"
-                aria-label="Document title"
-                className="text-primary placeholder:text-disabled text-h1 w-full min-w-0 flex-1 bg-transparent outline-none"
-              />
-            </div>
-
-            {/* Metadata is present but quiet: it is about the document, not the
-                document itself. */}
-            <p className="text-tertiary text-caption">
-              {activeDocument.wordCount} {activeDocument.wordCount === 1 ? 'word' : 'words'}
-            </p>
+            {/*
+             * An input carries an intrinsic minimum width, so on a narrow
+             * window it refuses to shrink and runs under whatever sits beside
+             * it. `min-w-0` is what lets the flex row hold.
+             */}
+            <input
+              value={title}
+              onChange={(event) => onTitleChange(event.target.value)}
+              placeholder="Untitled"
+              aria-label="Document title"
+              className="text-primary placeholder:text-disabled text-h1 w-full min-w-0 flex-1 bg-transparent outline-none"
+            />
           </div>
 
           {/*
@@ -376,8 +375,8 @@ export function DocumentEditor({
             style={{ fontSize: `${clampZoom(zoom)}em` }}
             id="noto-document-body"
           />
-        </article>
-      </div>
+        </div>
+      </article>
     </div>
   );
 }
