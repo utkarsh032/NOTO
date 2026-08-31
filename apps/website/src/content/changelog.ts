@@ -28,6 +28,59 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-08-31',
+    summary:
+      'The seven screens Noto is actually made of, the same application running on Android at last, and a Noto that tells you when there is a newer one.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'Noto has the seven screens the product is made of — Home, Workspace, Documents, Noto Memory, Search, Settings, and Account & Devices — under one shell with a persistent sidebar and a global header. Quick Note, Quick Paste, the command palette, import, export and version history stay as overlays over whichever screen is open.',
+      },
+      {
+        kind: 'changed',
+        description:
+          'Android runs the same Noto as web and desktop. The application is now the shared interface itself, packaged into the APK and talking to the phone’s SQLite database across a bridge — the arrangement the desktop application has always used, with a different pipe. Tabs, find and replace, history, formatting and every screen are no longer ported to Android; they are the same code running there.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Editing a formatted document on Android no longer flattens it. The phone had its own plain-text editor, so opening a document with headings, tables or images and typing one character replaced all of it with unformatted paragraphs. That editor is gone.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Noto tells you when a new version exists, instead of leaving you to check the download page. The sidebar shows which build it is and offers the update behind its release notes. Desktop downloads and installs it; the web application reloads. Neither happens without being asked, and background checking can be switched off — it is the only thing in Noto that reaches the network unbidden.',
+      },
+      {
+        kind: 'changed',
+        description:
+          'The workspace is one card: the document and its toolbar together, filling the pane, rather than a formatting bar floating above a narrower sheet. The tab strip appears as soon as anything is open, rarely used controls move behind a More formatting menu, zoom moves to the status bar, and the side panel becomes a tabbed card — outline, statistics, history and the assistant — over a Document Info card.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Checklists, on CmdOrCtrl+Shift+9. The toolbar named them and the schema did not have them, so a Task List template had nowhere to put its boxes.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Printing, showing invisible characters, and an editor that remembers where each document was left. Print renders the same DOM the editor draws with the application stripped off, so the page cannot drift from the screen: a dark theme prints black on white, links print their address, and headings, tables and images break sensibly.',
+      },
+      {
+        kind: 'improved',
+        description:
+          'Opening Noto is faster. Every screen but Home loads on demand, and the editor with it, taking the entry bundle from 1,012 kB to 376 kB.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Opening a document no longer takes the workspace down with it in some cases. Revealing a lazily loaded screen re-runs the effects beneath it, which handed the editor hooks an instance that had just been destroyed.',
+      },
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-08-26',
     summary:
