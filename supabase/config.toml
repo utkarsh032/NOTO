@@ -1,0 +1,59 @@
+# Local Supabase, for development.
+#
+# `supabase start` brings this up in Docker: Postgres, GoTrue, PostgREST,
+# Storage and Studio, with the migrations in `migrations/` applied. It is free,
+# unlimited and offline, which is why schema work happens here and not against
+# one of the two free cloud projects.
+
+project_id = "noto"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 16
+
+[studio]
+enabled = true
+port = 54323
+
+# Catches every email the local stack sends, at http://localhost:54324.
+# No address is ever contacted in development.
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "noto://auth/callback"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Off locally so a sign-up does not need a round trip through the mail catcher.
+# It is ON in staging and production; see supabase/README.md.
+enable_confirmations = false
+
+[auth.email.template.invite]
+subject = "You have been invited to Noto"
+
+# OAuth providers are configured per environment, never in this file: the
+# secrets belong in the dashboard and in GitHub Actions, not in the repository.
+[auth.external.google]
+enabled = false
+
+[auth.external.github]
+enabled = false
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"

@@ -1,0 +1,16 @@
+{
+  "//": "Edge Functions run on Deno, not Node. This maps the workspace packages so a function can import the same services the applications use, rather than a second copy of them.",
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.112.3",
+    "zod": "npm:zod@^4.4.3",
+    "@noto/backend": "../../packages/backend/src/index.ts",
+    "@noto/backend/supabase": "../../packages/backend/src/supabase/index.ts",
+    "@noto/core": "../../packages/core/src/index.ts",
+    "@noto/config": "../../packages/config/src/index.ts",
+    "@noto/types": "../../packages/types/src/index.ts",
+    "@noto/types/api": "../../packages/types/src/api/index.ts"
+  },
+  "lint": {
+    "rules": { "tags": ["recommended"] }
+  }
+}

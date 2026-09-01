@@ -4,6 +4,8 @@ import { baseConfig } from '@noto/eslint-config/base';
 export default [
   ...baseConfig,
   {
-    ignores: ['apps/**', 'packages/**', 'tooling/**', 'R&D/**'],
+    // supabase/functions is Deno, not Node: it is checked by `deno lint`
+    // and `deno check`, which understand its globals and its .ts imports.
+    ignores: ['apps/**', 'packages/**', 'tooling/**', 'R&D/**', 'supabase/**'],
   },
 ];
