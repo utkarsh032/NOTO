@@ -40,3 +40,15 @@ textarea,
   background: var(--noto-brand-muted);
   color: var(--noto-text-primary);
 }
+
+/*
+ * The Quick Note dock's window.
+ *
+ * It is frameless and transparent, so the page behind the handle has to be
+ * transparent too — otherwise the rounded tab is drawn on a rectangle of
+ * application background, and the corners it went to the trouble of rounding
+ * are square again. The class is added by `DockApp` and nothing else uses it.
+ */
+body.noto-dock-window {
+  background-color: transparent;
+}

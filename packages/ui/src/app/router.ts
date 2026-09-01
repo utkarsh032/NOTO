@@ -3,13 +3,31 @@ import { useSyncExternalStore } from 'react';
 /**
  * Noto's routes.
  *
- * Seven screens, and nothing else. Every other feature — Quick Note, Quick
- * Paste, the command palette, version history, import and export — is an
- * overlay over whichever of these is open, because a floating note that took
- * the workspace away from you would not be a quick note.
+ * Ten screens, and nothing else. The command palette, Quick Paste, version
+ * history, import and export are still overlays over whichever of these is
+ * open, because a dialog that took the workspace away from you would not be a
+ * dialog.
+ *
+ * Quick Note is the one that graduated. It stays an overlay you can summon
+ * over anything — that is the whole point of it — but the notes it captured
+ * had nowhere to be read, so `quick-note` is where they live: the composer,
+ * and everything jotted down before it. `login` and `plans` are about the
+ * account rather than about the work, and `login` is the single exception to
+ * how Noto renders a route: it fills the window with no shell around it,
+ * because a sidebar of documents behind a sign-in form belongs to someone who
+ * is, by definition, not signed in.
  */
 export type RouteName =
-  'home' | 'workspace' | 'documents' | 'memory' | 'search' | 'settings' | 'account';
+  | 'home'
+  | 'workspace'
+  | 'documents'
+  | 'quick-note'
+  | 'memory'
+  | 'search'
+  | 'settings'
+  | 'account'
+  | 'plans'
+  | 'login';
 
 export interface Route {
   name: RouteName;
@@ -24,10 +42,13 @@ const ROUTE_NAMES: readonly RouteName[] = [
   'home',
   'workspace',
   'documents',
+  'quick-note',
   'memory',
   'search',
   'settings',
   'account',
+  'plans',
+  'login',
 ];
 
 const DEFAULT_ROUTE: Route = { name: 'home' };

@@ -539,6 +539,12 @@ export const CORE_COMMANDS: readonly Command[] = [
     keywords: ['files', 'browse', 'all'],
   },
   {
+    id: 'navigation.quickNotes',
+    title: 'Open Quick Notes',
+    category: 'navigation',
+    keywords: ['jot', 'captured', 'scratch', 'notes'],
+  },
+  {
     id: 'navigation.memory',
     title: 'Open Noto Memory',
     category: 'navigation',
@@ -556,6 +562,18 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Account & Devices',
     category: 'navigation',
     keywords: ['profile', 'devices', 'sessions'],
+  },
+  {
+    id: 'navigation.plans',
+    title: 'Plans & Pricing',
+    category: 'navigation',
+    keywords: ['plan', 'pricing', 'upgrade', 'pro', 'billing', 'compare'],
+  },
+  {
+    id: 'navigation.signIn',
+    title: 'Sign In',
+    category: 'navigation',
+    keywords: ['login', 'account', 'sync', 'sign out'],
   },
 
   /*
@@ -588,6 +606,13 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Smart Sidebar',
     category: 'app',
     keywords: ['rail', 'edge', 'overlay'],
+  },
+  {
+    id: 'app.toggleDock',
+    title: 'Toggle Quick Note Dock',
+    category: 'app',
+    shortcut: 'CmdOrCtrl+Alt+D',
+    keywords: ['dock', 'edge', 'handle', 'always on top', 'pin'],
   },
   {
     id: 'app.aiAssistant',

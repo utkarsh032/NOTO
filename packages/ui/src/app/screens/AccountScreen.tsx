@@ -60,7 +60,12 @@ export function AccountScreen() {
             <h2 className="text-primary text-body-sm font-semibold">Your plan</h2>
             <p className="text-brand-strong text-h4 mt-1">{plan.name}</p>
             <p className="text-tertiary text-caption mt-1">{plan.description}</p>
-            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={notConnected}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={() => navigate('plans')}
+            >
               Compare plans
             </Button>
           </aside>

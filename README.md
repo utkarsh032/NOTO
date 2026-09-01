@@ -78,6 +78,15 @@ All three platforms render the **same** shell (`NotoApp`) and differ only in the
 source they provide through `NotoDataContext`. `packages/database` defines one storage
 contract with three implementations, so the SQL and the query semantics are written once.
 
+The desktop adds one thing the shell alone cannot provide: the **Quick Note dock**, a
+second always-on-top window holding a tab on the edge of the display. It renders the same
+`@noto/ui` handle and panel from the same bundle, loaded at `#/dock`, and it stays there
+after the application window is minimised or closed — closing that window hides it to the
+tray rather than quitting. Quick Note and Quick Paste are registered as global
+accelerators and arrive back in the shell as command ids, so a key pressed in another
+application runs the same code the command palette runs. See
+[docs/architecture/overview.md](docs/architecture/overview.md#the-desktop-shell).
+
 Android reaches that shell through a WebView. Tiptap and ProseMirror need a DOM, so a
 native React Native editor would have had to be a second, smaller Noto kept in step by
 hand — and the leading React Native rich-text editors are themselves Tiptap in a WebView.

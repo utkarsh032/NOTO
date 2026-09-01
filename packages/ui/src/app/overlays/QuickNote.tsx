@@ -5,7 +5,9 @@ import { Button } from '../../components/Button';
 import { IconButton } from '../../components/IconButton';
 import { StatusIndicator } from '../../components/StatusIndicator';
 import { showToast } from '../../components/toast-store';
-import { CloseIcon, DocumentIcon, QuickNoteIcon } from '../../components/icons';
+import { CloseIcon, DocumentIcon, ExternalLinkIcon, QuickNoteIcon } from '../../components/icons';
+import { quickNoteTitle, readQuickNoteDraft, writeQuickNoteDraft } from '../quick-note-draft';
+import { navigate } from '../router';
 import { useNotoActions } from '../use-noto-actions';
 
 export interface QuickNoteProps {
@@ -13,34 +15,19 @@ export interface QuickNoteProps {
   onClose(): void;
 }
 
-/** Where the draft lives between openings, and across a reload. */
-const DRAFT_KEY = 'noto.quick-note.draft';
-
-function readDraft(): string {
-  try {
-    return localStorage.getItem(DRAFT_KEY) ?? '';
-  } catch {
-    // Blocked storage is not a reason to refuse a note.
-    return '';
-  }
-}
-
-function writeDraft(text: string): void {
-  try {
-    localStorage.setItem(DRAFT_KEY, text);
-  } catch {
-    // Same again: the note stays in the field either way.
-  }
-}
-
 /**
  * Quick Note.
  *
  * A window that floats over whatever you were doing, takes a thought, and gets
- * out of the way. It is deliberately not a screen and not a route: the point is
- * that it costs nothing to open, so it must cost nothing to abandon.
+ * out of the way. It is deliberately not a screen: the point is that it costs
+ * nothing to open, so it must cost nothing to abandon.
  *
- * The draft is written to local storage on every keystroke. Closing it without
+ * It does now have a screen behind it — `#/quick-note`, reachable from the
+ * header of this window — but that is where notes are read and turned into
+ * documents, not where they are caught. The draft is the same string in both
+ * places, so a thought started here is already on that page when you get there.
+ *
+ * The draft is written to local storage on every keystroke. Closing without
  * saving is a normal thing to do — the note is still there next time — and only
  * Save turns it into a document the workspace lists.
  *
@@ -55,7 +42,7 @@ export function QuickNote({ open, onClose }: QuickNoteProps) {
 
 function QuickNoteWindow({ onClose }: { onClose(): void }) {
   const actions = useNotoActions();
-  const [text, setText] = useState(readDraft);
+  const [text, setText] = useState(readQuickNoteDraft);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
   /* After the panel has been painted, or the caret lands nowhere. */
@@ -65,22 +52,20 @@ function QuickNoteWindow({ onClose }: { onClose(): void }) {
   }, []);
 
   useEffect(() => {
-    writeDraft(text);
+    writeQuickNoteDraft(text);
   }, [text]);
 
   const save = () => {
     const value = text.trim();
     if (value === '') return;
 
-    const [firstLine] = value.split('\n');
-
     void actions
       .importDocument({
-        title: firstLine!.slice(0, 80) || 'Quick note',
+        title: quickNoteTitle(value),
         content: contentFromPlainText(value),
       })
       .then(() => {
-        writeDraft('');
+        writeQuickNoteDraft('');
         showToast('Saved as a document', { tone: 'success' });
         onClose();
       });
@@ -111,6 +96,15 @@ function QuickNoteWindow({ onClose }: { onClose(): void }) {
       <header className="border-default flex items-center gap-2 border-b px-4 py-2.5">
         <QuickNoteIcon className="text-brand-hover h-5 w-5" />
         <h2 className="text-primary text-body-sm flex-1 font-semibold">Quick Note</h2>
+        <IconButton
+          label="Open the Quick Notes page"
+          size="sm"
+          icon={<ExternalLinkIcon className="h-4 w-4" />}
+          onClick={() => {
+            onClose();
+            navigate('quick-note');
+          }}
+        />
         <IconButton
           label="Close Quick Note"
           size="sm"

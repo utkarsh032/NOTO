@@ -20,7 +20,16 @@ export interface PageContainerProps {
   /** The accessible name of that panel. */
   asideLabel?: string;
   children: ReactNode;
-  /** `wide` fills the window; `reading` holds a measure. */
+  /**
+   * `wide` fills the window edge to edge; `reading` holds a measure.
+   *
+   * `wide` really does mean the whole window now. It used to stop at
+   * 1280px, which was a reasonable cap when a screen was 1280px wide and a
+   * strange one afterwards: a wide monitor got a column of content with two
+   * equal margins of nothing, and every list, grid and table in Noto was
+   * being asked to fit a width the window had not imposed. Only prose keeps
+   * a limit, because a line of text is unreadable long before a table is.
+   */
   width?: 'wide' | 'reading';
 }
 
@@ -48,7 +57,7 @@ export function PageContainer({
           <div
             className={cn(
               'mx-auto w-full px-5 py-6 sm:px-8 sm:py-8',
-              width === 'wide' ? 'max-w-[1280px]' : 'max-w-4xl',
+              width === 'wide' ? 'max-w-none' : 'max-w-4xl',
             )}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">

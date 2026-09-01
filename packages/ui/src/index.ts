@@ -19,6 +19,7 @@ export { Panel, type PanelProps } from './components/Panel';
 export { Badge, type BadgeProps, type BadgeTone } from './components/Badge';
 export { Avatar, type AvatarProps } from './components/Avatar';
 export { KeyHint, type KeyHintProps } from './components/KeyHint';
+export { ThemeToggle, type ThemeToggleProps } from './components/ThemeToggle';
 export {
   SegmentedControl,
   type SegmentedControlProps,
@@ -76,9 +77,10 @@ export { Header, type HeaderProps } from './app/Header';
 export { NavItem, type NavItemProps } from './app/NavItem';
 export { SidebarUpdateButton, SidebarVersion, type SidebarUpdateProps } from './app/SidebarUpdate';
 export { UserMenu, type UserMenuProps } from './app/UserMenu';
+export { SidebarToggle, type SidebarToggleProps } from './app/SidebarToggle';
 export { MobileNav, type MobileNavProps } from './app/MobileNav';
 export { PageContainer, type PageContainerProps } from './app/PageContainer';
-export { PRIMARY_NAV, SECONDARY_NAV, isEntryActive, type NavEntry } from './app/navigation';
+export { PRIMARY_NAV, isEntryActive, type NavEntry } from './app/navigation';
 export {
   navigate,
   parseRoute,
@@ -170,10 +172,43 @@ export { SmartSidebar, type SmartSidebarProps } from './app/overlays/SmartSideba
 export { ImportDialog, type ImportDialogProps } from './app/overlays/ImportDialog';
 export { ExportDialog, type ExportDialogProps } from './app/overlays/ExportDialog';
 
+/* ── The Quick Note dock ───────────────────────────────────────────────── */
+
+/*
+ * The handle and the panel are exported separately from the dock that hosts
+ * them. Inside the application `QuickNoteDock` is the whole thing; on the
+ * desktop the host is an operating-system window that moves itself, and it
+ * needs the two pieces without the browser-window positioning around them.
+ */
+export { QuickNoteDock, type QuickNoteDockProps } from './app/dock/QuickNoteDock';
+export { DockHandle, type DockHandleProps } from './app/dock/DockHandle';
+export { DockPanel, type DockPanelProps, type DockRecentDocument } from './app/dock/DockPanel';
+export {
+  DEFAULT_DOCK_PLACEMENT,
+  clampOffset,
+  readDockPlacement,
+  setDockEnabled,
+  subscribeToDockPlacement,
+  writeDockPlacement,
+  type DockPlacement,
+  type DockSide,
+} from './app/dock/dock-placement';
+export {
+  quickNoteTitle,
+  readQuickNoteDraft,
+  subscribeToQuickNoteDraft,
+  writeQuickNoteDraft,
+} from './app/quick-note-draft';
+
 /* ── Data and platform seam ────────────────────────────────────────────── */
 
 export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
+export {
+  emitAppCommand,
+  subscribeToAppCommands,
+  type AppCommandListener,
+} from './app/app-commands';
 export {
   useCommandShortcuts,
   detectShortcutPlatform,
@@ -225,6 +260,19 @@ export {
 
 export { WRITING_TEMPLATES, type TemplateId, type WritingTemplate } from './mock/templates';
 export { buildMemoryItems, memoryStorageBytes } from './mock/memory';
+export {
+  CURRENCY_SYMBOL,
+  PLANS,
+  PLAN_FEATURES,
+  formatMoney,
+  planPrice,
+  type BillingCycle,
+  type Plan,
+  type PlanFeature,
+  type PlanFeatureGroup,
+  type PlanId,
+  type PlanPrice,
+} from './mock/plans';
 export { buildVersions } from './mock/versions';
 export {
   MOCK_DEVICES,
