@@ -1,7 +1,6 @@
 import type { Id, NotoDocument } from '@noto/types';
 import { useEffect, useRef, useState } from 'react';
 
-import { Button } from '../components/Button';
 import { DocumentIcon, PencilIcon, PinIcon, TrashIcon } from '../components/icons';
 import { cn } from '../utils/cn';
 
@@ -12,7 +11,8 @@ export interface SidebarDocumentListProps {
   label: string;
   onOpen(id: Id): void;
   onRename(id: Id, title: string): void;
-  onDelete(id: Id): void;
+  /** Asks to delete. The confirmation is the caller's — it is a dialog. */
+  onDelete(document: NotoDocument): void;
   /** Draws a pin on every row. Used by the Pinned section. */
   showPin?: boolean;
 }
@@ -20,9 +20,12 @@ export interface SidebarDocumentListProps {
 /**
  * The documents in the sidebar.
  *
- * Renaming happens in the row and deleting is confirmed in the row, because
- * both are about one document and a dialog about one row is a dialog that
- * covers the list you were comparing it against.
+ * Renaming happens in the row: it is reversible, it needs the old name in front
+ * of you to type the new one, and a dialog for it would cover the list you were
+ * comparing against. Deleting does not — it is the one action here that takes
+ * something away, so it goes through the same "Move to Trash?" dialog as Home,
+ * Documents and the workspace, rather than a second pair of buttons tucked
+ * under the row that agreed with nothing else in the app.
  */
 export function SidebarDocumentList({
   documents,
@@ -33,7 +36,6 @@ export function SidebarDocumentList({
   onDelete,
   showPin = false,
 }: SidebarDocumentListProps) {
-  const [confirmingId, setConfirmingId] = useState<Id | null>(null);
   const [renamingId, setRenamingId] = useState<Id | null>(null);
 
   return (
@@ -60,10 +62,7 @@ export function SidebarDocumentList({
           <li key={document.id} className="group/row relative">
             <button
               type="button"
-              onClick={() => {
-                setConfirmingId(null);
-                onOpen(document.id);
-              }}
+              onClick={() => onOpen(document.id)}
               onDoubleClick={() => setRenamingId(document.id)}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
@@ -90,62 +89,36 @@ export function SidebarDocumentList({
               </span>
             </button>
 
-            {confirmingId === document.id ? (
-              /* Sits below the row rather than over it, so the two choices
-                 never cover the title they are about. */
-              <div className="flex items-center justify-end gap-1 px-2 pt-1 pb-1.5">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setConfirmingId(null)}
-                  aria-label={`Keep ${document.title}`}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => {
-                    setConfirmingId(null);
-                    onDelete(document.id);
-                  }}
-                  aria-label={`Confirm moving ${document.title} to trash`}
-                >
-                  Delete
-                </Button>
-              </div>
-            ) : (
-              /*
-               * Hidden until the row is hovered, but always reachable by
-               * keyboard — focus-visible brings them back.
-               */
-              <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100">
-                <button
-                  type="button"
-                  onClick={() => setRenamingId(document.id)}
-                  aria-label={`Rename ${document.title}`}
-                  title="Rename"
-                  className={cn(
-                    'text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand',
-                    'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
-                  )}
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingId(document.id)}
-                  aria-label={`Move ${document.title} to trash`}
-                  title="Move to trash"
-                  className={cn(
-                    'text-tertiary hover:bg-surface hover:text-danger focus-visible:outline-brand',
-                    'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
-                  )}
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+            {/*
+             * Hidden until the row is hovered, but always reachable by
+             * keyboard — focus-visible brings them back.
+             */}
+            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100">
+              <button
+                type="button"
+                onClick={() => setRenamingId(document.id)}
+                aria-label={`Rename ${document.title}`}
+                title="Rename"
+                className={cn(
+                  'text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand',
+                  'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
+                )}
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(document)}
+                aria-label={`Move ${document.title} to trash`}
+                title="Move to trash"
+                className={cn(
+                  'text-tertiary hover:bg-surface hover:text-danger focus-visible:outline-brand',
+                  'flex h-7 w-7 items-center justify-center rounded-sm focus-visible:opacity-100 focus-visible:outline-2',
+                )}
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
           </li>
         );
       })}

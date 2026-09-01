@@ -15,106 +15,89 @@ interface ThemeOption {
   value: ThemeMode;
   label: string;
   icon: (props: IconProps) => React.ReactElement;
+  /** Where one more press goes. */
+  next: ThemeMode;
 }
 
 /**
- * The three appearances, in the order a person reasons about them: the two they
- * can choose, then handing the choice back to the machine.
+ * The three appearances, in the order a click walks through them: the two a
+ * person can choose, then handing the choice back to the machine. Each one
+ * names its successor, so the cycle is data rather than arithmetic on an index
+ * that has to be proved in range.
  */
-const OPTIONS: ThemeOption[] = [
-  { value: 'light', label: 'Light', icon: SunIcon },
-  { value: 'dark', label: 'Dark', icon: MoonIcon },
-  { value: 'system', label: 'System', icon: MonitorIcon },
-];
+const OPTIONS: Record<ThemeMode, ThemeOption> = {
+  light: { value: 'light', label: 'Light', icon: SunIcon, next: 'dark' },
+  dark: { value: 'dark', label: 'Dark', icon: MoonIcon, next: 'system' },
+  system: { value: 'system', label: 'System', icon: MonitorIcon, next: 'light' },
+};
+
+/** The stacked glyphs, in the same order, for rendering. */
+const ORDER: ThemeMode[] = ['light', 'dark', 'system'];
 
 /**
- * The appearance switch.
+ * The appearance switch: one button that cycles light → dark → system.
  *
- * One control holding all three modes rather than two buttons and a menu entry:
- * "match the system" is an appearance like the other two, and hiding it in the
- * account menu meant the header could show a state the user had not chosen.
+ * It used to be a three-segment track. One button is smaller, reads as a single
+ * affordance, and puts the state where the eye already is — the glyph *is* the
+ * answer to "what appearance am I in", rather than a highlight among three.
  *
- * The moving part is a single thumb translated across the track, so the browser
- * animates one composited transform instead of three colour transitions racing
- * each other — and the whole thing is a `radiogroup`, because these are three
- * exclusive choices rather than three independent toggles. Motion is timed on
+ * The swap is the whole point, so it is animated rather than instant: the three
+ * glyphs are stacked on one another, and the outgoing one rotates and shrinks
+ * away while the incoming one rotates in from the other side. Only `transform`
+ * and `opacity` move, so the browser composites it. Motion is timed on
  * `--noto-duration-normal`, which a reduced-motion preference has already set
- * to zero: the thumb then simply appears under the chosen mode.
+ * to zero: the glyph then simply changes.
  */
 export function ThemeToggle({ value, onChange, size = 'md', className }: ThemeToggleProps) {
-  const index = Math.max(
-    0,
-    OPTIONS.findIndex((option) => option.value === value),
-  );
+  const current = OPTIONS[value];
+  const next = OPTIONS[current.next];
 
   const compact = size === 'sm';
-  const cell = compact ? 'h-7 w-7' : 'h-8 w-8';
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Appearance"
+    <button
+      type="button"
+      onClick={() => onChange(next.value)}
+      /* The label carries both halves of the state: where you are, and what one
+         more press will do. A screen reader user should not have to press it to
+         find out. */
+      aria-label={`Appearance: ${current.label}. Switch to ${next.label}.`}
+      title={`${current.label} appearance — switch to ${next.label}`}
       className={cn(
-        'border-default bg-surface-secondary relative inline-flex items-center rounded-full border p-0.5',
+        'border-default bg-surface-secondary text-secondary relative inline-flex shrink-0 items-center justify-center rounded-full border',
+        'hover:border-brand-subtle hover:bg-brand-soft hover:text-brand-strong',
+        'focus-visible:outline-brand focus-visible:outline-2 focus-visible:outline-offset-2',
+        'transition-[color,background-color,border-color,transform] ease-out',
+        'active:scale-90',
+        compact ? 'h-8 w-8' : 'h-9 w-9',
         className,
       )}
+      style={{ transitionDuration: 'var(--noto-duration-normal)' }}
     >
       {/*
-       * The thumb. It is a sibling of the buttons rather than a background on
-       * the active one, which is what lets it travel between them; `left` is
-       * fixed at the track's padding and the distance is a transform, so the
-       * animation never touches layout.
+       * The stage the glyphs share. All three are always mounted and stacked;
+       * only one is visible, which is what lets the change be a movement
+       * between them rather than one element being replaced by another.
        */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          'bg-surface pointer-events-none absolute top-0.5 left-0.5 rounded-full shadow-sm',
-          'transition-transform ease-out',
-          cell,
-        )}
-        style={{
-          transform: `translateX(${index * 100}%)`,
-          transitionDuration: 'var(--noto-duration-normal)',
-        }}
-      />
+      <span className={cn('relative block', compact ? 'h-4 w-4' : 'h-[18px] w-[18px]')}>
+        {ORDER.map((mode) => {
+          const isActive = mode === value;
+          const Glyph = OPTIONS[mode].icon;
 
-      {OPTIONS.map((option) => {
-        const isActive = option.value === value;
-        const Glyph = option.icon;
-
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            aria-label={`${option.label} appearance`}
-            title={`${option.label} appearance`}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'relative z-10 inline-flex items-center justify-center rounded-full',
-              'focus-visible:outline-brand focus-visible:outline-2 focus-visible:outline-offset-1',
-              'transition-colors',
-              cell,
-              isActive ? 'text-brand-strong' : 'text-tertiary hover:text-primary',
-            )}
-          >
-            {/*
-             * The glyph lifts very slightly as it becomes the chosen one. It is
-             * the smallest amount of movement that still reads as a response to
-             * the click rather than a redraw.
-             */}
+          return (
             <Glyph
+              key={mode}
               className={cn(
-                compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
-                'transition-transform ease-out',
-                isActive ? 'scale-110' : 'scale-100',
+                'absolute inset-0 h-full w-full transition-[transform,opacity] ease-out',
+                isActive
+                  ? 'scale-100 rotate-0 opacity-100'
+                  : 'pointer-events-none scale-50 -rotate-90 opacity-0',
               )}
               style={{ transitionDuration: 'var(--noto-duration-normal)' }}
             />
-          </button>
-        );
-      })}
-    </div>
+          );
+        })}
+      </span>
+    </button>
   );
 }
