@@ -1029,3 +1029,145 @@ export function PanelRightIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/*
+ * Brand marks for the identity providers on the sign-in screen.
+ *
+ * These are the one place the icon rules bend: a provider mark is a trademark
+ * with a fixed shape, so they are filled paths on the shared 24×24 grid rather
+ * than 1.75px strokes. Google keeps its four colours — a monochrome Google "G"
+ * is the one thing Google's brand guidance forbids — while Apple and GitHub are
+ * defined in black and white and therefore take `currentColor` like the rest.
+ */
+
+export function GoogleIcon({ className = 'h-4 w-4', ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" focusable="false" {...props}>
+      <path
+        fill="#4285f4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.58-5.17 3.58-8.8Z"
+      />
+      <path
+        fill="#34a853"
+        d="M12 24c3.24 0 5.96-1.08 7.94-2.91l-3.88-3.01c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.11A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#fbbc05"
+        d="M5.29 14.28a7.2 7.2 0 0 1 0-4.56V6.61H1.28a12 12 0 0 0 0 10.78l4.01-3.11Z"
+      />
+      <path
+        fill="#ea4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.18 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4.01 3.11C6.23 6.88 8.88 4.75 12 4.75Z"
+      />
+    </svg>
+  );
+}
+
+export function AppleIcon({ className = 'h-4 w-4', ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path d="M16.36 12.72c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.78.74 2.99.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.39-.92-2.41-3.66ZM14.1 5.9c.63-.77 1.06-1.83.94-2.9-.91.04-2.01.61-2.67 1.37-.59.68-1.1 1.77-.96 2.81 1.01.08 2.05-.52 2.69-1.28Z" />
+    </svg>
+  );
+}
+
+export function GithubIcon({ className = 'h-4 w-4', ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.55v-2.15c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.27 5.69.41.36.78 1.06.78 2.14v3.17c0 .3.21.66.8.55A11.5 11.5 0 0 0 12 .5Z" />
+    </svg>
+  );
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="2.75" y="5" width="18.5" height="14" rx="2.5" />
+      <path d="m3.5 7.5 7.34 5.12a2 2 0 0 0 2.32 0L20.5 7.5" />
+    </Icon>
+  );
+}
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  );
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.9 5.7A8.9 8.9 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.8 3.72" />
+      <path d="M6.4 7.7A17.3 17.3 0 0 0 2.5 12S6 18.5 12 18.5a9 9 0 0 0 3.8-.83" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m3.5 3.5 17 17" />
+    </Icon>
+  );
+}
+
+/** The drag affordance on the Quick Note dock: six dots, the desktop idiom. */
+export function GripIcon(props: IconProps) {
+  return (
+    <Icon {...props} strokeWidth={2.25}>
+      <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />
+    </Icon>
+  );
+}
+
+/** Basic: the plan everyone starts on. */
+export function LeafIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11 20.5A8.5 8.5 0 0 1 19.5 4c1 0 1.5.5 1.5 1.5A15.5 15.5 0 0 1 5.5 21C4.5 21 4 20.5 4 19.5c0-3 2-5 5-5" />
+      <path d="M4.5 20.5 13 12" />
+    </Icon>
+  );
+}
+
+/** Pro: the plan the pricing page recommends. */
+export function RocketIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.5 3.5c3.5-1 6 .5 7 1 .5 1 2 3.5 1 7-1 3.4-4.2 6-6.6 7.4L9 15.1C10.4 12.7 13 9.6 16.4 8.6" />
+      <path d="M9.5 14.5 6 18l-1.5-1.5L8 13" />
+      <path d="M15.5 8.5h.01" />
+      <path d="M6.5 17.5c-1 1-1.5 3-1.5 3s2-.5 3-1.5" />
+    </Icon>
+  );
+}
+
+/** Pro Max: the top of the ladder. */
+export function CrownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 7.5 6.5 11 12 4.5 17.5 11 21 7.5 19.5 18h-15L3 7.5Z" />
+      <path d="M4.5 20.5h15" />
+    </Icon>
+  );
+}
+
+/** Speed, in the sense a feature list means it. */
+export function BoltIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.5 2.5 4.5 13.5h6L10.5 21.5l9-11h-6l.5-8Z" />
+    </Icon>
+  );
+}

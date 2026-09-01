@@ -1,5 +1,6 @@
 import {
   clampZoom,
+  contentFromPlainText,
   formatShortcut,
   nextThemeMode,
   useSettingsStore,
@@ -8,7 +9,7 @@ import {
   zoomOut,
 } from '@noto/core';
 import type { ThemeMode } from '@noto/types';
-import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
 import { ErrorState } from '../components/ErrorState';
@@ -21,6 +22,8 @@ import { MobileNav } from './MobileNav';
 import { NotoAppShell } from './NotoAppShell';
 import { Sidebar } from './Sidebar';
 import { HomeScreen } from './screens/HomeScreen';
+import { QuickNoteDock } from './dock/QuickNoteDock';
+import { readDockPlacement, setDockEnabled } from './dock/dock-placement';
 import { CommandPalette } from './overlays/CommandPalette';
 import { FloatingNoto } from './overlays/FloatingNoto';
 import { QuickNote } from './overlays/QuickNote';
@@ -28,11 +31,14 @@ import { QuickPaste } from './overlays/QuickPaste';
 import { ShortcutsDialog } from './overlays/ShortcutsDialog';
 import { SmartSidebar } from './overlays/SmartSidebar';
 import { UpdateDialog } from './overlays/UpdateDialog';
+import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { quickNoteTitle } from './quick-note-draft';
 import { navigate } from './router';
 import { useAccount } from './use-account';
 import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
 import { useDocumentTabs } from './use-document-tabs';
+import { useNotoActions } from './use-noto-actions';
 import { useResponsiveSidebar } from './use-responsive-sidebar';
 import { useRoute } from './use-route';
 import { useUpdateWatcher, checkForUpdates } from './updates';
@@ -53,6 +59,9 @@ const WorkspaceScreen = lazy(() =>
 const DocumentsScreen = lazy(() =>
   import('./screens/DocumentsScreen').then((module) => ({ default: module.DocumentsScreen })),
 );
+const QuickNoteScreen = lazy(() =>
+  import('./screens/QuickNoteScreen').then((module) => ({ default: module.QuickNoteScreen })),
+);
 const MemoryScreen = lazy(() =>
   import('./screens/MemoryScreen').then((module) => ({ default: module.MemoryScreen })),
 );
@@ -64,6 +73,12 @@ const SettingsScreen = lazy(() =>
 );
 const AccountScreen = lazy(() =>
   import('./screens/AccountScreen').then((module) => ({ default: module.AccountScreen })),
+);
+const PlansScreen = lazy(() =>
+  import('./screens/PlansScreen').then((module) => ({ default: module.PlansScreen })),
+);
+const LoginScreen = lazy(() =>
+  import('./screens/LoginScreen').then((module) => ({ default: module.LoginScreen })),
 );
 
 /** Which overlay is up. Only one of the modal ones can be at a time. */
@@ -97,13 +112,13 @@ const NO_OVERLAYS: Overlays = {
  * than to the document. Each screen owns everything else about itself.
  */
 export function NotoApp() {
-  const { status, error, activeDocument } = useNotoData();
+  const { status, error, activeDocument, documents } = useNotoData();
   const route = useRoute();
   const viewport = useViewport();
   const { user } = useAccount();
   const tabs = useDocumentTabs();
+  const actions = useNotoActions();
 
-  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const theme = useSettingsStore((state) => state.settings.appearance.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
@@ -142,6 +157,18 @@ export function NotoApp() {
   const activeDocumentId = activeDocument?.id ?? null;
   const zoom = clampZoom(editorSettings.zoom);
 
+  /** The dock's Save: the same thing the Quick Note window does with a draft. */
+  const saveDockNote = useCallback(
+    async (text: string) => {
+      await actions.importDocument({
+        title: quickNoteTitle(text),
+        content: contentFromPlainText(text),
+      });
+      showToast('Saved as a document', { tone: 'success' });
+    },
+    [actions],
+  );
+
   /*
    * Shell-level accelerators. Save is deliberately absent: the editor binds it,
    * because the editor is what holds the unsaved draft.
@@ -168,14 +195,28 @@ export function NotoApp() {
       'navigation.home': () => navigate('home'),
       'navigation.workspace': () => navigate('workspace'),
       'navigation.documents': () => navigate('documents'),
+      'navigation.quickNotes': () => navigate('quick-note'),
       'navigation.memory': () => navigate('memory'),
       'navigation.search': () => navigate('search'),
       'navigation.account': () => navigate('account'),
+      'navigation.plans': () => navigate('plans'),
+      'navigation.signIn': () => navigate('login'),
 
       'app.quickNote': () => show('quickNote'),
       'app.quickPaste': () => show('quickPaste'),
       'app.floatingNoto': () => show('floating'),
       'app.smartSidebar': () => show('smartSidebar'),
+      /*
+       * The dock is a preference rather than an overlay — it is meant to still
+       * be there tomorrow — so this writes the flag and the dock follows.
+       */
+      'app.toggleDock': () => {
+        const next = !readDockPlacement().enabled;
+        setDockEnabled(next);
+        showToast(
+          next ? 'Quick Note dock is on the edge of the window.' : 'Quick Note dock hidden.',
+        );
+      },
       'app.aiAssistant': () => {
         navigate('workspace');
         showToast('Noto AI is in the panel beside the document.');
@@ -211,6 +252,39 @@ export function NotoApp() {
   useCommandShortcuts(commandHandlers, commandContext);
   useResponsiveSidebar();
   useUpdateWatcher();
+
+  /*
+   * The same table, driven from outside the window. On the desktop, Quick Note
+   * is a global accelerator: the key press lands in the main process while
+   * another application has focus, and arrives here as a command id.
+   */
+  useEffect(
+    () =>
+      subscribeToAppCommands((commandId, argument) => {
+        /* The one command that needs to name something: the dock lists recent
+           documents, and "open that one" is not a command id. */
+        if (commandId === 'navigation.openDocument') {
+          if (argument) actions.openDocument(argument);
+          return;
+        }
+
+        commandHandlers[commandId as keyof typeof commandHandlers]?.();
+      }),
+    [commandHandlers, actions],
+  );
+
+  const recentForDock = useMemo(
+    () =>
+      [...(documents ?? [])]
+        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
+        .slice(0, 4)
+        .map((document) => ({
+          id: document.id,
+          title: document.title,
+          updatedAt: document.updatedAt,
+        })),
+    [documents],
+  );
 
   if (status === 'error') {
     return (
@@ -265,6 +339,20 @@ export function NotoApp() {
     );
   }
 
+  /*
+   * Sign-in is the one route that replaces the window rather than filling the
+   * pane in it. A shell full of somebody's documents behind a sign-in form is a
+   * shell belonging to a person who is, by definition, not signed in.
+   */
+  if (route.name === 'login') {
+    return (
+      <Suspense fallback={<ScreenLoading />}>
+        <LoginScreen />
+        <ToastViewport />
+      </Suspense>
+    );
+  }
+
   const isMobile = viewport === 'mobile';
 
   return (
@@ -289,7 +377,8 @@ export function NotoApp() {
             onOpenAccount={() => navigate('account')}
             onOpenSettings={() => navigate('settings')}
             onOpenShortcuts={() => show('shortcuts')}
-            onExpandSidebar={!isMobile && sidebarCollapsed ? toggleSidebar : undefined}
+            onOpenPlans={() => navigate('plans')}
+            onSignOut={() => navigate('login')}
             compact={isMobile}
             notificationCount={0}
           />
@@ -320,6 +409,15 @@ export function NotoApp() {
           ) : null}
 
           {route.name === 'documents' ? <DocumentsScreen /> : null}
+          {route.name === 'quick-note' ? (
+            <QuickNoteScreen
+              onQuickNote={() => show('quickNote')}
+              onShowDock={() => {
+                setDockEnabled(true);
+                showToast('Quick Note dock is on the edge of the window.');
+              }}
+            />
+          ) : null}
           {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
           {route.name === 'search' ? (
             <SearchScreen
@@ -332,6 +430,7 @@ export function NotoApp() {
           ) : null}
           {route.name === 'settings' ? <SettingsScreen /> : null}
           {route.name === 'account' ? <AccountScreen /> : null}
+          {route.name === 'plans' ? <PlansScreen /> : null}
         </Suspense>
       </NotoAppShell>
 
@@ -373,6 +472,25 @@ export function NotoApp() {
         }}
       />
 
+      {/*
+       * The dock. On a phone the bottom bar already has Quick Note in it, and a
+       * tab on the edge of a screen that size is a tab over the content.
+       */}
+      {isMobile ? null : (
+        <QuickNoteDock
+          onSave={saveDockNote}
+          onOpenNoto={() => navigate('quick-note')}
+          onQuickPaste={() => show('quickPaste')}
+          onSearch={() => show('palette')}
+          onAskAI={() => {
+            navigate('workspace');
+            showToast('Noto AI is in the panel beside the document.');
+          }}
+          recent={recentForDock}
+          onOpenRecent={(id) => actions.openDocument(id)}
+        />
+      )}
+
       <UpdateDialog />
 
       <ToastViewport />
@@ -390,7 +508,7 @@ export function NotoApp() {
 function ScreenLoading() {
   return (
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="mx-auto w-full max-w-[1280px] px-5 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto w-full px-5 py-6 sm:px-8 sm:py-8">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="mt-3 h-4 w-80" />
         <div className="mt-8">

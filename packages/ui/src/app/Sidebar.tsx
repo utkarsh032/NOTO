@@ -7,14 +7,15 @@ import { Button } from '../components/Button';
 import { KeyHint } from '../components/KeyHint';
 import { Skeleton } from '../components/Skeleton';
 import { SyncStatus } from '../components/SyncStatus';
-import { ClockIcon, PinIcon, PlusIcon, SidebarIcon } from '../components/icons';
+import { ClockIcon, PinIcon, PlusIcon } from '../components/icons';
 import { QuickNoteIllustration } from '../components/illustrations';
 import { cn } from '../utils/cn';
 import { NavItem } from './NavItem';
 import { SidebarDocumentList } from './SidebarDocumentList';
+import { SidebarToggle } from './SidebarToggle';
 import { SidebarUpdateButton, SidebarVersion } from './SidebarUpdate';
 import { useNotoData } from './data-context';
-import { PRIMARY_NAV, SECONDARY_NAV, isEntryActive } from './navigation';
+import { PRIMARY_NAV, isEntryActive } from './navigation';
 import { navigate } from './router';
 import type { Route } from './router';
 import { useDocumentTabs } from './use-document-tabs';
@@ -32,11 +33,17 @@ export interface SidebarProps {
  * The sidebar.
  *
  * Quiet by design: a light secondary surface rather than a dark full-height
- * navigation, one rule between the two groups of destinations, and the brand
- * colour spent only on the active row and the New Document button. Navigation
- * sits at the top, the documents themselves fill the middle, and the two things
- * that are always true — how to jot something down, and whether the work is
- * safe — are pinned to the bottom where they can be found without reading.
+ * navigation, and the brand colour spent only on the active row and the New
+ * Document button. Navigation sits at the top, the documents themselves fill
+ * the middle, and the two things that are always true — how to jot something
+ * down, and whether the work is safe — are pinned to the bottom where they can
+ * be found without reading.
+ *
+ * One unbroken list of destinations, where there used to be two separated by a
+ * rule. Settings and Account were the second group, and they are gone from here
+ * deliberately: they are about the person rather than about the work, the avatar
+ * in the header already leads to both, and a destination listed in two places is
+ * a destination you have to choose a route to.
  */
 export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps) {
   const { workspace, documents, activeDocument, updateDocument, deleteDocument } = useNotoData();
@@ -44,7 +51,6 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
   const actions = useNotoActions();
 
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const syncEnabled = useSettingsStore((state) => state.settings.syncEnabled);
 
   /* Noto is local-first: with sync off, "saved on this device" is the truth. */
@@ -65,21 +71,19 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
 
   /*
    * Collapsed, the sidebar keeps a 72px rail rather than disappearing: the mark
-   * is what tells the eye the panel is still there, the destinations stay
-   * reachable as icons, and clicking the mark is the shortest way back.
+   * is what tells the eye the panel is still there, and the destinations stay
+   * reachable as icons. The way back is the handle on the rail's edge, which is
+   * the same control, in the same place, that put it here.
    */
   if (collapsed) {
     return (
-      <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar-collapsed flex h-full shrink-0 flex-col border-r">
+      <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar-collapsed relative flex h-full shrink-0 flex-col border-r">
+        <SidebarToggle />
+
         <div className={cn(brandBar, 'justify-center')}>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label="Expand sidebar"
-            className="hover:bg-surface focus-visible:outline-brand rounded-lg p-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <img src={notoIcon} alt="" className="h-8 w-8" draggable={false} />
-          </button>
+          {/* A mark, not a control. Collapsing and expanding belong to the
+              handle on the divider, which is in the same place either way. */}
+          <img src={notoIcon} alt="Noto" className="h-8 w-8" draggable={false} />
         </div>
 
         <div className="flex flex-col items-center py-3">
@@ -108,19 +112,6 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
               onSelect={() => navigate(entry.route)}
             />
           ))}
-
-          <span className="bg-default my-1.5 h-px w-8" aria-hidden="true" />
-
-          {SECONDARY_NAV.map((entry) => (
-            <NavItem
-              key={entry.id}
-              collapsed
-              label={entry.label}
-              icon={<entry.icon className="h-5 w-5" />}
-              isActive={isEntryActive(entry, route)}
-              onSelect={() => navigate(entry.route)}
-            />
-          ))}
         </nav>
 
         <div className="flex flex-col items-center gap-2 pb-3">
@@ -135,8 +126,10 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
   }
 
   return (
-    <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar flex h-full shrink-0 flex-col border-r">
-      <header className={cn(brandBar, 'justify-between gap-2 px-5')}>
+    <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar relative flex h-full shrink-0 flex-col border-r">
+      <SidebarToggle />
+
+      <header className={cn(brandBar, 'items-center px-5')}>
         <div className="flex min-w-0 flex-col gap-0.5">
           {/* The wordmark carries the product name, so the alt text is the name
               itself rather than a description of the picture. */}
@@ -145,14 +138,6 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
               than being read out as part of it. */}
           <p className="text-tertiary text-caption truncate">Write. Remember. Find.</p>
         </div>
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label="Collapse sidebar"
-          className="text-tertiary hover:bg-surface hover:text-primary focus-visible:outline-brand -mr-1 flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1"
-        >
-          <SidebarIcon className="h-5 w-5" />
-        </button>
       </header>
 
       <div className="px-3 pt-4 pb-2">
@@ -168,18 +153,6 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
 
       <nav aria-label="Primary" className="flex flex-col gap-0.5 px-3 pt-2">
         {PRIMARY_NAV.map((entry) => (
-          <NavItem
-            key={entry.id}
-            label={entry.label}
-            icon={<entry.icon className="h-5 w-5" />}
-            isActive={isEntryActive(entry, route)}
-            onSelect={() => navigate(entry.route)}
-          />
-        ))}
-
-        <span className="bg-default my-2 h-px" aria-hidden="true" />
-
-        {SECONDARY_NAV.map((entry) => (
           <NavItem
             key={entry.id}
             label={entry.label}

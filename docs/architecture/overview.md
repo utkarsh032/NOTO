@@ -45,7 +45,7 @@ So Android runs the real interface instead. `apps/mobile-webview` builds
 `@noto/ui` with Vite; `apps/mobile/plugins/with-android-webapp.cjs` copies that
 build into the Android project at prebuild, where Gradle packages it; and
 `apps/mobile` loads it from `file:///android_asset/webapp/index.html`. Tabs,
-find and replace, history, formatting, the outline and all seven screens are not
+find and replace, history, formatting, the outline and every screen are not
 ported to Android — they are the same code, running there.
 
 What the native side still owns is everything a WebView cannot do: the SQLite
@@ -57,6 +57,50 @@ public marketing and download site: it must load fast for someone who has never
 heard of Noto, and it has no business shipping the editor, the store or the
 storage layer to that visitor. It shares the design _tokens_, which is where the
 visual consistency comes from.
+
+## The desktop shell
+
+The desktop application is the same shell in an Electron window, plus three
+things a browser tab cannot have — and all three exist for the same feature.
+
+**Two windows, one bundle.** The Quick Note dock is a second `BrowserWindow`:
+frameless, transparent, always on top, absent from the taskbar, and sized to a
+44px tab that opens into a 340px panel. It loads the _same_ renderer bundle at
+`#/dock`, and `src/renderer/main.tsx` mounts `DockApp` instead of `App` when it
+sees that hash. A second Vite entry would have meant a second HTML file, a
+second build and a second copy of the design system in the installer, to render
+a handle and a note field that `@noto/ui` already exports.
+
+**The main process owns the dock’s placement.** Which edge, how far down, and
+which display are all things a renderer cannot know: inside a 44px window,
+`clientX` is a number between 0 and 44 whichever monitor the pointer is over.
+So `src/main/dock.ts` holds the placement, persists it to `dock.json` in the
+user data directory, and moves the window; the renderer reports gestures. A
+drag is two messages and no coordinates — while the dock is being dragged the
+window is following the pointer, so the pointer stops moving relative to the
+page and the renderer is sent no pointer moves at all. The main process follows
+the system cursor on a timer between `drag-start` and `drag-end` instead.
+
+**Closing the window does not quit.** It hides, the dock comes out, and Noto
+stays in the tray — which is what makes a note at 11pm not require having left
+a document editor open all evening. The tray menu is where Quit lives, and
+`app.requestSingleInstanceLock()` keeps a second launch from opening a rival
+copy on the same database.
+
+**Global accelerators.** `src/main/shortcuts.ts` registers Quick Note, Quick
+Paste and the dock toggle with the operating system, so they fire while another
+application has the keyboard. The keys are not written there: they are read from
+`CORE_COMMANDS`, the same registry the command palette lists and the sidebar
+prints on its Quick Note card, so the hint the user is shown and the key the
+system listens for cannot drift apart. A key pressed outside the window arrives
+in the renderer as a **command id** on `@noto/ui`’s command bus
+(`emitAppCommand`), which means it runs exactly the code the palette runs. The
+shell never learns that Electron exists.
+
+Which surface answers a global Quick Note depends on where you are: with the
+window in front of you it is the floating note over the document, and with Noto
+minimised or closed it is the dock panel — because opening a whole application
+to write one line is not an answer.
 
 ## The packages
 

@@ -7,8 +7,6 @@ import {
   MemoryIcon,
   QuickNoteIcon,
   SearchIcon,
-  SettingsIcon,
-  UserIcon,
   type IconProps,
 } from '../components/icons';
 import type { Route } from './router';
@@ -21,12 +19,17 @@ export interface NavEntry {
 }
 
 /**
- * The primary navigation, in the order the sidebar lists it.
+ * The navigation, in the order the sidebar lists it.
  *
- * Quick Notes and Clipboard History are Memory with a type already chosen, not
- * screens of their own: they are the two things people reach for by name, and
- * giving each its own page would mean three places that list captured items and
- * three sets of filters to keep in step.
+ * One list, not two. Settings and Account used to sit below a rule at the
+ * bottom of this one; they are about the person rather than about the work, the
+ * avatar in the header already leads to both, and a destination listed twice is
+ * a destination the user has to choose a route to.
+ *
+ * Quick Notes is a screen of its own — the place a captured thought lands and
+ * is turned into something — while Clipboard History is Memory with a type
+ * already chosen, because there is nothing to do with a clipboard entry that
+ * Memory does not already do.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { id: 'home', label: 'Home', icon: HomeIcon, route: { name: 'home' } },
@@ -35,7 +38,7 @@ export const PRIMARY_NAV: NavEntry[] = [
     id: 'quick-notes',
     label: 'Quick Notes',
     icon: QuickNoteIcon,
-    route: { name: 'memory', param: 'note' },
+    route: { name: 'quick-note' },
   },
   { id: 'memory', label: 'Noto Memory', icon: MemoryIcon, route: { name: 'memory' } },
   {
@@ -45,12 +48,6 @@ export const PRIMARY_NAV: NavEntry[] = [
     route: { name: 'memory', param: 'clipboard' },
   },
   { id: 'search', label: 'Search', icon: SearchIcon, route: { name: 'search' } },
-];
-
-/** Below the rule: the two screens that are about Noto rather than about work. */
-export const SECONDARY_NAV: NavEntry[] = [
-  { id: 'settings', label: 'Settings', icon: SettingsIcon, route: { name: 'settings' } },
-  { id: 'account', label: 'Account', icon: UserIcon, route: { name: 'account' } },
 ];
 
 /**
