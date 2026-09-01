@@ -15,6 +15,7 @@ import { SidebarDocumentList } from './SidebarDocumentList';
 import { SidebarToggle } from './SidebarToggle';
 import { SidebarUpdateButton, SidebarVersion } from './SidebarUpdate';
 import { useNotoData } from './data-context';
+import { useDocumentOperations } from './documents/use-document-operations';
 import { PRIMARY_NAV, isEntryActive } from './navigation';
 import { navigate } from './router';
 import type { Route } from './router';
@@ -44,11 +45,25 @@ export interface SidebarProps {
  * deliberately: they are about the person rather than about the work, the avatar
  * in the header already leads to both, and a destination listed in two places is
  * a destination you have to choose a route to.
+ *
+ * Collapsing is a movement, not a swap. The frame is one element whose width is
+ * animated between the two sizes; the panel inside keeps whichever width it was
+ * drawn at and is clipped by the frame, so the sidebar slides out from under its
+ * own edge instead of every line inside it reflowing on the way. Both timings
+ * read `--noto-duration-*`, which a reduced-motion preference has already set to
+ * zero — the sidebar then simply changes size.
  */
 export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps) {
-  const { workspace, documents, activeDocument, updateDocument, deleteDocument } = useNotoData();
+  const { workspace, documents, activeDocument, updateDocument } = useNotoData();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
+  /*
+   * Deleting is asked properly, in the same dialog Home, Documents and the
+   * workspace use. The sidebar used to answer for itself with a pair of buttons
+   * under the row, which meant the one list you delete from most often was the
+   * one place the question was quietest.
+   */
+  const operations = useDocumentOperations();
 
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const syncEnabled = useSettingsStore((state) => state.settings.syncEnabled);
@@ -70,65 +85,65 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
   const brandBar = 'border-default flex h-header shrink-0 items-center border-b';
 
   /*
+   * The width the panel is drawn at. The frame animates to it; the panel inside
+   * takes it immediately, and the gap between those two is the whole effect.
+   */
+  const width = collapsed ? 'var(--spacing-sidebar-collapsed)' : 'var(--spacing-sidebar)';
+
+  /*
    * Collapsed, the sidebar keeps a 72px rail rather than disappearing: the mark
    * is what tells the eye the panel is still there, and the destinations stay
    * reachable as icons. The way back is the handle on the rail's edge, which is
    * the same control, in the same place, that put it here.
    */
-  if (collapsed) {
-    return (
-      <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar-collapsed relative flex h-full shrink-0 flex-col border-r">
-        <SidebarToggle />
-
-        <div className={cn(brandBar, 'justify-center')}>
-          {/* A mark, not a control. Collapsing and expanding belong to the
+  const rail = (
+    <>
+      <div className={cn(brandBar, 'justify-center')}>
+        {/* A mark, not a control. Collapsing and expanding belong to the
               handle on the divider, which is in the same place either way. */}
-          <img src={notoIcon} alt="Noto" className="h-8 w-8" draggable={false} />
-        </div>
+        <img src={notoIcon} alt="Noto" className="h-8 w-8" draggable={false} />
+      </div>
 
-        <div className="flex flex-col items-center py-3">
-          <button
-            type="button"
-            onClick={() => void actions.newDocument()}
-            aria-label="New document"
-            title="New document"
-            className="bg-brand text-on-brand hover:bg-brand-hover focus-visible:ring-brand focus-visible:ring-offset-surface-secondary flex h-9 w-9 items-center justify-center rounded-md shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
-            <PlusIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <nav
-          aria-label="Primary"
-          className="noto-scroll flex flex-1 flex-col items-center gap-1 overflow-y-auto py-1"
+      <div className="flex flex-col items-center py-3">
+        <button
+          type="button"
+          onClick={() => void actions.newDocument()}
+          aria-label="New document"
+          title="New document"
+          className="bg-brand text-on-brand hover:bg-brand-hover focus-visible:ring-brand focus-visible:ring-offset-surface-secondary flex h-9 w-9 items-center justify-center rounded-md shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         >
-          {PRIMARY_NAV.map((entry) => (
-            <NavItem
-              key={entry.id}
-              collapsed
-              label={entry.label}
-              icon={<entry.icon className="h-5 w-5" />}
-              isActive={isEntryActive(entry, route)}
-              onSelect={() => navigate(entry.route)}
-            />
-          ))}
-        </nav>
+          <PlusIcon className="h-5 w-5" />
+        </button>
+      </div>
 
-        <div className="flex flex-col items-center gap-2 pb-3">
-          <SidebarUpdateButton collapsed />
-          <SyncStatus status={syncState} variant="rail" />
-          {/* The rail has no room for the name, and none is needed: the number
+      <nav
+        aria-label="Primary"
+        className="noto-scroll flex flex-1 flex-col items-center gap-1 overflow-y-auto py-1"
+      >
+        {PRIMARY_NAV.map((entry) => (
+          <NavItem
+            key={entry.id}
+            collapsed
+            label={entry.label}
+            icon={<entry.icon className="h-5 w-5" />}
+            isActive={isEntryActive(entry, route)}
+            onSelect={() => navigate(entry.route)}
+          />
+        ))}
+      </nav>
+
+      <div className="flex flex-col items-center gap-2 pb-3">
+        <SidebarUpdateButton collapsed />
+        <SyncStatus status={syncState} variant="rail" />
+        {/* The rail has no room for the name, and none is needed: the number
               under the mark can only be one thing's version. */}
-          <SidebarVersion collapsed />
-        </div>
-      </aside>
-    );
-  }
+        <SidebarVersion collapsed />
+      </div>
+    </>
+  );
 
-  return (
-    <aside className="noto-print-hidden bg-surface-secondary border-default w-sidebar relative flex h-full shrink-0 flex-col border-r">
-      <SidebarToggle />
-
+  const full = (
+    <>
       <header className={cn(brandBar, 'items-center px-5')}>
         <div className="flex min-w-0 flex-col gap-0.5">
           {/* The wordmark carries the product name, so the alt text is the name
@@ -184,7 +199,7 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
               label="Pinned documents"
               onOpen={actions.openDocument}
               onRename={(id, title) => void updateDocument(id, { title })}
-              onDelete={(id) => void deleteDocument(id)}
+              onDelete={operations.remove}
             />
           </section>
         ) : null}
@@ -220,7 +235,7 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
               label="All documents"
               onOpen={actions.openDocument}
               onRename={(id, title) => void updateDocument(id, { title })}
-              onDelete={(id) => void deleteDocument(id)}
+              onDelete={operations.remove}
             />
           )}
         </section>
@@ -280,6 +295,39 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
           <SidebarVersion />
         </div>
       </div>
+    </>
+  );
+
+  const frame = (
+    <aside
+      className="noto-print-hidden bg-surface-secondary border-default relative flex h-full shrink-0 flex-col border-r transition-[width] ease-out"
+      style={{ width, transitionDuration: 'var(--noto-duration-slow)' }}
+    >
+      {/* Outside the clip, because half of it overhangs the divider. */}
+      <SidebarToggle />
+
+      {/* The clip. The panel inside is drawn at its own full width, so the frame
+          narrowing over it hides the panel rather than squeezing it. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          /* Keyed on the state, so each side is a fresh panel — which is what
+             gives the incoming one something to fade in from. */
+          key={collapsed ? 'rail' : 'full'}
+          className="noto-sidebar-panel flex min-h-0 flex-1 flex-col"
+          style={{ width }}
+        >
+          {collapsed ? rail : full}
+        </div>
+      </div>
     </aside>
+  );
+
+  /* The dialogs are modal and fixed, so they belong beside the sidebar rather
+     than inside a panel that clips and animates its own width. */
+  return (
+    <>
+      {frame}
+      {operations.dialogs}
+    </>
   );
 }
