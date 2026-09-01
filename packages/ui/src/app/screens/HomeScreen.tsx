@@ -91,7 +91,7 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
   return (
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="noto-scroll min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1280px] px-5 py-6 sm:px-8 sm:py-8">
+        <div className="mx-auto w-full px-5 py-6 sm:px-8 sm:py-8">
           {/* Greeting. The illustration is decoration and says so, so a screen
               reader hears the greeting and moves straight on. */}
           <section className="flex items-center justify-between gap-6">

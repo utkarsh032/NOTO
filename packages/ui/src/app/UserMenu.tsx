@@ -1,12 +1,12 @@
-import type { ThemeMode, User } from '@noto/types';
+import type { User } from '@noto/types';
 
 import { Avatar } from '../components/Avatar';
 import { Dropdown, type DropdownItem } from '../components/Dropdown';
 import {
   ChevronDownIcon,
+  CrownIcon,
   KeyboardIcon,
   LogOutIcon,
-  MonitorIcon,
   SettingsIcon,
   UserIcon,
 } from '../components/icons';
@@ -14,11 +14,11 @@ import { cn } from '../utils/cn';
 
 export interface UserMenuProps {
   user: User;
-  theme: ThemeMode;
-  onTheme(mode: ThemeMode): void;
   onOpenAccount(): void;
   onOpenSettings(): void;
   onOpenShortcuts(): void;
+  onOpenPlans(): void;
+  onSignOut(): void;
   /** Hides the name and chevron, leaving the avatar. For narrow windows. */
   compact?: boolean;
   className?: string;
@@ -27,17 +27,22 @@ export interface UserMenuProps {
 /**
  * The account control in the header.
  *
- * It carries the two settings people look for by face rather than by name —
- * where the theme is decided and where the shortcuts are listed — because the
- * avatar is where everyone looks first for anything about themselves.
+ * Everything about the person lives here — the account itself, the settings,
+ * the shortcuts, the plan — which is why the sidebar no longer lists Settings
+ * and Account beside the documents. The avatar is where everyone looks first
+ * for anything about themselves, so this is the one place to look.
+ *
+ * The appearance switch that used to hang off the bottom of this menu is gone:
+ * it is a control in the header now, showing all three modes at once, and a
+ * preference is easier to trust when you can see it.
  */
 export function UserMenu({
   user,
-  theme,
-  onTheme,
   onOpenAccount,
   onOpenSettings,
   onOpenShortcuts,
+  onOpenPlans,
+  onSignOut,
   compact = false,
   className,
 }: UserMenuProps) {
@@ -61,12 +66,11 @@ export function UserMenu({
       onSelect: onOpenShortcuts,
     },
     {
-      id: 'theme-system',
-      label: 'Match system appearance',
-      icon: <MonitorIcon className="h-4 w-4" />,
-      trailing: theme === 'system' ? 'On' : undefined,
+      id: 'plans',
+      label: 'Plans & Pricing',
+      icon: <CrownIcon className="h-4 w-4" />,
       separated: true,
-      onSelect: () => onTheme('system'),
+      onSelect: onOpenPlans,
     },
     {
       id: 'sign-out',
@@ -75,7 +79,7 @@ export function UserMenu({
       icon: <LogOutIcon className="h-4 w-4" />,
       separated: true,
       danger: true,
-      onSelect: onOpenAccount,
+      onSelect: onSignOut,
     },
   ];
 

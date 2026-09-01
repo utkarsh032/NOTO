@@ -1,6 +1,7 @@
 import {
   NotoApp,
   NotoDataContext,
+  emitAppCommand,
   setPrintHandler,
   setUpdateProvider,
   useNotoDataSource,
@@ -20,10 +21,10 @@ export function App() {
 
   /*
    * Printing goes through the main process rather than `window.print()`:
-   * Electron's renderer has no print preview of its own, and the main process
-   * can put the job in front of the operating system's dialog properly. The
-   * page itself is the same one the browser would print — the print stylesheet
-   * in `@noto/ui` decides what appears on it.
+   * Electron's renderer has no print preview of its own inside Electron, and the
+   * main process can put the job in front of the operating system's dialog
+   * properly. The page itself is the same one the browser would print — the
+   * print stylesheet in `@noto/ui` decides what appears on it.
    */
   useEffect(() => {
     setPrintHandler(async () => {
@@ -37,6 +38,17 @@ export function App() {
 
     return () => setPrintHandler(null);
   }, []);
+
+  /*
+   * Commands raised outside this window.
+   *
+   * Quick Note and Quick Paste are global accelerators: the key press happens
+   * while another application has the keyboard, so the main process sees it and
+   * hands back a command id. The tray menu and the dock's buttons arrive the
+   * same way. All this does is put them on the shell's own command bus, which
+   * means they run exactly the code the palette and the menu run.
+   */
+  useEffect(() => window.notoShell.onCommand(emitAppCommand), []);
 
   /*
    * Updating, likewise: the browser can only ask GitHub what the newest release
