@@ -10,7 +10,7 @@ import {
   formatZoom,
   zoomIn,
   zoomOut,
-} from './zoom';
+} from './zoom.ts';
 
 describe('clampZoom', () => {
   it('keeps a value the ladder covers', () => {

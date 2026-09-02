@@ -1,4 +1,4 @@
-import type { Entity, Id, IsoDateTime } from './common';
+import type { Entity, Id, IsoDateTime } from './common.ts';
 
 /**
  * What Noto Memory holds.

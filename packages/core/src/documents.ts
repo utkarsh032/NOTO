@@ -6,9 +6,9 @@ import type {
   UpdateDocumentInput,
 } from '@noto/types';
 
-import { type Clock, systemClock } from './clock';
-import { createId } from './id';
-import { buildExcerpt, countWords, plainTextFromContent } from './text';
+import { type Clock, systemClock } from './clock.ts';
+import { createId } from './id.ts';
+import { buildExcerpt, countWords, plainTextFromContent } from './text.ts';
 
 /** The content an editor starts from: a document with one empty paragraph. */
 export const EMPTY_DOCUMENT_CONTENT: DocumentContent = {

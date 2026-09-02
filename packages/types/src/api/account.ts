@@ -1,6 +1,6 @@
-import type { IsoDateTime } from '../common';
-import type { DevicePlatform, SessionKind } from '../device';
-import type { AppearanceSettings, EditorSettings, UpdateSettings } from '../settings';
+import type { IsoDateTime } from '../common.ts';
+import type { DevicePlatform, SessionKind } from '../device.ts';
+import type { AppearanceSettings, EditorSettings, UpdateSettings } from '../settings.ts';
 
 /**
  * What a device says about itself when it signs in.

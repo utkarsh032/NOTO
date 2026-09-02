@@ -1,4 +1,4 @@
-import type { Entity, Id } from './common';
+import type { Entity, Id } from './common.ts';
 
 /**
  * The top-level container for documents, folders and files. Noto always has at

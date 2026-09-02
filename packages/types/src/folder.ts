@@ -1,4 +1,4 @@
-import type { Entity, Id } from './common';
+import type { Entity, Id } from './common.ts';
 
 export interface Folder extends Entity {
   workspaceId: Id;

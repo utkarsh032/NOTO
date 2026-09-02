@@ -1,4 +1,4 @@
-import type { Id } from './common';
+import type { Id } from './common.ts';
 
 /**
  * Which documents are open in the workspace, and which one is in front.

@@ -1,4 +1,4 @@
-import type { Entity } from './common';
+import type { Entity } from './common.ts';
 
 export interface User extends Entity {
   email: string;

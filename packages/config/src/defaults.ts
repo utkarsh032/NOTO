@@ -1,7 +1,7 @@
 import type { Settings } from '@noto/types';
 
-import { AUTOSAVE_DELAY_MS, DEFAULT_ZOOM } from './app';
-import { brand, layout } from './tokens';
+import { AUTOSAVE_DELAY_MS, DEFAULT_ZOOM } from './app.ts';
+import { brand, layout } from './tokens.ts';
 
 /**
  * The settings a fresh Noto install starts from.

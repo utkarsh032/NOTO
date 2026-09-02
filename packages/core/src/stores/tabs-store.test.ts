@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_TABS_STATE, toPersistedTabs, useTabsStore } from './tabs-store';
+import { EMPTY_TABS_STATE, toPersistedTabs, useTabsStore } from './tabs-store.ts';
 
 const state = () => useTabsStore.getState();
 const openIds = () => state().openIds;

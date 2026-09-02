@@ -9,9 +9,9 @@ import type {
   UpdateFolderInput,
 } from '@noto/types';
 
-import { type Clock, systemClock } from './clock';
-import { createId } from './id';
-import { err, ok } from './result';
+import { type Clock, systemClock } from './clock.ts';
+import { createId } from './id.ts';
+import { err, ok } from './result.ts';
 
 export interface FolderDeps {
   clock?: Clock;

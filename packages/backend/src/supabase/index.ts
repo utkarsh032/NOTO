@@ -1,9 +1,9 @@
 import { type EnvRecord, readCloudConfig } from '@noto/config';
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 
-import type { BackendPorts } from '../ports';
-import { AccountService } from '../services/account-service';
-import { AuthService, type AuthServiceOptions } from '../services/auth-service';
+import type { BackendPorts, TurnstilePort } from '../ports/index.ts';
+import { AccountService } from '../services/account-service.ts';
+import { AuthService, type AuthServiceOptions } from '../services/auth-service.ts';
 import {
   SupabaseAuditAdapter,
   SupabaseAuthAdapter,
@@ -11,12 +11,12 @@ import {
   SupabaseProfileAdapter,
   SupabaseRateLimitAdapter,
   SupabaseSettingsAdapter,
-} from './adapters';
-import { HibpBreachCheck, NoBreachCheck } from './breach-check';
+} from './adapters.ts';
+import { NoTurnstile } from './turnstile.ts';
 
-export * from './adapters';
-export * from './breach-check';
-export * from './rows';
+export * from './adapters.ts';
+export * from './turnstile.ts';
+export * from './rows.ts';
 
 /**
  * The composition root.
@@ -58,7 +58,7 @@ export function isCloudConfigured(env: EnvRecord): boolean {
 /** Every port, backed by Supabase. */
 export function createSupabasePorts(
   client: SupabaseClient,
-  options: { breachCheck?: 'hibp' | 'none' } = {},
+  options: { turnstile?: TurnstilePort } = {},
 ): BackendPorts {
   return {
     auth: new SupabaseAuthAdapter(client),
@@ -67,7 +67,10 @@ export function createSupabasePorts(
     settings: new SupabaseSettingsAdapter(client),
     audit: new SupabaseAuditAdapter(client),
     rateLimit: new SupabaseRateLimitAdapter(client),
-    breachCheck: options.breachCheck === 'none' ? new NoBreachCheck() : new HibpBreachCheck(),
+    // Overridden at the call site that actually holds the secret. A composition
+    // root cannot verify a token it has no credentials for, and guessing here
+    // would mean the default is "everyone is human".
+    turnstile: options.turnstile ?? new NoTurnstile(),
   };
 }
 
@@ -95,15 +98,16 @@ export function createBackend(ports: BackendPorts, options: AuthServiceOptions =
  */
 export function createSupabaseBackend(
   env: EnvRecord,
-  options: AuthServiceOptions & { breachCheck?: 'hibp' | 'none' } = {},
+  options: AuthServiceOptions & { turnstile?: TurnstilePort } = {},
 ): NotoBackend | null {
   const client = createSupabaseClient(env);
   if (!client) return null;
 
-  const breachCheck = options.breachCheck;
-
   return createBackend(
-    createSupabasePorts(client, breachCheck === undefined ? {} : { breachCheck }),
+    createSupabasePorts(
+      client,
+      options.turnstile === undefined ? {} : { turnstile: options.turnstile },
+    ),
     options,
   );
 }

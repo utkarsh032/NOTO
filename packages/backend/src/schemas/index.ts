@@ -8,7 +8,7 @@ import type {
 } from '@noto/types/api';
 import { z } from 'zod';
 
-import { MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH } from '../helpers/password';
+import { MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH } from '../helpers/password.ts';
 
 /**
  * The runtime half of the API contract.

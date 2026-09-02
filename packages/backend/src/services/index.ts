@@ -1,2 +1,2 @@
-export * from './auth-service';
-export * from './account-service';
+export * from './auth-service.ts';
+export * from './account-service.ts';

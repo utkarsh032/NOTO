@@ -1,6 +1,8 @@
 import { APP_VERSION } from '@noto/config';
 import type { Device, Session, User } from '@noto/types';
 
+import type { AccountPlan, SecurityState } from '../app/account-context.ts';
+
 /**
  * Presentation data for Account & Devices.
  *
@@ -100,26 +102,12 @@ export const MOCK_SESSIONS: Session[] = [
   },
 ];
 
-export interface AccountPlan {
-  name: string;
-  description: string;
-  /** Bytes included with the plan. */
-  storageLimitBytes: number;
-  renewsOn: string | null;
-}
-
 export const MOCK_PLAN: AccountPlan = {
   name: 'Noto Free',
   description: 'Everything local, on every device you own.',
   storageLimitBytes: 2 * 1024 * 1024 * 1024,
   renewsOn: null,
 };
-
-export interface SecurityState {
-  passwordChangedAt: string;
-  twoFactorEnabled: boolean;
-  recoveryEmail: string | null;
-}
 
 export const MOCK_SECURITY: SecurityState = {
   passwordChangedAt: ago(64 * DAY),
