@@ -13,7 +13,7 @@ export const APP_ID = 'com.noto.app';
  * at build time. `pnpm version:set` rewrites this line along with the
  * manifests, and `pnpm version:check` fails the release if it ever drifts.
  */
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 
 /** Name of the local database on every platform (IndexedDB store / SQLite file stem). */
 export const DATABASE_NAME = 'noto';

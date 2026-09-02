@@ -28,6 +28,39 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-09-02',
+    summary:
+      'Accounts that are real: sign in and Noto knows who you are, sign up and a bot check stands in the way — and signed out is still the whole application.',
+    changes: [
+      {
+        kind: 'added',
+        description:
+          'Signing in works. An email and a password now return a real session, and the screens that greet you or list your devices read your profile rather than a fixture. The account is additive, as it was always meant to be: Noto opens, writes and searches with nobody signed in, and a build with no cloud credentials behaves exactly as it did before.',
+      },
+      {
+        kind: 'added',
+        description:
+          'Creating an account goes through Cloudflare Turnstile. The check is verified on the server, where the secret that makes a token mean anything never reaches a browser, and it fails closed — if the verifier cannot be reached, the sign-up is refused rather than waved through.',
+      },
+      {
+        kind: 'improved',
+        description:
+          'The cloud is no longer part of what a signed-out visitor downloads. The Supabase client moved behind a dynamic import, taking 164 kB out of the bundle that loads before anyone has asked for an account.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Sign-in and sign-up failed in a browser with “Could not reach the server”. The server never saw those requests: its CORS preflight did not name the `apikey` header that every Supabase call sends, so the browser stopped them before they left.',
+      },
+      {
+        kind: 'changed',
+        description:
+          'Password rules are weaker than they were. The breach-corpus lookup, the common-sequence list and the rule against putting your email in your password have all been removed, and the minimum is six characters — a password already circulating in a public breach will now be accepted.',
+      },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-08-31',
     summary:
