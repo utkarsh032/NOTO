@@ -9,7 +9,7 @@ import {
   formatShortcut,
   matchesShortcut,
   toKeymapBinding,
-} from './commands';
+} from './commands.ts';
 
 const press = (key: string, modifiers: Partial<ShortcutEvent> = {}): ShortcutEvent => ({
   key,

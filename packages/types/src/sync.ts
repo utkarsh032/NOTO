@@ -1,4 +1,4 @@
-import type { Id, IsoDateTime } from './common';
+import type { Id, IsoDateTime } from './common.ts';
 
 export type SyncStatus = 'disabled' | 'idle' | 'syncing' | 'offline' | 'error';
 

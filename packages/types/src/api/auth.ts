@@ -1,5 +1,5 @@
-import type { IsoDateTime } from '../common';
-import type { DeviceRegistrationDto } from './account';
+import type { IsoDateTime } from '../common.ts';
+import type { DeviceRegistrationDto } from './account.ts';
 
 /** How an account can be signed in to. */
 export type AuthProvider = 'google' | 'github' | 'apple';

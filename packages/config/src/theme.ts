@@ -1,4 +1,4 @@
-import { brand, dark, neutral, semantic, semanticDark, shadow, shadowDark } from './tokens';
+import { brand, dark, neutral, semantic, semanticDark, shadow, shadowDark } from './tokens.ts';
 
 /**
  * Semantic colour roles. UI code references these, never raw palette values, so

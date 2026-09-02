@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BackendPorts } from '../ports';
+import type { BackendPorts } from '../ports/index.ts';
 import {
   FakeAuthPort,
-  FakeBreachCheckPort,
+  FakeTurnstilePort,
   FakeDevicePort,
   FakeRateLimitPort,
   createFakePorts,
-} from '../testing';
-import { AuthService } from './auth-service';
+} from '../testing/index.ts';
+import { AuthService } from './auth-service.ts';
 
 /**
  * These tests are about policy, not plumbing: the order of operations, what
@@ -63,25 +63,29 @@ describe('AuthService.signUp', () => {
     expect(auth.users.size).toBe(0);
   });
 
-  it('refuses a password found in a breach corpus', async () => {
-    const { service } = makeService({ breachCheck: new FakeBreachCheckPort({ breached: true }) });
+  it('refuses a sign-up whose bot-check token does not verify', async () => {
+    const auth = new FakeAuthPort();
+    const { service } = makeService({ auth, turnstile: new FakeTurnstilePort({ passes: false }) });
 
     const result = await service.signUp({
       email: 'writer@example.com',
-      password: 'correct-horse-battery-staple',
-      turnstileToken: 'token',
+      password: 'a-perfectly-fine-passphrase',
+      turnstileToken: 'a-token-cloudflare-does-not-recognise',
       marketingOptIn: false,
     });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('data breach');
+    // Nothing was created. A rejected bot never reaches the provider.
+    expect(auth.users.size).toBe(0);
   });
 
-  it('allows sign-up when the breach service is unreachable', async () => {
-    // The default policy fails open: a third party's outage is not ours, and
-    // every local password rule still applied.
+  it('refuses a sign-up when the bot check is unreachable', async () => {
+    // The opposite policy to the breach check, and deliberately so: an outage
+    // at Cloudflare must not become an open sign-up endpoint.
+    const auth = new FakeAuthPort();
     const { service } = makeService({
-      breachCheck: new FakeBreachCheckPort({ unavailable: true }),
+      auth,
+      turnstile: new FakeTurnstilePort({ unavailable: true }),
     });
 
     const result = await service.signUp({
@@ -91,7 +95,8 @@ describe('AuthService.signUp', () => {
       marketingOptIn: false,
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(auth.users.size).toBe(0);
   });
 
   it('rejects a request that is missing its bot-check token', async () => {

@@ -16,7 +16,7 @@ max_rows = 1000
 
 [db]
 port = 54322
-major_version = 16
+major_version = 17
 
 [studio]
 enabled = true
@@ -24,7 +24,7 @@ port = 54323
 
 # Catches every email the local stack sends, at http://localhost:54324.
 # No address is ever contacted in development.
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -53,6 +53,24 @@ enabled = false
 
 [auth.external.github]
 enabled = false
+
+# Edge Functions.
+#
+# `verify_jwt` defaults to true, which is right for every function that acts on
+# an existing session. Sign-in runs before there is one, so the platform must
+# let the request through and `AuthService` becomes the only thing standing in
+# front of it — which is why its rate limit is not optional.
+[functions.auth-signin]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.auth-signup]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.device-register]
+verify_jwt = true
+import_map = "./functions/deno.json"
 
 [edge_runtime]
 enabled = true

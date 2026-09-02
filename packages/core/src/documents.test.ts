@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixedClock } from './clock';
+import { fixedClock } from './clock.ts';
 import {
   EMPTY_DOCUMENT_CONTENT,
   archiveDocument,
@@ -8,7 +8,7 @@ import {
   deleteDocument,
   isDeleted,
   updateDocument,
-} from './documents';
+} from './documents.ts';
 
 const CREATED_AT = '2026-08-13T10:00:00.000Z';
 const UPDATED_AT = '2026-08-13T11:30:00.000Z';

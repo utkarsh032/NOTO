@@ -1,3 +1,3 @@
-export * from './settings-store';
-export * from './ui-store';
-export * from './tabs-store';
+export * from './settings-store.ts';
+export * from './ui-store.ts';
+export * from './tabs-store.ts';

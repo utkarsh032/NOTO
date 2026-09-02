@@ -1,6 +1,6 @@
 /** Constants that must agree across web, desktop and mobile. */
 
-import { layout } from './tokens';
+import { layout } from './tokens.ts';
 
 export const APP_NAME = 'Noto';
 export const APP_ID = 'com.noto.app';

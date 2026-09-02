@@ -8,9 +8,9 @@ import type {
   UserDto,
 } from '@noto/types/api';
 
-import { validate } from '../helpers/validation';
-import type { AuditPort, DevicePort, ProfilePort, SettingsPort } from '../ports';
-import { deviceRegistrationSchema, settingsPatchSchema } from '../schemas';
+import { validate } from '../helpers/validation.ts';
+import type { AuditPort, DevicePort, ProfilePort, SettingsPort } from '../ports/index.ts';
+import { deviceRegistrationSchema, settingsPatchSchema } from '../schemas/index.ts';
 
 /**
  * The account screen's service: profile, devices, settings and the security log.

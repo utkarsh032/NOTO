@@ -1,4 +1,4 @@
-import type { IsoDateTime, NotoErrorCode } from '../common';
+import type { IsoDateTime, NotoErrorCode } from '../common.ts';
 
 /**
  * Shapes that cross the wire.

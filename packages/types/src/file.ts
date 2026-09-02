@@ -1,4 +1,4 @@
-import type { Entity, Id } from './common';
+import type { Entity, Id } from './common.ts';
 
 /** A binary attachment (image, PDF, arbitrary upload) referenced by a document. */
 export interface NotoFile extends Entity {

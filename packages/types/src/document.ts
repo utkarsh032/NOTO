@@ -1,4 +1,4 @@
-import type { Entity, Id } from './common';
+import type { Entity, Id } from './common.ts';
 
 /**
  * The editor's structured content. Noto stores ProseMirror/Tiptap JSON rather

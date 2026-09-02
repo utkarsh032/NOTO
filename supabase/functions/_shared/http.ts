@@ -7,6 +7,7 @@
  * escaped the service layer, where it could have been tested without a server.
  */
 
+import { isValidationFailure } from '@noto/backend';
 import type { NotoError, Result } from '@noto/types';
 import type { ApiErrorDto } from '@noto/types/api';
 
@@ -29,7 +30,11 @@ export function corsHeaders(origin: string | null): Record<string, string> {
 
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Headers': 'authorization, content-type, x-noto-device-id',
+    // `apikey` is not optional: every Supabase endpoint expects it, so the
+    // browser sends it on these calls and a preflight that does not name it
+    // fails before the request is made.
+    'Access-Control-Allow-Headers':
+      'apikey, authorization, content-type, x-client-info, x-noto-device-id',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     Vary: 'Origin',
   };
@@ -85,6 +90,10 @@ export function respond<T>(result: Result<T, NotoError>, origin: string | null):
     code: result.error.code,
     message: result.error.message,
     requestId: id,
+    // Per-field detail is the difference between "something was wrong" and a
+    // message under the input that was wrong. It is generated from the schema,
+    // never from the value the caller sent, so it leaks nothing back.
+    ...(isValidationFailure(result.error) ? { fields: result.error.fields } : {}),
   };
 
   // The cause holds the provider's original error, which is exactly the sort of
@@ -123,4 +132,18 @@ export function bearerToken(request: Request): string | null {
 /** The caller's device id, when the client sent one. */
 export function deviceId(request: Request): string | null {
   return request.headers.get('x-noto-device-id');
+}
+
+/**
+ * The caller's address, as the edge saw it.
+ *
+ * `x-forwarded-for` is a list; the first entry is the client and the rest are
+ * proxies. Taken from the header the platform sets, never from the body — a
+ * rate limit a client can rename itself out of is not a rate limit.
+ */
+export function clientIp(request: Request): string | undefined {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const first = forwarded?.split(',')[0]?.trim();
+
+  return first && first.length > 0 ? first : undefined;
 }

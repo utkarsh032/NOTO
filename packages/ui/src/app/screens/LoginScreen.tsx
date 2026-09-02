@@ -1,5 +1,5 @@
-import { APP_NAME, APP_VERSION } from '@noto/config';
-import { useId, useState } from 'react';
+import { APP_NAME, APP_VERSION, MINIMUM_PASSWORD_LENGTH } from '@noto/config';
+import { useCallback, useId, useRef, useState } from 'react';
 
 import notoIcon from '../../assets/noto-icon.png';
 import notoWordmark from '../../assets/noto-wordmark.png';
@@ -22,9 +22,18 @@ import {
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
 import { navigate } from '../router';
+import { TurnstileWidget, type TurnstileHandle } from '../TurnstileWidget';
+import { useAccount } from '../use-account';
 
-/** No identity service exists yet, and every path through this screen says so. */
-const NOT_CONNECTED = `${APP_NAME} has no account service yet, so nothing was signed in.`;
+/**
+ * Shown when the build has no cloud configured, which is a supported state
+ * rather than a failure: Noto is whole signed out, and a desktop build without
+ * Supabase credentials is not broken.
+ */
+const NOT_CONNECTED = `${APP_NAME} has no account service in this build, so nothing was signed in.`;
+
+/** Shown when a build has no Turnstile sitekey, which the server requires. */
+const SIGN_UP_UNAVAILABLE = `Creating an account is not open in this build. Sign in if you already have one.`;
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -108,7 +117,7 @@ export function LoginScreen() {
             <span className="bg-default h-px flex-1" />
           </div>
 
-          <CredentialsForm mode={mode} />
+          <CredentialsForm mode={mode} onModeChange={setMode} />
 
           <p className="text-secondary text-body-sm mt-6 text-center">
             {mode === 'sign-in' ? "Don't have an account?" : 'Already have an account?'}{' '}
@@ -249,8 +258,22 @@ function ProviderButtons() {
  * under a field while it is still being typed into is telling somebody they are
  * wrong before they have finished being right.
  */
-function CredentialsForm({ mode }: { mode: Mode }) {
+function CredentialsForm({
+  mode,
+  onModeChange,
+}: {
+  mode: Mode;
+  /** A completed sign-up sends the person back to sign-in, once confirmed. */
+  onModeChange: (mode: Mode) => void;
+}) {
   const passwordId = useId();
+  const { signIn, signUp, turnstileSiteKey } = useAccount();
+
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstileHandle | null>(null);
+
+  // Stable, so the widget is not torn down and re-rendered on every keystroke.
+  const onToken = useCallback((token: string | null) => setTurnstileToken(token), []);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -259,7 +282,7 @@ function CredentialsForm({ mode }: { mode: Mode }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; name?: string }>({});
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     const next: typeof errors = {};
@@ -267,21 +290,78 @@ function CredentialsForm({ mode }: { mode: Mode }) {
     /* Deliberately loose. The address is confirmed by mail, not by a regex. */
     if (!/^\S+@\S+\.\S+$/.test(email.trim()))
       next.email = 'That does not look like an email address.';
-    if (password.length < 8) next.password = 'Passwords are at least 8 characters.';
+    if (password.length < MINIMUM_PASSWORD_LENGTH)
+      next.password = `Passwords are at least ${MINIMUM_PASSWORD_LENGTH} characters.`;
 
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
-    /*
-     * There is nothing behind this. The button still goes through its busy
-     * state, because the shape of the flow is what is being built here — and
-     * then it says plainly that no service answered.
-     */
-    setSubmitting(true);
-    window.setTimeout(() => {
+    if (mode === 'sign-up') {
+      if (!signUp) {
+        showToast(SIGN_UP_UNAVAILABLE);
+
+        return;
+      }
+
+      if (!turnstileToken) {
+        showToast('Finish the bot check first.');
+
+        return;
+      }
+
+      setSubmitting(true);
+      const created = await signUp({
+        email: email.trim(),
+        password,
+        displayName: name.trim(),
+        turnstileToken,
+      });
       setSubmitting(false);
+
+      // The token is spent either way — Cloudflare redeems it once — so the
+      // widget is reset before any second attempt.
+      turnstile.current?.reset();
+
+      if (created.ok) {
+        showToast('Account created. Check your email to confirm the address.');
+        onModeChange('sign-in');
+
+        return;
+      }
+
+      if (created.fields) {
+        setErrors({
+          ...(created.fields.email === undefined ? {} : { email: created.fields.email }),
+          ...(created.fields.password === undefined ? {} : { password: created.fields.password }),
+          ...(created.fields.displayName === undefined ? {} : { name: created.fields.displayName }),
+        });
+      }
+
+      showToast(created.message ?? 'That did not work. Try again.');
+
+      return;
+    }
+
+    if (!signIn) {
       showToast(NOT_CONNECTED);
-    }, 550);
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await signIn(email.trim(), password);
+    setSubmitting(false);
+
+    if (result.ok) {
+      navigate('home');
+      return;
+    }
+
+    /*
+     * The message comes from the server and is shown as it arrives. It says the
+     * same thing for an unknown address and a wrong password, which is
+     * deliberate on that side and must not be second-guessed on this one.
+     */
+    showToast(result.message ?? 'That did not work. Try again.');
   };
 
   return (
@@ -332,7 +412,11 @@ function CredentialsForm({ mode }: { mode: Mode }) {
             type={revealed ? 'text' : 'password'}
             value={password}
             autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
-            placeholder={mode === 'sign-in' ? 'Your password' : 'At least 8 characters'}
+            placeholder={
+              mode === 'sign-in'
+                ? 'Your password'
+                : `At least ${MINIMUM_PASSWORD_LENGTH} characters`
+            }
             leading={<LockIcon className="h-4 w-4" />}
             invalid={Boolean(errors.password)}
             hint={errors.password}
@@ -355,6 +439,15 @@ function CredentialsForm({ mode }: { mode: Mode }) {
           </button>
         </div>
       </div>
+
+      {mode === 'sign-up' && turnstileSiteKey ? (
+        <TurnstileWidget
+          siteKey={turnstileSiteKey}
+          action="signup"
+          onToken={onToken}
+          handleRef={turnstile}
+        />
+      ) : null}
 
       <Button type="submit" variant="primary" loading={submitting} className="mt-1 h-11 w-full">
         {mode === 'sign-in' ? 'Sign in' : 'Create account'}
