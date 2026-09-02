@@ -13,12 +13,12 @@ import type {
   AuditPort,
   AuthPort,
   BackendPorts,
-  BreachCheckPort,
+  TurnstilePort,
   DevicePort,
   ProfilePort,
   RateLimitPort,
   SettingsPort,
-} from '../ports';
+} from '../ports/index.ts';
 
 /**
  * In-memory ports.
@@ -254,12 +254,15 @@ export class FakeRateLimitPort implements RateLimitPort {
   }
 }
 
-export class FakeBreachCheckPort implements BreachCheckPort {
-  constructor(private readonly options: { breached?: boolean; unavailable?: boolean } = {}) {}
+export class FakeTurnstilePort implements TurnstilePort {
+  constructor(private readonly options: { passes?: boolean; unavailable?: boolean } = {}) {}
 
-  async isBreached(): Promise<Result<boolean>> {
-    if (this.options.unavailable) return err('storage_unavailable', 'Breach service unreachable.');
-    return ok(this.options.breached ?? false);
+  verify(): Promise<Result<boolean>> {
+    if (this.options.unavailable) {
+      return Promise.resolve(err('storage_unavailable', 'The bot check could not be reached.'));
+    }
+
+    return Promise.resolve(ok(this.options.passes ?? true));
   }
 }
 
@@ -272,7 +275,7 @@ export function createFakePorts(overrides: Partial<BackendPorts> = {}): BackendP
     settings: new FakeSettingsPort(),
     audit: new FakeAuditPort(),
     rateLimit: new FakeRateLimitPort(),
-    breachCheck: new FakeBreachCheckPort(),
+    turnstile: new FakeTurnstilePort(),
     ...overrides,
   };
 }

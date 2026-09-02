@@ -10,7 +10,7 @@ import type {
 } from '@noto/types/api';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
-import { fromProviderError } from '../helpers/errors';
+import { fromProviderError } from '../helpers/errors.ts';
 import type {
   AuditPort,
   AuthPort,
@@ -18,7 +18,7 @@ import type {
   ProfilePort,
   RateLimitPort,
   SettingsPort,
-} from '../ports';
+} from '../ports/index.ts';
 import {
   type AuthEventRow,
   type DeviceRow,
@@ -28,7 +28,7 @@ import {
   toDeviceDto,
   toSettingsDto,
   toUserDto,
-} from './rows';
+} from './rows.ts';
 
 /**
  * The adapters.

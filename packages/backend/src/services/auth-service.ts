@@ -2,11 +2,17 @@ import { err, ok } from '@noto/core';
 import type { NotoError, Result } from '@noto/types';
 import type { AuthSessionDto, SignInRequest, SignUpRequest } from '@noto/types/api';
 
-import { rateLimitKey } from '../helpers/crypto';
-import { checkPassword, describeProblem } from '../helpers/password';
-import { validate } from '../helpers/validation';
-import type { AuthPort, AuditPort, BreachCheckPort, DevicePort, RateLimitPort } from '../ports';
-import { signInSchema, signUpSchema } from '../schemas';
+import { rateLimitKey } from '../helpers/crypto.ts';
+import { checkPassword, describeProblem } from '../helpers/password.ts';
+import { validate } from '../helpers/validation.ts';
+import type {
+  AuthPort,
+  AuditPort,
+  DevicePort,
+  RateLimitPort,
+  TurnstilePort,
+} from '../ports/index.ts';
+import { signInSchema, signUpSchema } from '../schemas/index.ts';
 
 /**
  * Signing in and signing up.
@@ -37,25 +43,8 @@ export const DEFAULT_RATE_LIMITS: RateLimitPolicy = {
   resetWindowSeconds: 60 * 60,
 };
 
-export interface PasswordPolicy {
-  /**
-   * What to do when the breach service cannot be reached.
-   *
-   * `allow` by default. Refusing every sign-up because a third party is down
-   * would turn their outage into ours, and the password is still subject to
-   * every local rule. `deny` is available for a deployment that would rather
-   * fail closed.
-   */
-  onBreachCheckUnavailable: 'allow' | 'deny';
-}
-
-export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
-  onBreachCheckUnavailable: 'allow',
-};
-
 export interface AuthServiceOptions {
   rateLimits?: RateLimitPolicy;
-  passwordPolicy?: PasswordPolicy;
   /**
    * The floor on how long a sign-in attempt takes, in milliseconds.
    *
@@ -68,7 +57,6 @@ export interface AuthServiceOptions {
 
 export class AuthService {
   private readonly rateLimits: RateLimitPolicy;
-  private readonly passwordPolicy: PasswordPolicy;
   private readonly minimumAttemptMs: number;
 
   constructor(
@@ -77,21 +65,20 @@ export class AuthService {
       devices: DevicePort;
       audit: AuditPort;
       rateLimit: RateLimitPort;
-      breachCheck: BreachCheckPort;
+      turnstile: TurnstilePort;
     },
     options: AuthServiceOptions = {},
   ) {
     this.rateLimits = options.rateLimits ?? DEFAULT_RATE_LIMITS;
-    this.passwordPolicy = options.passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
     this.minimumAttemptMs = options.minimumAttemptMs ?? 250;
   }
 
   /**
    * Creates an account.
    *
-   * The password is checked twice — locally, then against known breaches —
-   * before the provider is touched at all. Refusing a bad password without
-   * creating anything is cheaper for us and clearer for the person.
+   * The bot check runs first, then the length rule, before the provider is
+   * touched at all. Refusing without creating anything is cheaper for us and
+   * clearer for the person.
    */
   async signUp(input: unknown, context: { ip?: string } = {}): Promise<Result<AuthSessionDto>> {
     const parsed = validate(signUpSchema, input);
@@ -109,7 +96,29 @@ export class AuthService {
       if (!allowed.ok) return allowed;
     }
 
-    const rejection = await this.rejectUnusablePassword(request.password, request.email);
+    /*
+     * The bot check runs before the password rules, and before the provider is
+     * touched at all. It is the cheapest of the three to fail and the only one
+     * whose whole purpose is to stop work from happening.
+     *
+     * It fails closed: an unreachable bot check with an open door costs an
+     * inbox full of accounts. It is now the only thing standing between this
+     * endpoint and automated sign-ups.
+     */
+    const human = await this.ports.turnstile.verify(request.turnstileToken, context.ip);
+    if (!human.ok) return human;
+    if (!human.value) {
+      await this.ports.audit.record({
+        userId: null,
+        kind: 'sign_up',
+        outcome: 'failure',
+        detail: { reason: 'bot_check_failed' },
+      });
+
+      return err('permission_denied', 'Bot check failed. Try again.');
+    }
+
+    const rejection = this.rejectUnusablePassword(request.password);
     if (rejection) return rejection;
 
     const created = await this.ports.auth.signUp({
@@ -232,7 +241,7 @@ export class AuthService {
     email?: string;
     userId?: string;
   }): Promise<Result<void>> {
-    const rejection = await this.rejectUnusablePassword(input.newPassword, input.email);
+    const rejection = this.rejectUnusablePassword(input.newPassword);
     if (rejection) return rejection;
 
     const updated = await this.ports.auth.updatePassword({
@@ -253,34 +262,20 @@ export class AuthService {
 
   // -------------------------------------------------------------------------
 
-  /** Local rules, then the breach corpus. Returns a failure, or nothing. */
-  private async rejectUnusablePassword(
-    password: string,
-    email?: string,
-  ): Promise<Result<never, NotoError> | null> {
-    const verdict = checkPassword(password, email);
+  /**
+   * Length, and nothing else. Returns a failure, or nothing.
+   *
+   * There is no guessability check on this path any more. A password in a
+   * public breach corpus is accepted, and so is the account holder's own email
+   * address as their password.
+   */
+  private rejectUnusablePassword(password: string): Result<never, NotoError> | null {
+    const verdict = checkPassword(password);
+    if (verdict.acceptable) return null;
 
-    if (!verdict.acceptable) {
-      const first = verdict.problems[0];
-      return err('invalid_input', first ? describeProblem(first) : 'That password cannot be used.');
-    }
+    const first = verdict.problems[0];
 
-    const breached = await this.ports.breachCheck.isBreached(password);
-
-    if (!breached.ok) {
-      return this.passwordPolicy.onBreachCheckUnavailable === 'deny'
-        ? err('storage_unavailable', 'Could not check that password right now. Try again shortly.')
-        : null;
-    }
-
-    if (breached.value) {
-      return err(
-        'invalid_input',
-        'That password has appeared in a public data breach, so it is already being guessed. Choose another.',
-      );
-    }
-
-    return null;
+    return err('invalid_input', first ? describeProblem(first) : 'That password cannot be used.');
   }
 
   private async underLimit(

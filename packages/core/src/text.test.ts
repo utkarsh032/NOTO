@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildExcerpt, countWords, deriveTitle, plainTextFromContent, slugify } from './text';
+import { buildExcerpt, countWords, deriveTitle, plainTextFromContent, slugify } from './text.ts';
 
 const doc = (...paragraphs: string[]) => ({
   type: 'doc' as const,

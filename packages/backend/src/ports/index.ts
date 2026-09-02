@@ -113,15 +113,22 @@ export interface RateLimitPort {
 }
 
 /**
- * Checking a password against known breaches.
+ * The bot check.
  *
- * A port rather than a direct call so that tests are deterministic and offline,
- * and so a failure to reach the service can be a policy decision — see
- * `PasswordPolicy` in `src/services/auth-service.ts`.
+ * A port rather than a `fetch` inside the service, for the same reason as every
+ * other one here: the rule "a sign-up without a valid token does not happen" is
+ * testable without a network, and swapping Cloudflare for something else is a
+ * change to one adapter.
  */
-export interface BreachCheckPort {
-  /** True when the password appears in a known breach corpus. */
-  isBreached(password: string): Promise<Result<boolean>>;
+export interface TurnstilePort {
+  /**
+   * Verifies a token with the issuer.
+   *
+   * Unlike the breach check, this one must fail closed: an unverifiable token
+   * is a rejected sign-up. A bot check that waves everyone through when the
+   * verifier is unreachable is exactly the moment an attacker waits for.
+   */
+  verify(token: string, remoteIp?: string): Promise<Result<boolean>>;
 }
 
 /** Everything a service needs, assembled once at the composition root. */
@@ -132,5 +139,5 @@ export interface BackendPorts {
   settings: SettingsPort;
   audit: AuditPort;
   rateLimit: RateLimitPort;
-  breachCheck: BreachCheckPort;
+  turnstile: TurnstilePort;
 }

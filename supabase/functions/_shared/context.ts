@@ -21,7 +21,7 @@ export interface CallerContext {
   client: SupabaseClient;
 }
 
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`${name} is not configured for this function.`);
 
@@ -48,6 +48,19 @@ export async function resolveCaller(request: Request): Promise<CallerContext | n
   if (error || !data.user) return null;
 
   return { userId: data.user.id, deviceId: deviceId(request), client };
+}
+
+/**
+ * An unauthenticated client, with exactly the permissions a browser has.
+ *
+ * For the one endpoint that runs before a session exists. Using the anon key
+ * for the GoTrue call rather than the service key means a mistake in a sign-in
+ * function cannot mint a session the caller could not have obtained itself.
+ */
+export function anonClient(): SupabaseClient {
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 /**

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { FakeAuditPort, FakeDevicePort, FakeProfilePort, createFakePorts } from '../testing';
-import { AccountService } from './account-service';
+import {
+  FakeAuditPort,
+  FakeDevicePort,
+  FakeProfilePort,
+  createFakePorts,
+} from '../testing/index.ts';
+import { AccountService } from './account-service.ts';
 
 const CURRENT_DEVICE = '11111111-1111-4111-8111-111111111111';
 const OTHER_DEVICE = '22222222-2222-4222-8222-222222222222';

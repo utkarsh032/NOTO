@@ -11,6 +11,11 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
+    // Relative imports in the shared packages carry their `.ts` extension, so
+    // Deno can resolve them when an Edge Function imports the same source the
+    // applications do. Safe because these packages never emit: they are
+    // compiled by the consuming bundler.
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,

@@ -1,8 +1,8 @@
 import { DEFAULT_WORKSPACE_NAME } from '@noto/config';
 import type { CreateWorkspaceInput, Workspace } from '@noto/types';
 
-import { type Clock, systemClock } from './clock';
-import { createId } from './id';
+import { type Clock, systemClock } from './clock.ts';
+import { createId } from './id.ts';
 
 export interface WorkspaceDeps {
   clock?: Clock;

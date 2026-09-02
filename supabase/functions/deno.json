@@ -5,12 +5,15 @@
     "zod": "npm:zod@^4.4.3",
     "@noto/backend": "../../packages/backend/src/index.ts",
     "@noto/backend/supabase": "../../packages/backend/src/supabase/index.ts",
-    "@noto/core": "../../packages/core/src/index.ts",
+    "@noto/core": "../../packages/core/src/result.ts",
     "@noto/config": "../../packages/config/src/index.ts",
     "@noto/types": "../../packages/types/src/index.ts",
     "@noto/types/api": "../../packages/types/src/api/index.ts"
   },
   "lint": {
-    "rules": { "tags": ["recommended"] }
-  }
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "//narrowed": "@noto/core points at a single module, not its barrel: the barrel re-exports stores/, which imports zustand \u2014 a React state library an Edge Function must not pull in, and which Deno cannot resolve anyway. @noto/config resolves to its barrel because the password rules the sign-up form and AuthService share live there, and every module it re-exports is dependency-free."
 }

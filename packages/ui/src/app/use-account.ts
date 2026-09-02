@@ -1,4 +1,4 @@
-import type { Device, Session, User } from '@noto/types';
+import type { User } from '@noto/types';
 import { useMemo } from 'react';
 
 import {
@@ -7,38 +7,45 @@ import {
   MOCK_SECURITY,
   MOCK_SESSIONS,
   MOCK_USER,
-  type AccountPlan,
-  type SecurityState,
-} from '../mock/account';
+} from '../mock/account.ts';
+import { type AccountValue, useAccountContext } from './account-context.ts';
 
-export interface AccountValue {
-  user: User;
-  devices: Device[];
-  sessions: Session[];
-  plan: AccountPlan;
-  security: SecurityState;
-}
+export type {
+  AccountPlan,
+  AccountSignInResult,
+  AccountValue,
+  SecurityState,
+} from './account-context.ts';
 
 /**
  * Who is signed in, and on what.
  *
- * The seam between the screens and an identity service. Noto has none yet — it
- * is local-first and works signed out — so this returns the fixture, and every
- * screen that greets the user or lists their devices reads it from here rather
- * than importing the fixture directly. When accounts arrive, this hook changes
- * and nothing else does.
+ * Reads the account an application provided, and falls back to the fixture when
+ * none has — which is every platform that has not been wired to the cloud yet,
+ * and every build with no Supabase credentials. The screens do not branch on
+ * it: they render an account, and whether it came from a server is not their
+ * concern.
  */
 export function useAccount(): AccountValue {
-  return useMemo(
+  const provided = useAccountContext();
+
+  const fallback = useMemo<AccountValue>(
     () => ({
+      status: 'unavailable',
       user: MOCK_USER,
       devices: MOCK_DEVICES,
       sessions: MOCK_SESSIONS,
       plan: MOCK_PLAN,
       security: MOCK_SECURITY,
+      signIn: null,
+      signUp: null,
+      signOut: null,
+      turnstileSiteKey: null,
     }),
     [],
   );
+
+  return provided ?? fallback;
 }
 
 /** The name to greet someone by: their first name, or the whole thing. */

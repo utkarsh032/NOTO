@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compareVersions, isNewerVersion, parseVersion } from './version';
+import { compareVersions, isNewerVersion, parseVersion } from './version.ts';
 
 describe('parseVersion', () => {
   it('reads a release, with or without the tag prefix', () => {

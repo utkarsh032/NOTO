@@ -94,7 +94,16 @@ export { useRoute } from './app/use-route';
 export { useViewport, type Viewport } from './app/use-viewport';
 export { useDebouncedValue } from './app/use-debounced-value';
 export { useNotoActions, type NotoActions } from './app/use-noto-actions';
-export { useAccount, firstNameOf, type AccountValue } from './app/use-account';
+export { useAccount, firstNameOf } from './app/use-account';
+export {
+  AccountContext,
+  useAccountContext,
+  type AccountPlan,
+  type AccountSignInResult,
+  type AccountSignUpInput,
+  type AccountValue,
+  type SecurityState,
+} from './app/account-context';
 
 /*
  * The screens themselves are deliberately not exported.
@@ -274,12 +283,4 @@ export {
   type PlanPrice,
 } from './mock/plans';
 export { buildVersions } from './mock/versions';
-export {
-  MOCK_DEVICES,
-  MOCK_PLAN,
-  MOCK_SECURITY,
-  MOCK_SESSIONS,
-  MOCK_USER,
-  type AccountPlan,
-  type SecurityState,
-} from './mock/account';
+export { MOCK_DEVICES, MOCK_PLAN, MOCK_SECURITY, MOCK_SESSIONS, MOCK_USER } from './mock/account';

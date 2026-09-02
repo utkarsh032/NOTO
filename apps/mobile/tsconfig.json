@@ -8,6 +8,11 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
+    // The shared packages carry `.ts` on their relative imports so Deno can
+    // resolve them in an Edge Function. This app extends Expo's base config
+    // rather than @noto/tsconfig, so the flag is repeated here. Metro resolves
+    // the explicit extension without help.
+    "allowImportingTsExtensions": true,
     "noEmit": true
   },
   "include": [

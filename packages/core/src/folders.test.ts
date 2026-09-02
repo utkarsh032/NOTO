@@ -1,7 +1,7 @@
 import type { Folder, NotoDocument } from '@noto/types';
 import { describe, expect, it } from 'vitest';
 
-import { buildFolderTree, isDescendantOf, moveFolder } from './folders';
+import { buildFolderTree, isDescendantOf, moveFolder } from './folders.ts';
 
 const folder = (id: string, parentId: string | null, name = id, position = 0): Folder => ({
   id,
