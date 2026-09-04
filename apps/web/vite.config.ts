@@ -5,7 +5,9 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5173,
+    // 5173 is Vite's default and is usually already taken by something else on
+    // this machine; a second dev server then drifts to 5174, 5175 and so on.
+    port: 5000,
     strictPort: false,
   },
   build: {

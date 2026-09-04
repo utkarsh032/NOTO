@@ -3,6 +3,7 @@ import type { Result } from '@noto/types';
 import type {
   AuthEventDto,
   AuthSessionDto,
+  AuthSignUpDto,
   DeviceDto,
   DeviceRegistrationDto,
   SettingsDto,
@@ -37,13 +38,19 @@ export class FakeAuthPort implements AuthPort {
   signOutOthersCalled = false;
   resetRequests: string[] = [];
 
-  constructor(private readonly options: { failWith?: string } = {}) {}
+  constructor(
+    private readonly options: {
+      failWith?: string;
+      /** Mirrors a project with email confirmation on: no session until confirmed. */
+      confirmationRequired?: boolean;
+    } = {},
+  ) {}
 
   async signUp(input: {
     email: string;
     password: string;
     displayName?: string;
-  }): Promise<Result<AuthSessionDto>> {
+  }): Promise<Result<AuthSignUpDto>> {
     if (this.options.failWith) return err('unknown', this.options.failWith);
     if (this.users.has(input.email)) return err('conflict', 'That account already exists.');
 
@@ -60,7 +67,14 @@ export class FakeAuthPort implements AuthPort {
     };
 
     this.users.set(input.email, { password: input.password, user });
-    return ok(this.sessionFor(user));
+
+    const confirmationRequired = this.options.confirmationRequired ?? false;
+
+    return ok({
+      user,
+      session: confirmationRequired ? null : this.sessionFor(user),
+      confirmationRequired,
+    });
   }
 
   async signIn(input: { email: string; password: string }): Promise<Result<AuthSessionDto>> {

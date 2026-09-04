@@ -3,6 +3,7 @@ import type { Result } from '@noto/types';
 import type {
   AuthEventDto,
   AuthSessionDto,
+  AuthSignUpDto,
   DeviceDto,
   DeviceRegistrationDto,
   SettingsDto,
@@ -50,7 +51,7 @@ export class SupabaseAuthAdapter implements AuthPort {
     password: string;
     displayName?: string;
     locale?: string;
-  }): Promise<Result<AuthSessionDto>> {
+  }): Promise<Result<AuthSignUpDto>> {
     const { data, error } = await this.client.auth.signUp({
       email: input.email,
       password: input.password,
@@ -63,7 +64,23 @@ export class SupabaseAuthAdapter implements AuthPort {
     });
 
     if (error) return fromProviderError(error, 'Sign-up');
-    return this.toSession(data.session, data.user);
+    if (!data.user) return fromProviderError(new Error('no user'), 'Sign-up');
+
+    /*
+     * No session is the ordinary outcome when email confirmation is on: the
+     * account exists and the person has to answer a mail before they can sign
+     * in. Reporting that as a failure told people their sign-up had not worked
+     * when it had, and left them unable to try again — the address was taken.
+     */
+    const session = data.session ? this.toSession(data.session, data.user) : null;
+
+    if (session && !session.ok) return session;
+
+    return ok({
+      user: this.toUser(data.user),
+      session: session === null ? null : session.value,
+      confirmationRequired: data.session === null,
+    });
   }
 
   async signIn(input: { email: string; password: string }): Promise<Result<AuthSessionDto>> {
@@ -146,8 +163,9 @@ export class SupabaseAuthAdapter implements AuthPort {
     user: User | null,
   ): Result<AuthSessionDto> {
     if (!session || !user) {
-      // GoTrue returns a user with no session when email confirmation is on.
-      // That is not an error — it means "check your inbox".
+      // Only sign-in and refresh reach this now. Sign-up handles a missing
+      // session itself, because there it is the expected outcome rather than
+      // a failure.
       return fromProviderError(new Error('no session'), 'Sign-in');
     }
 

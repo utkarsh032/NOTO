@@ -1,6 +1,6 @@
 import { err, ok } from '@noto/core';
 import type { NotoError, Result } from '@noto/types';
-import type { AuthSessionDto, SignInRequest, SignUpRequest } from '@noto/types/api';
+import type { AuthSessionDto, AuthSignUpDto, SignInRequest, SignUpRequest } from '@noto/types/api';
 
 import { rateLimitKey } from '../helpers/crypto.ts';
 import { checkPassword, describeProblem } from '../helpers/password.ts';
@@ -80,7 +80,7 @@ export class AuthService {
    * touched at all. Refusing without creating anything is cheaper for us and
    * clearer for the person.
    */
-  async signUp(input: unknown, context: { ip?: string } = {}): Promise<Result<AuthSessionDto>> {
+  async signUp(input: unknown, context: { ip?: string } = {}): Promise<Result<AuthSignUpDto>> {
     const parsed = validate(signUpSchema, input);
     if (!parsed.ok) return parsed;
 
