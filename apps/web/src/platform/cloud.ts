@@ -144,6 +144,11 @@ export async function signIn(email: string, password: string): Promise<SignInOut
   return { ok: true };
 }
 
+export interface SignUpOutcome extends SignInOutcome {
+  /** True when the account exists but the address has to be confirmed first. */
+  confirmationRequired?: boolean;
+}
+
 export interface SignUpInput {
   email: string;
   password: string;
@@ -158,7 +163,7 @@ export interface SignUpInput {
  * successful sign-up means "check your inbox", not "you are in" — and setting a
  * session for an unconfirmed address would be telling the person otherwise.
  */
-export async function signUp(input: SignUpInput): Promise<SignInOutcome> {
+export async function signUp(input: SignUpInput): Promise<SignUpOutcome> {
   const url = `${cloudConfig.url}/functions/v1/auth-signup`;
 
   let response: Response;
@@ -186,7 +191,9 @@ export async function signUp(input: SignUpInput): Promise<SignInOutcome> {
 
   if (!response.ok) return failureFrom(body);
 
-  return { ok: true };
+  const created = body as { confirmationRequired?: boolean };
+
+  return { ok: true, confirmationRequired: created.confirmationRequired === true };
 }
 
 export async function signOut(): Promise<void> {

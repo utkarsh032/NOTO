@@ -323,7 +323,11 @@ function CredentialsForm({
       turnstile.current?.reset();
 
       if (created.ok) {
-        showToast('Account created. Check your email to confirm the address.');
+        showToast(
+          created.confirmationRequired
+            ? 'Account created. Check your email to confirm the address.'
+            : 'Account created. You can sign in now.',
+        );
         onModeChange('sign-in');
 
         return;

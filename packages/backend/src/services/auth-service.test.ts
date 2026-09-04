@@ -63,6 +63,32 @@ describe('AuthService.signUp', () => {
     expect(auth.users.size).toBe(0);
   });
 
+  it('treats a sign-up awaiting email confirmation as a success', async () => {
+    /*
+     * The regression this exists for: GoTrue returns a user and no session when
+     * confirmation is on, and that was being reported to the person as
+     * "Sign-in: unexpected failure" — while the account had in fact been
+     * created, so trying again told them the address was taken.
+     */
+    const auth = new FakeAuthPort({ confirmationRequired: true });
+    const { service } = makeService({ auth });
+
+    const result = await service.signUp({
+      email: 'writer@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      turnstileToken: 'token',
+      marketingOptIn: false,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.session).toBeNull();
+      expect(result.value.confirmationRequired).toBe(true);
+      expect(result.value.user.email).toBe('writer@example.com');
+    }
+    expect(auth.users.size).toBe(1);
+  });
+
   it('refuses a sign-up whose bot-check token does not verify', async () => {
     const auth = new FakeAuthPort();
     const { service } = makeService({ auth, turnstile: new FakeTurnstilePort({ passes: false }) });

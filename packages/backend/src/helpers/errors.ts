@@ -11,6 +11,30 @@ import type { ApiErrorCode, ApiErrorDto } from '@noto/types/api';
  * message a user ever sees is one we wrote.
  */
 
+/**
+ * GoTrue's own error codes.
+ *
+ * Mapped to our wording rather than passed through: the provider's phrasing
+ * changes between releases, and "Email address \"x@y.z\" is invalid" quotes
+ * the caller's input back at them, which is how a message ends up in a log it
+ * should not be in.
+ */
+const AUTH_ERROR_MESSAGES: Record<string, { code: 'invalid_input' | 'conflict'; message: string }> =
+  {
+    email_address_invalid: {
+      code: 'invalid_input',
+      message: 'That email address was not accepted. Use a real address you can receive mail at.',
+    },
+    email_exists: { code: 'conflict', message: 'An account already exists for that address.' },
+    user_already_exists: {
+      code: 'conflict',
+      message: 'An account already exists for that address.',
+    },
+    weak_password: { code: 'invalid_input', message: 'That password is not strong enough.' },
+    signup_disabled: { code: 'invalid_input', message: 'New accounts are not being accepted.' },
+    validation_failed: { code: 'invalid_input', message: 'Some of what was sent is not valid.' },
+  };
+
 /** Postgres error codes we act on rather than merely report. */
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_FOREIGN_KEY_VIOLATION = '23503';
@@ -39,6 +63,9 @@ export function fromProviderError<T = never>(
   const status = provider.status ?? 0;
   const code = provider.code ?? '';
 
+  const known = AUTH_ERROR_MESSAGES[code];
+  if (known) return err(known.code, known.message, error);
+
   if (code === PG_UNIQUE_VIOLATION) {
     return err('conflict', `${context}: that already exists.`, error);
   }
@@ -61,6 +88,15 @@ export function fromProviderError<T = never>(
 
   if (status === 429) {
     return err('unknown', `${context}: too many requests.`, error);
+  }
+
+  /*
+   * A 400 the provider did not name is still the caller's fault, not a fault
+   * in Noto. Reporting it as `unknown` sent it to a 500 and told the person
+   * "unexpected failure", which is both wrong and unactionable.
+   */
+  if (status === 400 || status === 422) {
+    return err('invalid_input', `${context}: that request was not accepted.`, error);
   }
 
   // A network failure is the normal state of a local-first application, not an

@@ -2,6 +2,7 @@ import type { Result } from '@noto/types';
 import type {
   AuthEventDto,
   AuthSessionDto,
+  AuthSignUpDto,
   DeviceDto,
   DeviceRegistrationDto,
   SettingsDto,
@@ -37,7 +38,7 @@ export interface AuthPort {
     password: string;
     displayName?: string;
     locale?: string;
-  }): Promise<Result<AuthSessionDto>>;
+  }): Promise<Result<AuthSignUpDto>>;
 
   signIn(input: { email: string; password: string }): Promise<Result<AuthSessionDto>>;
 

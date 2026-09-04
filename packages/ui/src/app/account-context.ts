@@ -48,6 +48,8 @@ export interface AccountSignInResult {
    * useful thing it could say to somebody who has just filled it in.
    */
   fields?: Record<string, string>;
+  /** Sign-up only: the account exists, but the address must be confirmed. */
+  confirmationRequired?: boolean;
 }
 
 export interface AccountSignUpInput {

@@ -94,6 +94,23 @@ export interface AuthSessionDto {
   mfaRequired: boolean;
 }
 
+/**
+ * The result of creating an account.
+ *
+ * `session` is `null` whenever the address has to be confirmed first, which is
+ * the normal case in staging and production. That is a success — the account
+ * exists — and it is a separate shape from `AuthSessionDto` precisely so it
+ * cannot be mistaken for a failed sign-in, which is what happened when the two
+ * shared one return type.
+ */
+export interface AuthSignUpDto {
+  user: UserDto;
+  /** `null` when a confirmation email must be answered before signing in. */
+  session: AuthSessionDto | null;
+  /** True when the person should be told to check their inbox. */
+  confirmationRequired: boolean;
+}
+
 export interface MfaEnrollDto {
   factorId: string;
   qrCodeSvg: string;
