@@ -196,6 +196,21 @@ export async function signUp(input: SignUpInput): Promise<SignUpOutcome> {
   return { ok: true, confirmationRequired: created.confirmationRequired === true };
 }
 
+/**
+ * Sends the confirmation email again.
+ *
+ * Straight to GoTrue rather than through a function: it needs no secret, and
+ * it is rate-limited by Supabase on its own. Always reports success — whether
+ * an address has an unconfirmed account is not something this should answer,
+ * and the person who owns the inbox learns the truth from it either way.
+ */
+export async function resendConfirmation(email: string): Promise<void> {
+  const client = supabase;
+  if (!client) return;
+
+  await client.auth.resend({ type: 'signup', email });
+}
+
 export async function signOut(): Promise<void> {
   await supabase?.auth.signOut();
 }

@@ -80,6 +80,8 @@ export interface AccountValue {
   signUp: ((input: AccountSignUpInput) => Promise<AccountSignInResult>) | null;
   /** `null` when `status` is `unavailable`. */
   signOut: (() => Promise<void>) | null;
+  /** Sends the confirmation email again. `null` when there is no cloud. */
+  resendConfirmation: ((email: string) => Promise<void>) | null;
 
   /**
    * The public Turnstile sitekey, or `null` when no bot check is configured.

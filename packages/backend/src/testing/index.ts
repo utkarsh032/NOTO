@@ -84,6 +84,12 @@ export class FakeAuthPort implements AuthPort {
       return err('permission_denied', 'Invalid credentials.');
     }
 
+    // The password was right and the account exists; GoTrue still refuses
+    // until the address is confirmed, and carries its reason in the cause.
+    if (this.options.confirmationRequired) {
+      return err('permission_denied', 'Email not confirmed.', { code: 'email_not_confirmed' });
+    }
+
     return ok(this.sessionFor(record.user));
   }
 
