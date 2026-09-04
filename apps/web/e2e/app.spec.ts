@@ -99,3 +99,30 @@ test.describe('Noto web shell', () => {
     await expect(documentRow(page, 'Second')).toBeVisible({ timeout: 15_000 });
   });
 });
+
+test.describe('first launch', () => {
+  // No `noto.welcomed`, which is what a genuinely new installation looks like.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('offers the sign-in screen once, and does not insist', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByRole('heading', { name: /Welcome back|Create your/ })).toBeVisible();
+
+    // Signed out is a supported answer, so the way past is on the screen.
+    await page.getByRole('button', { name: 'Continue without an account' }).click();
+    await expect(sidebarNew(page)).toBeVisible();
+
+    // Asked once. A reload is not a second invitation.
+    await page.reload();
+    await expect(sidebarNew(page)).toBeVisible();
+  });
+
+  test('greets nobody by name until somebody signs in', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Continue without an account' }).click();
+
+    // The fixture this replaced greeted every new install as "Aman".
+    await expect(page.getByRole('main')).not.toContainText('Aman');
+  });
+});

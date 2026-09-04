@@ -36,6 +36,7 @@ import { useNotoData } from './data-context';
 import { quickNoteTitle } from './quick-note-draft';
 import { navigate } from './router';
 import { useAccount } from './use-account';
+import { claimFirstLaunch } from './welcome';
 import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
 import { useDocumentTabs } from './use-document-tabs';
 import { useNotoActions } from './use-noto-actions';
@@ -118,6 +119,16 @@ export function NotoApp() {
   const { user } = useAccount();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
+
+  /*
+   * First launch opens on the sign-in screen, once. Noto works signed out and
+   * "Continue without an account" is right there, so this is an introduction
+   * rather than a gate — but somebody who has never seen it cannot know an
+   * account is on offer, and Home does not tell them.
+   */
+  useEffect(() => {
+    if (claimFirstLaunch()) navigate('login');
+  }, []);
 
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const theme = useSettingsStore((state) => state.settings.appearance.theme);
@@ -374,7 +385,7 @@ export function NotoApp() {
             onTheme={(mode: ThemeMode) => setTheme(mode)}
             onSearch={() => show('palette')}
             searchShortcut={formatShortcut('CmdOrCtrl+K', platform)}
-            onOpenAccount={() => navigate('account')}
+            onOpenAccount={() => navigate(user ? 'account' : 'login')}
             onOpenSettings={() => navigate('settings')}
             onOpenShortcuts={() => show('shortcuts')}
             onOpenPlans={() => navigate('plans')}

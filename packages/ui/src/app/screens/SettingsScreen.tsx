@@ -133,7 +133,9 @@ export function SettingsScreen() {
         <div className="flex flex-col gap-4">
           <aside className="border-default bg-surface rounded-xl border p-4">
             <h2 className="text-primary text-body-sm font-semibold">Account</h2>
-            <p className="text-tertiary text-caption mt-1 truncate">{user.email}</p>
+            <p className="text-tertiary text-caption mt-1 truncate">
+              {user ? user.email : 'Not signed in'}
+            </p>
             <p className="text-tertiary text-caption mt-0.5">{plan.name}</p>
             <Button
               variant="secondary"
