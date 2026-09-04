@@ -267,9 +267,12 @@ function CredentialsForm({
   onModeChange: (mode: Mode) => void;
 }) {
   const passwordId = useId();
-  const { signIn, signUp, turnstileSiteKey } = useAccount();
+  const { signIn, signUp, resendConfirmation, turnstileSiteKey } = useAccount();
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Set when a sign-in failed only because the address is unconfirmed, which
+  // is the one failure the person can act on without changing anything.
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const turnstile = useRef<TurnstileHandle | null>(null);
 
   // Stable, so the widget is not torn down and re-rendered on every keystroke.
@@ -356,9 +359,13 @@ function CredentialsForm({
     setSubmitting(false);
 
     if (result.ok) {
+      setUnconfirmed(false);
       navigate('home');
+
       return;
     }
+
+    setUnconfirmed(result.message?.startsWith('Confirm your email address') === true);
 
     /*
      * The message comes from the server and is shown as it arrives. It says the
@@ -451,6 +458,22 @@ function CredentialsForm({
           onToken={onToken}
           handleRef={turnstile}
         />
+      ) : null}
+
+      {unconfirmed && resendConfirmation ? (
+        <p className="text-secondary text-caption">
+          Nothing in your inbox?{' '}
+          <button
+            type="button"
+            onClick={() => {
+              void resendConfirmation(email.trim());
+              showToast('Sent. Check your inbox, and your spam folder.');
+            }}
+            className="text-brand-strong focus-visible:outline-brand rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Send the confirmation email again
+          </button>
+        </p>
       ) : null}
 
       <Button type="submit" variant="primary" loading={submitting} className="mt-1 h-11 w-full">

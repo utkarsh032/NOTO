@@ -139,6 +139,51 @@ describe('AuthService.signUp', () => {
   });
 });
 
+describe('AuthService.signIn — an unconfirmed account', () => {
+  async function attempt(confirmationRequired: boolean) {
+    const auth = new FakeAuthPort({ confirmationRequired });
+    const { service } = makeService({ auth });
+
+    await service.signUp({
+      email: 'writer@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      turnstileToken: 'token',
+      marketingOptIn: false,
+    });
+
+    return service.signIn({
+      email: 'writer@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      device,
+    });
+  }
+
+  it('says so, rather than blaming the password', async () => {
+    const result = await attempt(true);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('Confirm your email address');
+  });
+
+  it('still refuses to say anything about an address with no account', async () => {
+    // The exception is narrow: only a correct password against a real but
+    // unconfirmed account earns a specific answer. Everything else stays
+    // indistinguishable, which is the point of the original design.
+    const auth = new FakeAuthPort();
+    const { service } = makeService({ auth });
+
+    const result = await service.signIn({
+      email: 'nobody@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      device,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.message).toBe('That email and password do not match an account.');
+  });
+});
+
 describe('AuthService.signIn', () => {
   it('signs in and registers the device', async () => {
     const auth = new FakeAuthPort();

@@ -4,6 +4,7 @@ import type { AuthSessionDto, AuthSignUpDto, SignInRequest, SignUpRequest } from
 
 import { rateLimitKey } from '../helpers/crypto.ts';
 import { checkPassword, describeProblem } from '../helpers/password.ts';
+import { isEmailUnconfirmed } from '../helpers/errors.ts';
 import { validate } from '../helpers/validation.ts';
 import type {
   AuthPort,
@@ -169,16 +170,33 @@ export class AuthService {
     });
 
     if (!session.ok) {
+      /*
+       * One exception to the identical-failure rule, taken deliberately.
+       *
+       * An unconfirmed account is a real person holding the right password and
+       * being told their password is wrong. They cannot act on that: there is
+       * no typo to find. Saying so does admit the address is registered — the
+       * enumeration this method otherwise refuses — and that is the trade
+       * being made, bounded by the rate limit above, which counts this attempt
+       * like any other.
+       */
+      const unconfirmed = isEmailUnconfirmed(session.error);
+
       await this.ports.rateLimit.record(key, 'sign_in');
       await this.ports.audit.record({
         userId: null,
         kind: 'sign_in',
         outcome: 'failure',
-        detail: { reason: 'invalid_credentials' },
+        detail: { reason: unconfirmed ? 'email_not_confirmed' : 'invalid_credentials' },
       });
       await this.padTo(startedAt);
 
-      return err('permission_denied', 'That email and password do not match an account.');
+      return unconfirmed
+        ? err(
+            'permission_denied',
+            'Confirm your email address before signing in. Check your inbox for the link.',
+          )
+        : err('permission_denied', 'That email and password do not match an account.');
     }
 
     // The device is registered after authentication, never before: an

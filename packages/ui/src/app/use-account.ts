@@ -40,6 +40,7 @@ export function useAccount(): AccountValue {
       signIn: null,
       signUp: null,
       signOut: null,
+      resendConfirmation: null,
       turnstileSiteKey: null,
     }),
     [],

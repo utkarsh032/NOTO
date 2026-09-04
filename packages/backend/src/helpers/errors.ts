@@ -19,21 +19,44 @@ import type { ApiErrorCode, ApiErrorDto } from '@noto/types/api';
  * the caller's input back at them, which is how a message ends up in a log it
  * should not be in.
  */
-const AUTH_ERROR_MESSAGES: Record<string, { code: 'invalid_input' | 'conflict'; message: string }> =
-  {
-    email_address_invalid: {
-      code: 'invalid_input',
-      message: 'That email address was not accepted. Use a real address you can receive mail at.',
-    },
-    email_exists: { code: 'conflict', message: 'An account already exists for that address.' },
-    user_already_exists: {
-      code: 'conflict',
-      message: 'An account already exists for that address.',
-    },
-    weak_password: { code: 'invalid_input', message: 'That password is not strong enough.' },
-    signup_disabled: { code: 'invalid_input', message: 'New accounts are not being accepted.' },
-    validation_failed: { code: 'invalid_input', message: 'Some of what was sent is not valid.' },
-  };
+const AUTH_ERROR_MESSAGES: Record<
+  string,
+  { code: 'invalid_input' | 'conflict' | 'permission_denied'; message: string }
+> = {
+  email_address_invalid: {
+    code: 'invalid_input',
+    message: 'That email address was not accepted. Use a real address you can receive mail at.',
+  },
+  email_exists: { code: 'conflict', message: 'An account already exists for that address.' },
+  user_already_exists: {
+    code: 'conflict',
+    message: 'An account already exists for that address.',
+  },
+  weak_password: { code: 'invalid_input', message: 'That password is not strong enough.' },
+  signup_disabled: { code: 'invalid_input', message: 'New accounts are not being accepted.' },
+  validation_failed: { code: 'invalid_input', message: 'Some of what was sent is not valid.' },
+  email_not_confirmed: {
+    code: 'permission_denied',
+    message: 'Confirm your email address before signing in. Check your inbox for the link.',
+  },
+};
+
+/** GoTrue's code for an account that exists but has not answered its mail. */
+const EMAIL_NOT_CONFIRMED = 'email_not_confirmed';
+
+/**
+ * Whether a failure is "the account is real, the address is unconfirmed".
+ *
+ * `AuthService.signIn` answers every failure identically on purpose, so it
+ * needs a way to recognise the one case where that silence traps a real person
+ * rather than frustrating an attacker. The provider's code is read from the
+ * cause, which is the only place it survives.
+ */
+export function isEmailUnconfirmed(error: NotoError): boolean {
+  const cause = (error.cause ?? {}) as ProviderError;
+
+  return cause.code === EMAIL_NOT_CONFIRMED;
+}
 
 /** Postgres error codes we act on rather than merely report. */
 const PG_UNIQUE_VIOLATION = '23505';

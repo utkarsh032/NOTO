@@ -116,6 +116,11 @@ export function useWebAccount(): AccountValue {
     return cloud.signUp(input);
   }, []);
 
+  const resendConfirmation = useCallback(async (email: string) => {
+    const cloud = await import('./cloud.ts');
+    await cloud.resendConfirmation(email);
+  }, []);
+
   const signOut = useCallback(async () => {
     const cloud = await import('./cloud.ts');
     await cloud.signOut();
@@ -138,8 +143,9 @@ export function useWebAccount(): AccountValue {
       // every attempt, so the form is not offered at all.
       signUp: cloudConfigured && turnstileSiteKey ? signUp : null,
       signOut: cloudConfigured ? signOut : null,
+      resendConfirmation: cloudConfigured ? resendConfirmation : null,
       turnstileSiteKey,
     }),
-    [status, user, devices, signIn, signUp, signOut],
+    [status, user, devices, signIn, signUp, signOut, resendConfirmation],
   );
 }
