@@ -68,7 +68,14 @@ export interface AccountValue {
    */
   status: 'unavailable' | 'signed-out' | 'signing-in' | 'signed-in';
 
-  user: User;
+  /**
+   * `null` when nobody is signed in, which is most of the time.
+   *
+   * Not a placeholder person. A fixture here meant a fresh install greeted
+   * its first user by somebody else's name and showed them somebody else's
+   * devices, which reads as a bug at best and a privacy failure at worst.
+   */
+  user: User | null;
   devices: Device[];
   sessions: Session[];
   plan: AccountPlan;

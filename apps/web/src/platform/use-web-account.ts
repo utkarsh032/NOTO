@@ -1,11 +1,5 @@
 import type { Device, User } from '@noto/types';
-import {
-  MOCK_PLAN,
-  MOCK_SECURITY,
-  MOCK_USER,
-  type AccountSignUpInput,
-  type AccountValue,
-} from '@noto/ui';
+import { MOCK_PLAN, MOCK_SECURITY, type AccountSignUpInput, type AccountValue } from '@noto/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { cloudConfigured, hasStoredSession, turnstileSiteKey } from './cloud-config.ts';
@@ -130,10 +124,7 @@ export function useWebAccount(): AccountValue {
   return useMemo<AccountValue>(
     () => ({
       status,
-      // The fixture stands in until somebody signs in. Every screen that greets
-      // a user renders signed out too, and a half-empty account screen would be
-      // a worse answer than a placeholder one.
-      user: user ?? MOCK_USER,
+      user,
       devices,
       sessions: [],
       plan: MOCK_PLAN,

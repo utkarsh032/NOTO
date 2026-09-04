@@ -9,6 +9,24 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
+    /*
+     * Every test starts as a returning visitor.
+     *
+     * Noto shows the sign-in screen once, on the first launch of an
+     * installation, and records that in `localStorage`. A fresh browser context
+     * is a first launch every time, so without this each test would open on
+     * that screen rather than on the workspace it is about. The one test that
+     * cares overrides this with an empty state.
+     */
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: 'http://127.0.0.1:4173',
+          localStorage: [{ name: 'noto.welcomed', value: '2026-01-01T00:00:00.000Z' }],
+        },
+      ],
+    },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // Tests run against a production build, which is what users actually get.

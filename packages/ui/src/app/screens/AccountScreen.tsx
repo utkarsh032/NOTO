@@ -49,6 +49,35 @@ export function AccountScreen() {
   const otherSessions = sessions.filter((session) => !session.isCurrent);
   const notConnected = () => showToast(NOT_CONNECTED);
 
+  /*
+   * Signed out, there is no account to manage — so the screen says that and
+   * offers the one action that changes it, rather than rendering a profile,
+   * a device list and a security history belonging to nobody.
+   */
+  if (!user) {
+    return (
+      <PageContainer
+        title="Account & Devices"
+        subtitle="Sign in to manage your account, devices and security."
+      >
+        <div className="border-default bg-surface-secondary flex flex-col items-start gap-4 rounded-xl border px-5 py-6">
+          <div className="flex items-start gap-2.5">
+            <InfoIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
+            <p className="text-secondary text-body-sm">
+              You are not signed in. {APP_NAME} is local-first, so everything on this device keeps
+              working — an account adds a second copy, and the devices and sessions it lists are the
+              ones that copy has reached.
+            </p>
+          </div>
+
+          <Button variant="primary" onClick={() => navigate('login')}>
+            Sign in or create an account
+          </Button>
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer
       title="Account & Devices"

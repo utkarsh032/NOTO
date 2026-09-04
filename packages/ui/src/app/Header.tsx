@@ -8,7 +8,7 @@ import { cn } from '../utils/cn';
 import { UserMenu } from './UserMenu';
 
 export interface HeaderProps {
-  user: User;
+  user: User | null;
   theme: ThemeMode;
   onTheme(mode: ThemeMode): void;
   /** Opens the command palette, which is also where searching starts. */

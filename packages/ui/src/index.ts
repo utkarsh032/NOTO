@@ -95,6 +95,7 @@ export { useViewport, type Viewport } from './app/use-viewport';
 export { useDebouncedValue } from './app/use-debounced-value';
 export { useNotoActions, type NotoActions } from './app/use-noto-actions';
 export { useAccount, firstNameOf } from './app/use-account';
+export { claimFirstLaunch } from './app/welcome';
 export {
   AccountContext,
   useAccountContext,

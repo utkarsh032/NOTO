@@ -1,13 +1,7 @@
 import type { User } from '@noto/types';
 import { useMemo } from 'react';
 
-import {
-  MOCK_DEVICES,
-  MOCK_PLAN,
-  MOCK_SECURITY,
-  MOCK_SESSIONS,
-  MOCK_USER,
-} from '../mock/account.ts';
+import { MOCK_PLAN, MOCK_SECURITY } from '../mock/account.ts';
 import { type AccountValue, useAccountContext } from './account-context.ts';
 
 export type {
@@ -32,9 +26,12 @@ export function useAccount(): AccountValue {
   const fallback = useMemo<AccountValue>(
     () => ({
       status: 'unavailable',
-      user: MOCK_USER,
-      devices: MOCK_DEVICES,
-      sessions: MOCK_SESSIONS,
+      user: null,
+      devices: [],
+      sessions: [],
+      // Plan and security remain fixtures: nothing behind a subscription or a
+      // second factor exists yet to read. They describe the product, not a
+      // person, so they are safe to state before anyone signs in.
       plan: MOCK_PLAN,
       security: MOCK_SECURITY,
       signIn: null,

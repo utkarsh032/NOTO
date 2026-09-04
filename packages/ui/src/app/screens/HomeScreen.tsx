@@ -97,7 +97,7 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
           <section className="flex items-center justify-between gap-6">
             <div className="min-w-0">
               <h1 className="text-primary text-display">
-                {greetingFor()}, {firstNameOf(user)}!{' '}
+                {user ? `${greetingFor()}, ${firstNameOf(user)}!` : `${greetingFor()}!`}{' '}
                 <span aria-hidden="true" className="inline-block">
                   👋
                 </span>

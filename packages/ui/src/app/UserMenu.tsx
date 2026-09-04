@@ -13,7 +13,8 @@ import {
 import { cn } from '../utils/cn';
 
 export interface UserMenuProps {
-  user: User;
+  /** `null` when nobody is signed in. The menu still opens; the identity does not. */
+  user: User | null;
   onOpenAccount(): void;
   onOpenSettings(): void;
   onOpenShortcuts(): void;
@@ -49,7 +50,7 @@ export function UserMenu({
   const items: DropdownItem[] = [
     {
       id: 'account',
-      label: 'Account & Devices',
+      label: user ? 'Account & Devices' : 'Sign in',
       icon: <UserIcon className="h-4 w-4" />,
       onSelect: onOpenAccount,
     },
@@ -72,16 +73,23 @@ export function UserMenu({
       separated: true,
       onSelect: onOpenPlans,
     },
-    {
+  ];
+
+  /*
+   * Signing out is offered only to somebody who is signed in. Noto works signed
+   * out, so this is a real end state rather than a wall — but showing it to a
+   * visitor who has never had an account is an action with nothing behind it.
+   */
+  if (user) {
+    items.push({
       id: 'sign-out',
-      /* Noto works signed out, so this is a real end state rather than a wall. */
       label: 'Sign out',
       icon: <LogOutIcon className="h-4 w-4" />,
       separated: true,
       danger: true,
       onSelect: onSignOut,
-    },
-  ];
+    });
+  }
 
   return (
     <Dropdown
@@ -92,16 +100,22 @@ export function UserMenu({
         <button
           type="button"
           {...props}
-          aria-label={`Account: ${user.displayName}`}
+          aria-label={user ? `Account: ${user.displayName}` : 'Account: not signed in'}
           className={cn(
             'hover:bg-surface-secondary focus-visible:outline-brand flex items-center gap-2 rounded-md py-1 pr-2 pl-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1',
           )}
         >
-          <Avatar name={user.displayName} src={user.avatarUrl} />
+          {user ? (
+            <Avatar name={user.displayName} src={user.avatarUrl} />
+          ) : (
+            <span className="bg-surface-secondary text-tertiary flex h-7 w-7 items-center justify-center rounded-full">
+              <UserIcon className="h-4 w-4" />
+            </span>
+          )}
           {compact ? null : (
             <>
               <span className="text-primary text-body-sm max-w-32 truncate font-medium">
-                {user.displayName}
+                {user ? user.displayName : 'Sign in'}
               </span>
               <ChevronDownIcon className="text-tertiary h-4 w-4" />
             </>
