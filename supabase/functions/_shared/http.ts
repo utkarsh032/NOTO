@@ -18,15 +18,25 @@ import type { ApiErrorDto } from '@noto/types/api';
  * user's account. `noto://` is the desktop and mobile deep link; it is not a
  * browser origin and never appears here.
  */
-const ALLOWED_ORIGINS = [
-  'https://noto.app',
-  'https://www.noto.app',
-  'http://localhost:5173',
-  'http://localhost:4173',
-];
+const ALLOWED_ORIGINS = ['https://noto.app', 'https://www.noto.app'];
+
+/**
+ * Any port on the developer's own machine.
+ *
+ * Vite is configured with `strictPort: false`, so a second `pnpm dev:web` moves
+ * to 5174 without saying so, and a fixed list of ports turns that into a CORS
+ * failure the browser reports as "could not reach the server". `localhost` and
+ * `127.0.0.1` are the same machine as the person running Noto; an attacker who
+ * can serve a page from there has already won by an easier route.
+ */
+const LOCAL_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/;
+
+function isAllowed(origin: string): boolean {
+  return ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin);
+}
 
 export function corsHeaders(origin: string | null): Record<string, string> {
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]!;
+  const allowed = origin && isAllowed(origin) ? origin : ALLOWED_ORIGINS[0]!;
 
   return {
     'Access-Control-Allow-Origin': allowed,
