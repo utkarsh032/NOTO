@@ -31,8 +31,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '1.4.1',
     date: '2026-09-06',
     summary:
-      'The Quick Note dock closes when you are finished with it, and moves to where you put it rather than to somewhere near it.',
+      'Accounts work on the web app at last, and the Quick Note dock closes when you are finished with it and moves to where you put it rather than to somewhere near it.',
     changes: [
+      {
+        kind: 'fixed',
+        description:
+          'Signing in and creating an account failed on the deployed web app. The server accepted browser requests only from a domain that is not live yet, so every attempt from the address Noto is actually served from was stopped by the browser before it was sent — and the form blamed your connection, because a request refused that early is indistinguishable from one that never arrived. Nothing was wrong with anybody’s network.',
+      },
       {
         kind: 'fixed',
         description:
