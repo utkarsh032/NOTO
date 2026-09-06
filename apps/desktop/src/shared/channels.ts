@@ -24,6 +24,18 @@ export const SQL_CHANNELS = {
 export const SHELL_CHANNELS = {
   print: 'noto:shell:print',
   command: 'noto:shell:command',
+  /**
+   * Renderer → main: open a URL in the user's own browser.
+   *
+   * Needed because some things cannot happen inside Electron. Creating an
+   * account is the first: Turnstile checks the hostname a widget is served
+   * from, and a packaged renderer is served from `file://`, which has none.
+   *
+   * The main process decides what may be opened, not the renderer — handing a
+   * sandboxed page a general-purpose "launch this" would give anything that
+   * ran in it the ability to start programs.
+   */
+  openExternal: 'noto:shell:open-external',
 } as const;
 
 /**

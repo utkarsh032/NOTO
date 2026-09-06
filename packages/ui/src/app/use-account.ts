@@ -39,6 +39,7 @@ export function useAccount(): AccountValue {
       signOut: null,
       resendConfirmation: null,
       turnstileSiteKey: null,
+      signUpUrl: null,
     }),
     [],
   );

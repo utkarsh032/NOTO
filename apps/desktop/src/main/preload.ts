@@ -41,6 +41,16 @@ const notoShell = {
     ipcRenderer.on(SHELL_CHANNELS.command, handler);
     return () => ipcRenderer.off(SHELL_CHANNELS.command, handler);
   },
+
+  /**
+   * Opens a URL in the user's own browser. Answers whether it was allowed.
+   *
+   * The main process refuses anything that is not `https:`, so a caller cannot
+   * assume this happened — which is why it reports back rather than returning
+   * nothing.
+   */
+  openExternal: (url: string): Promise<boolean> =>
+    ipcRenderer.invoke(SHELL_CHANNELS.openExternal, url) as Promise<boolean>,
 };
 
 /**

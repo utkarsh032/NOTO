@@ -103,6 +103,12 @@ export { useNotoActions, type NotoActions } from './app/use-noto-actions';
 export { useAccount, firstNameOf } from './app/use-account';
 export { claimFirstLaunch } from './app/welcome';
 export {
+  useCloudAccount,
+  type CloudAccountOptions,
+  type CloudGateway,
+  type CloudSessionEvent,
+} from './app/use-cloud-account';
+export {
   AccountContext,
   useAccountContext,
   type AccountPlan,
@@ -233,6 +239,11 @@ export {
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
 export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
+export {
+  openExternalLink,
+  setExternalLinkHandler,
+  type ExternalLinkHandler,
+} from './app/external-link';
 export {
   checkForUpdates,
   dismissUpdate,

@@ -1,21 +1,25 @@
 import { APP_VERSION } from '@noto/config';
 import { createSupabaseClient } from '@noto/sync/supabase';
 import * as account from '@noto/sync/supabase/account';
-import type { Device, User } from '@noto/types';
+import type { Device, DevicePlatform, User } from '@noto/types';
 
-import { clearStoredSession, cloudConfig } from './cloud-config.ts';
+import { clearStoredSession, cloudConfig } from './cloud-config';
 
 /**
- * The cloud, for the web application.
+ * The cloud, for the desktop application.
  *
- * The operations themselves live in `@noto/sync/supabase/account`, because the
- * desktop performs the same ones against the same functions. What is left here
- * is the part only a browser can answer: what this installation is called, what
- * it is running on, and the id that makes it the same device tomorrow.
+ * The operations are `@noto/sync/supabase/account`, the same ones the web
+ * application calls against the same Edge Functions. What differs is only what
+ * this installation is: a computer rather than a browser tab, named after the
+ * operating system it is running on.
  *
- * Every import of this module is dynamic. It is the boundary the bundle splits
- * on, and importing it statically anywhere would put `@supabase/supabase-js`
- * back into the entry chunk that a signed-out visitor downloads.
+ * Sign-up is absent, and deliberately so — see `signUpUrl` in `cloud-config`.
+ * A `signUp` here would be a function that cannot succeed.
+ *
+ * Every import of this module is dynamic, as on the web. The reason is weaker
+ * on a desktop, where the bundle is already on disk, but the shape is worth
+ * keeping identical: one of these two files having a different loading rule
+ * from the other is how they start to drift.
  */
 
 export const supabase = createSupabaseClient({
@@ -23,16 +27,16 @@ export const supabase = createSupabaseClient({
   VITE_SUPABASE_ANON_KEY: cloudConfig.anonKey,
 });
 
-export type { SignInOutcome, SignUpInput, SignUpOutcome } from '@noto/sync/supabase/account';
+export type { SignInOutcome } from '@noto/sync/supabase/account';
 
 const DEVICE_ID_KEY = 'noto.device.id';
 
 /**
  * This installation's id.
  *
- * Generated here and kept in local storage, so signing out and back in is the
- * same device while a reinstall is a new one. That is what makes the device
- * list on the account screen a list of installations rather than of sessions.
+ * In the renderer's localStorage, which Electron keeps in the application's
+ * user-data directory — so it survives signing out, and a reinstall that clears
+ * that directory is honestly a new device.
  */
 function deviceId(): string {
   const stored = localStorage.getItem(DEVICE_ID_KEY);
@@ -44,39 +48,43 @@ function deviceId(): string {
   return created;
 }
 
-/** A readable name for this browser. Coarse on purpose; it is a label, not a fingerprint. */
-function browserName(): string {
+/**
+ * Which desktop this is.
+ *
+ * Read from the user agent rather than asked of the main process: Electron's
+ * renderer reports the real platform there, and one synchronous string beats an
+ * IPC round trip for something that cannot change while the window is open.
+ */
+function platform(): DevicePlatform {
   const agent = navigator.userAgent;
-  if (agent.includes('Edg/')) return 'Edge';
-  if (agent.includes('Chrome/') && !agent.includes('Chromium')) return 'Chrome';
-  if (agent.includes('Firefox/')) return 'Firefox';
-  if (agent.includes('Safari/')) return 'Safari';
+  if (agent.includes('Windows')) return 'windows';
+  if (agent.includes('Mac OS X')) return 'macos';
 
-  return 'Browser';
+  return 'linux';
 }
 
 function osName(): string {
-  const agent = navigator.userAgent;
-  if (agent.includes('Windows')) return 'Windows';
-  if (agent.includes('Mac OS X')) return 'macOS';
-  if (agent.includes('Android')) return 'Android';
-  if (agent.includes('Linux')) return 'Linux';
-
-  return 'Unknown';
+  switch (platform()) {
+    case 'windows':
+      return 'Windows';
+    case 'macos':
+      return 'macOS';
+    default:
+      return 'Linux';
+  }
 }
 
-/** This browser, as the account screen will list it. */
+/** This computer, as the account screen will list it. */
 function device(): account.DeviceDescriptor {
   return {
     id: deviceId(),
-    name: browserName(),
-    platform: 'web',
+    name: `${osName()} desktop`,
+    platform: platform(),
     osName: osName(),
     appVersion: APP_VERSION,
   };
 }
 
-/** The endpoint, once the credentials are known to be present. */
 function endpoint(): account.CloudEndpoint {
   return { url: cloudConfig.url ?? '', anonKey: cloudConfig.anonKey ?? '' };
 }
@@ -86,10 +94,6 @@ export async function signIn(email: string, password: string): Promise<account.S
   if (!client) return { ok: false, message: 'This build has no account service configured.' };
 
   return account.signIn(client, endpoint(), email, password, device());
-}
-
-export async function signUp(input: account.SignUpInput): Promise<account.SignUpOutcome> {
-  return account.signUp(endpoint(), input);
 }
 
 export async function resendConfirmation(email: string): Promise<void> {
