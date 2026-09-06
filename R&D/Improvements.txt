@@ -1,0 +1,12 @@
+Improvements:
+1. the collapse/expand sidebar icon should be in a better ui to the mid of sidebar and navar header
+2. theme modue button should be animated smoothly and light|dark|system
+3. main ui will be to full width
+4. this short cut should be work on software and the quick not will contain its a specific page and the quick note means can be open with shortuct in software and when this app close or minimize it should be remain on the system screen any screen to be totaly sided or can be drage to another side so that by click on that quick not smalll ui will be open as in like smart sidebar in mobiles
+5. from the sidebar remove the setting, account option as we have in profile
+
+
+Create a wonderfull login UI also for this
+
+Create a compare plan 3 plan BASIC | PRO | PRO MAX
+
