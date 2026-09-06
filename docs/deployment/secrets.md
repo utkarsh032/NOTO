@@ -19,12 +19,18 @@ without asking anyone for credentials.
 
 ### Website and web application
 
-**None.** The website and web application are Cloudflare Workers projects
+**None here.** The website and web application are Cloudflare Workers projects
 connected directly to this repository through Workers Builds, so Cloudflare
 checks out the commit and deploys it itself. GitHub never needs a Cloudflare
 credential, and `web.yml` only builds.
 
-See [website deployment](website.md).
+They do have build-time configuration, and it lives in Cloudflare rather than
+in this table: `noto-web` needs `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+and `VITE_TURNSTILE_SITE_KEY` set under **Settings → Build → Variables and
+secrets**, or the deployed application has no account service. Adding them to
+GitHub would configure the one build nobody deploys.
+
+See [website deployment](website.md#build-variables-for-noto-web).
 
 ### Windows signing
 

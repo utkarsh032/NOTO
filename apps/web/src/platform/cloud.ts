@@ -2,7 +2,7 @@ import { APP_VERSION } from '@noto/config';
 import { createSupabaseClient } from '@noto/sync/supabase';
 import type { Device, User } from '@noto/types';
 
-import { cloudConfig } from './cloud-config.ts';
+import { clearStoredSession, cloudConfig } from './cloud-config.ts';
 
 /**
  * The cloud, for the web application.
@@ -211,8 +211,42 @@ export async function resendConfirmation(email: string): Promise<void> {
   await client.auth.resend({ type: 'signup', email });
 }
 
-export async function signOut(): Promise<void> {
-  await supabase?.auth.signOut();
+/**
+ * Ends the session — here, and on the server if it can be reached.
+ *
+ * The order matters. Revoking the refresh token is asked for first, while the
+ * access token still exists to present; only then is the local copy removed.
+ *
+ * The removal is not left to `signOut` alone. It does clear storage on a failed
+ * request today, but it is one branch of somebody else's error handling, and
+ * what it protects is the whole point of the button: a session that survives a
+ * sign-out on the device in front of you. A token that outlives an unreachable
+ * sign-out expires on its own; a session still sitting in this browser does
+ * not, and signs the person back in on the next reload.
+ *
+ * Returns whether the server confirmed it. False still means signed out here —
+ * it means the other devices holding this session are not, yet.
+ */
+export async function signOut(): Promise<boolean> {
+  const client = supabase;
+
+  if (!client) {
+    clearStoredSession();
+
+    return false;
+  }
+
+  let revoked = false;
+  try {
+    const { error } = await client.auth.signOut();
+    revoked = !error;
+  } catch {
+    // Offline, or the endpoint is unreachable. The local session still goes.
+  }
+
+  if (!revoked) clearStoredSession();
+
+  return revoked;
 }
 
 interface ProfileRow {

@@ -31,6 +31,31 @@ Each project is configured in the Cloudflare dashboard as follows.
 **Root directory must stay `/`.** This is a pnpm workspace; installing from
 `apps/website` alone cannot resolve the `workspace:*` dependencies.
 
+### Build variables for `noto-web`
+
+The web application reads its cloud configuration at **build** time — Vite
+inlines `import.meta.env.VITE_*` into the bundle — so these belong in the
+Workers Builds settings for `noto-web`, under **Settings → Build → Variables
+and secrets**. They are not GitHub secrets: GitHub is not in the deploy path.
+
+| Variable                  | Effect when absent                                                 |
+| ------------------------- | ------------------------------------------------------------------ |
+| `VITE_SUPABASE_URL`       | No account service. Sign-in, sign-up and sign-out are all inert    |
+| `VITE_SUPABASE_ANON_KEY`  | Same — both are required before the cloud is considered configured |
+| `VITE_TURNSTILE_SITE_KEY` | Sign-in still works; creating an account is not offered            |
+
+All three are public by design. The anon key is safe in a browser bundle
+because Row Level Security, not secrecy, is what protects the data, and the
+Turnstile sitekey is rendered into the form. The `service_role` key and the
+Turnstile secret belong to Supabase's own function secrets and must never
+appear here.
+
+Missing them is not a build failure, and deliberately so: Noto is local-first
+and a build with no cloud is a supported product, which is what a fork gets.
+It is also how a deploy can quietly ship an application whose account screen
+says there is no account service — so if the release notes mention accounts,
+check these are set before tagging.
+
 Non-production branches build too, which is what makes `dev` a staging
 deployment. Non-production builds render a banner across the top of the website
 saying which environment they are, so a preview URL is never mistaken for the

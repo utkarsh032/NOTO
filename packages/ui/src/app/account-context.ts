@@ -65,8 +65,13 @@ export interface AccountValue {
    * `unavailable` is not an error: it is Noto with no cloud configured, which
    * is the normal state for a local-first application and for every build that
    * ships without Supabase credentials.
+   *
+   * `restoring` is the one state a screen must not treat as signed out. A
+   * session left by a previous visit takes a moment to come back, and a guard
+   * that answered "not signed in" during that moment would throw somebody off
+   * their own account screen on every reload.
    */
-  status: 'unavailable' | 'signed-out' | 'signing-in' | 'signed-in';
+  status: 'unavailable' | 'restoring' | 'signed-out' | 'signing-in' | 'signed-in';
 
   /**
    * `null` when nobody is signed in, which is most of the time.

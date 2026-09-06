@@ -41,12 +41,27 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         kind: 'added',
         description:
+          'Signing out ends the session, from the header menu or from the account screen. It is a real end state now rather than a change of screen — the session is removed from this device whatever the server answers, so an offline sign-out cannot be undone by a reload.',
+      },
+      {
+        kind: 'added',
+        description:
+          'The account screen is a protected route. Signed out, it takes you to sign in and remembers what you were after, so you land back on it once you are through — and it never draws a profile, a device list or a security history belonging to nobody. Everything else stays open to everyone: Noto is local-first, and your documents belong to your device rather than to an account.',
+      },
+      {
+        kind: 'added',
+        description:
           'Creating an account goes through Cloudflare Turnstile. The check is verified on the server, where the secret that makes a token mean anything never reaches a browser, and it fails closed — if the verifier cannot be reached, the sign-up is refused rather than waved through.',
       },
       {
         kind: 'improved',
         description:
           'The cloud is no longer part of what a signed-out visitor downloads. The Supabase client moved behind a dynamic import, taking 164 kB out of the bundle that loads before anyone has asked for an account.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'Noto could look signed in when it was not, and signed out when it was. A session coming back after a reload is no longer mistaken for no session, one that ends somewhere else — another tab, or a token that ran out — is noticed and said out loud, and a sign-in whose profile will not load is reported instead of leaving you on an empty account screen.',
       },
       {
         kind: 'fixed',

@@ -17,6 +17,7 @@ import { SettingsRow, SettingsSection } from '../settings/SettingsSection';
 import { useNotoData } from '../data-context';
 import { navigate } from '../router';
 import { useAccount } from '../use-account';
+import { useSignOut } from '../use-sign-out';
 
 type AccountTab = 'account' | 'devices' | 'sessions' | 'security' | 'preferences';
 
@@ -31,11 +32,13 @@ const NOT_CONNECTED = `${APP_NAME} has no account service yet, so nothing was ch
  * letting each button explain itself after the fact.
  */
 export function AccountScreen() {
-  const { user, devices, sessions, plan, security } = useAccount();
+  const { status, user, devices, sessions, plan, security } = useAccount();
   const { documents } = useNotoData();
+  const { signOut, available: canSignOut } = useSignOut();
 
   const [tab, setTab] = useState<AccountTab>('account');
   const [signingOutOthers, setSigningOutOthers] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const usedBytes = useMemo(
     () =>
@@ -50,29 +53,50 @@ export function AccountScreen() {
   const notConnected = () => showToast(NOT_CONNECTED);
 
   /*
-   * Signed out, there is no account to manage — so the screen says that and
-   * offers the one action that changes it, rather than rendering a profile,
-   * a device list and a security history belonging to nobody.
+   * Nobody signed in.
+   *
+   * With an account service configured this screen is never reached that way —
+   * the route guard sends the visitor to sign in first, and back here after.
+   * What is left is the build that ships without cloud credentials, where there
+   * is nothing to sign into and so nothing to redirect to: the screen explains
+   * itself rather than rendering a profile, a device list and a security
+   * history belonging to nobody.
    */
   if (!user) {
+    const noService = status === 'unavailable';
+
     return (
       <PageContainer
         title="Account & Devices"
-        subtitle="Sign in to manage your account, devices and security."
+        subtitle={
+          noService
+            ? `This build of ${APP_NAME} has no account service.`
+            : 'Sign in to manage your account, devices and security.'
+        }
       >
         <div className="border-default bg-surface-secondary flex flex-col items-start gap-4 rounded-xl border px-5 py-6">
           <div className="flex items-start gap-2.5">
             <InfoIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
-            <p className="text-secondary text-body-sm">
-              You are not signed in. {APP_NAME} is local-first, so everything on this device keeps
-              working — an account adds a second copy, and the devices and sessions it lists are the
-              ones that copy has reached.
-            </p>
+            {noService ? (
+              <p className="text-secondary text-body-sm">
+                There is no account to manage here, and nothing on this screen is waiting on one.{' '}
+                {APP_NAME} is local-first: every document, note and setting lives on this device and
+                keeps working exactly as it does now.
+              </p>
+            ) : (
+              <p className="text-secondary text-body-sm">
+                You are not signed in. {APP_NAME} is local-first, so everything on this device keeps
+                working — an account adds a second copy, and the devices and sessions it lists are
+                the ones that copy has reached.
+              </p>
+            )}
           </div>
 
-          <Button variant="primary" onClick={() => navigate('login')}>
-            Sign in or create an account
-          </Button>
+          {noService ? null : (
+            <Button variant="primary" onClick={() => navigate('login')}>
+              Sign in or create an account
+            </Button>
+          )}
         </div>
       </PageContainer>
     );
@@ -159,8 +183,10 @@ export function AccountScreen() {
       <div className="border-default bg-surface-secondary text-secondary text-body-sm mb-5 flex items-start gap-2.5 rounded-xl border px-4 py-3">
         <InfoIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Noto is local-first and works signed out. Accounts, devices and sessions arrive with sync
-          — until then this is how they will be managed, and nothing here leaves your device.
+          Your profile, your devices and signing out are live. Plans, sessions and the security
+          settings below arrive with sync — until then this is how they will be managed. Documents
+          stay on this device either way: Noto is local-first, and an account adds a copy rather
+          than becoming the original.
         </p>
       </div>
 
@@ -206,6 +232,24 @@ export function AccountScreen() {
               </Button>
             }
           />
+
+          {/*
+           * Signing out belongs here as well as in the header menu. This is the
+           * screen somebody opens when they want to do something about their
+           * account, and "stop being signed in on this device" is the one thing
+           * on it that works today.
+           */}
+          {canSignOut ? (
+            <SettingsRow
+              label="Sign out"
+              description="Ends this session on this device. Documents already here stay where they are."
+              control={
+                <Button variant="secondary" size="sm" onClick={() => setSigningOut(true)}>
+                  Sign out
+                </Button>
+              }
+            />
+          ) : null}
         </SettingsSection>
       ) : null}
 
@@ -302,6 +346,22 @@ export function AccountScreen() {
           />
         </SettingsSection>
       ) : null}
+
+      <ConfirmDialog
+        open={signingOut}
+        title="Sign out of Noto?"
+        confirmLabel="Sign out"
+        description={
+          <>
+            <p>
+              This session ends on this device. Your documents are stored here and are not deleted.
+            </p>
+            <p className="mt-2">You can sign back in at any time, on this device or another.</p>
+          </>
+        }
+        onConfirm={signOut}
+        onClose={() => setSigningOut(false)}
+      />
 
       <ConfirmDialog
         open={signingOutOthers}

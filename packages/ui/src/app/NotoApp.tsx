@@ -36,6 +36,8 @@ import { useNotoData } from './data-context';
 import { quickNoteTitle } from './quick-note-draft';
 import { navigate } from './router';
 import { useAccount } from './use-account';
+import { useRouteGuard } from './use-route-guard';
+import { useSignOut } from './use-sign-out';
 import { claimFirstLaunch } from './welcome';
 import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
 import { useDocumentTabs } from './use-document-tabs';
@@ -117,8 +119,17 @@ export function NotoApp() {
   const route = useRoute();
   const viewport = useViewport();
   const { user } = useAccount();
+  const { signOut: handleSignOut } = useSignOut();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
+
+  /*
+   * Nothing renders a screen the account does not entitle it to. One place
+   * decides, and both the private screen and the sign-in screen read the same
+   * answer — see `use-route-guard.ts` for why it has three of them.
+   */
+  const verdict = useRouteGuard(route);
+  const guarded = verdict !== 'allow';
 
   /*
    * First launch opens on the sign-in screen, once. Noto works signed out and
@@ -356,6 +367,13 @@ export function NotoApp() {
    * shell belonging to a person who is, by definition, not signed in.
    */
   if (route.name === 'login') {
+    /*
+     * Already signed in, and the guard is on its way to moving them along. A
+     * sign-in form painted for the one frame in between is a form nobody
+     * asked for.
+     */
+    if (guarded) return <WindowLoading />;
+
     return (
       <Suspense fallback={<ScreenLoading />}>
         <LoginScreen />
@@ -389,7 +407,7 @@ export function NotoApp() {
             onOpenSettings={() => navigate('settings')}
             onOpenShortcuts={() => show('shortcuts')}
             onOpenPlans={() => navigate('plans')}
-            onSignOut={() => navigate('login')}
+            onSignOut={handleSignOut}
             compact={isMobile}
             notificationCount={0}
           />
@@ -411,37 +429,49 @@ export function NotoApp() {
          * previous screen on screen while the next one arrives.
          */}
         <Suspense key={route.name} fallback={<ScreenLoading />}>
-          {route.name === 'workspace' ? (
-            <WorkspaceScreen
-              documentId={route.param}
-              onRegisterFlush={registerFlush}
-              onShortcuts={() => show('shortcuts')}
-            />
-          ) : null}
+          {/*
+           * A guarded route gets the placeholder instead of its screen. `wait`
+           * is a session still coming back and `redirecting` is the frame
+           * before the hash changes; painting the screen through either one is
+           * how a private page ends up on screen for somebody without it.
+           */}
+          {guarded ? <ScreenLoading /> : null}
 
-          {route.name === 'documents' ? <DocumentsScreen /> : null}
-          {route.name === 'quick-note' ? (
-            <QuickNoteScreen
-              onQuickNote={() => show('quickNote')}
-              onShowDock={() => {
-                setDockEnabled(true);
-                showToast('Quick Note dock is on the edge of the window.');
-              }}
-            />
-          ) : null}
-          {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
-          {route.name === 'search' ? (
-            <SearchScreen
-              query={route.param}
-              onAskAI={() => {
-                navigate('workspace');
-                showToast('Noto AI is in the panel beside the document.');
-              }}
-            />
-          ) : null}
-          {route.name === 'settings' ? <SettingsScreen /> : null}
-          {route.name === 'account' ? <AccountScreen /> : null}
-          {route.name === 'plans' ? <PlansScreen /> : null}
+          {guarded ? null : (
+            <>
+              {route.name === 'workspace' ? (
+                <WorkspaceScreen
+                  documentId={route.param}
+                  onRegisterFlush={registerFlush}
+                  onShortcuts={() => show('shortcuts')}
+                />
+              ) : null}
+
+              {route.name === 'documents' ? <DocumentsScreen /> : null}
+              {route.name === 'quick-note' ? (
+                <QuickNoteScreen
+                  onQuickNote={() => show('quickNote')}
+                  onShowDock={() => {
+                    setDockEnabled(true);
+                    showToast('Quick Note dock is on the edge of the window.');
+                  }}
+                />
+              ) : null}
+              {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
+              {route.name === 'search' ? (
+                <SearchScreen
+                  query={route.param}
+                  onAskAI={() => {
+                    navigate('workspace');
+                    showToast('Noto AI is in the panel beside the document.');
+                  }}
+                />
+              ) : null}
+              {route.name === 'settings' ? <SettingsScreen /> : null}
+              {route.name === 'account' ? <AccountScreen /> : null}
+              {route.name === 'plans' ? <PlansScreen /> : null}
+            </>
+          )}
         </Suspense>
       </NotoAppShell>
 
@@ -506,6 +536,24 @@ export function NotoApp() {
 
       <ToastViewport />
     </>
+  );
+}
+
+/**
+ * What fills the window while the guard decides, on the routes that render
+ * without the shell around them.
+ *
+ * Deliberately almost nothing. It is on screen for a frame or two — long
+ * enough that the window is never blank, short enough that anything more
+ * would be a flash of interface that then goes away.
+ */
+function WindowLoading() {
+  return (
+    <div className="bg-background flex h-full items-center justify-center" aria-busy="true">
+      <span className="sr-only" role="status">
+        Checking your account
+      </span>
+    </div>
   );
 }
 

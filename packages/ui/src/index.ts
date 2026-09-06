@@ -82,15 +82,21 @@ export { MobileNav, type MobileNavProps } from './app/MobileNav';
 export { PageContainer, type PageContainerProps } from './app/PageContainer';
 export { PRIMARY_NAV, isEntryActive, type NavEntry } from './app/navigation';
 export {
+  loginRouteFor,
   navigate,
   parseRoute,
   replaceRoute,
+  returnRouteFrom,
+  routeAccess,
   routeToHash,
   useRouteHash,
   type Route,
+  type RouteAccess,
   type RouteName,
 } from './app/router';
 export { useRoute } from './app/use-route';
+export { useRouteGuard, type RouteVerdict } from './app/use-route-guard';
+export { useSignOut, type SignOutControl } from './app/use-sign-out';
 export { useViewport, type Viewport } from './app/use-viewport';
 export { useDebouncedValue } from './app/use-debounced-value';
 export { useNotoActions, type NotoActions } from './app/use-noto-actions';

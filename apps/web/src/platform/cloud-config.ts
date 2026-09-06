@@ -33,15 +33,42 @@ export const cloudConfigured = Boolean(cloudConfig.url && cloudConfig.anonKey);
  * the client: there is nothing to restore, so nothing is fetched.
  */
 export function hasStoredSession(): boolean {
+  return storedSessionKeys().length > 0;
+}
+
+/**
+ * Every key Supabase keeps a session under. Empty when storage is unreadable.
+ */
+function storedSessionKeys(): string[] {
+  const keys: string[] = [];
+
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i);
-      if (key && /^sb-.+-auth-token$/.test(key)) return true;
+      if (key && /^sb-.+-auth-token$/.test(key)) keys.push(key);
     }
   } catch {
-    // Private mode, or storage disabled. Treat it as signed out.
-    return false;
+    // Private mode, or storage disabled. Nothing is stored, so nothing to clear.
+    return [];
   }
 
-  return false;
+  return keys;
+}
+
+/**
+ * Removes the stored session by hand.
+ *
+ * The last step of signing out, and the one that has to work when nothing else
+ * does. `supabase.auth.signOut()` asks the server to revoke the token first,
+ * and clearing storage afterwards is a branch of its error handling rather
+ * than a promise it makes. What that branch protects is the whole point of the
+ * button: a session left in this browser signs the person straight back in on
+ * the next reload. Whatever the server said, the copy on this device goes.
+ */
+export function clearStoredSession(): void {
+  try {
+    for (const key of storedSessionKeys()) localStorage.removeItem(key);
+  } catch {
+    // Nothing readable is nothing stored.
+  }
 }
