@@ -12,13 +12,44 @@ import type { NotoError, Result } from '@noto/types';
 import type { ApiErrorDto } from '@noto/types/api';
 
 /**
+ * Extra origins for this deployment, comma-separated.
+ *
+ * Read once, at module load: an Edge Function isolate serves many requests, and
+ * re-parsing an environment variable that cannot change buys nothing.
+ */
+function configuredOrigins(): string[] {
+  const configured = Deno.env.get('NOTO_ALLOWED_ORIGINS');
+  if (!configured) return [];
+
+  return configured
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin !== '');
+}
+
+/**
  * Origins allowed to call a function from a browser.
  *
  * An allow-list rather than `*`, because these endpoints act on a signed-in
  * user's account. `noto://` is the desktop and mobile deep link; it is not a
  * browser origin and never appears here.
+ *
+ * `noto.app` is where the application is going. The `workers.dev` address is
+ * where it is actually served from today — the same URL the desktop build's
+ * Production overlay points at — and leaving it out meant the deployed web
+ * application could not call its own backend: the browser refused every
+ * sign-in and sign-up before it was sent, and the form, which cannot see a
+ * preflight, reported it as "could not reach the server".
+ *
+ * `NOTO_ALLOWED_ORIGINS` adds to the list without a deployment, for a preview
+ * build or a domain that arrives after this was written.
  */
-const ALLOWED_ORIGINS = ['https://noto.app', 'https://www.noto.app'];
+const ALLOWED_ORIGINS = [
+  'https://noto.app',
+  'https://www.noto.app',
+  'https://noto-web.utkarshraj525.workers.dev',
+  ...configuredOrigins(),
+];
 
 /**
  * Any port on the developer's own machine.
