@@ -28,6 +28,38 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.1',
+    date: '2026-09-06',
+    summary:
+      'The Quick Note dock closes when you are finished with it, and moves to where you put it rather than to somewhere near it.',
+    changes: [
+      {
+        kind: 'fixed',
+        description:
+          'The dock panel closes when you click anything else — another window, or the document behind it. It sits above everything, has no taskbar entry and does not appear in alt-tab, so nothing about the desktop told you it was still open; getting rid of it meant finding the one button that would.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'That button now works. The panel’s header is a drag surface, and a drag holds on to the pointer in a way that swallowed the click ending on Close — so the one obvious way out of the panel was also the one that did nothing.',
+      },
+      {
+        kind: 'fixed',
+        description:
+          'The dock goes where you put it. Taking the panel by its header threw it a quarter of a screen downwards and the tab jumped by half its height, because both moved their middle to the cursor instead of the part you had taken hold of. Dragging now behaves the same on either edge and across displays.',
+      },
+      {
+        kind: 'improved',
+        description:
+          'A press on the tab opens the panel however long you hold it. The desktop read anything over a fifth of a second as a drag, so a deliberate press opened nothing; and a press that goes nowhere now leaves the dock exactly where it was, rather than moving it and writing a new position down.',
+      },
+      {
+        kind: 'improved',
+        description: 'The Smart Sidebar’s rail closes on a click outside it too.',
+      },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-09-02',
     summary:
