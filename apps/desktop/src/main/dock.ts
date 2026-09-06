@@ -47,6 +47,16 @@ let state: DockState = { ...DEFAULT_STATE };
 let dockWindow: BrowserWindow | null = null;
 let expanded = false;
 
+/**
+ * Whether losing focus should put the panel away.
+ *
+ * Armed only once the panel has actually held the keyboard. `focus()` on an
+ * always-on-top window is a request rather than a guarantee, and a blur
+ * arriving before the window ever had focus would close the panel in the same
+ * gesture that opened it.
+ */
+let dismissArmed = false;
+
 /** The timer that follows the cursor while the dock is being dragged. */
 let dragTimer: NodeJS.Timeout | null = null;
 
@@ -195,9 +205,29 @@ function createDockWindow(): BrowserWindow {
      wrong edge for a frame after a reload. */
   window.webContents.on('did-finish-load', () => publishPlacement());
 
+  /* A panel that has been focused is a panel a later blur may close. */
+  window.on('focus', () => {
+    if (expanded) dismissArmed = true;
+  });
+
+  /*
+   * Clicking anything else puts the panel away.
+   *
+   * The dock is always on top, absent from the taskbar and absent from
+   * alt-tab, so nothing about the desktop tells you it is still open: left
+   * out, it simply sits over whatever you moved on to. Not while dragging —
+   * the window can lose focus as it is thrown across a display boundary — and
+   * not before it has ever been focused.
+   */
+  window.on('blur', () => {
+    if (!expanded || !dismissArmed || drag) return;
+    collapseDock();
+  });
+
   window.on('closed', () => {
     dockWindow = null;
     expanded = false;
+    dismissArmed = false;
   });
 
   return window;
@@ -259,12 +289,7 @@ export function isDockVisible(): boolean {
 export function showDock(): void {
   const window = ensureWindow();
 
-  if (expanded) {
-    expanded = false;
-    applyBounds();
-    publishPlacement();
-  }
-
+  collapseDock();
   if (!window.isVisible()) window.showInactive();
 }
 
@@ -274,7 +299,25 @@ export function hideDock(options: { force?: boolean } = {}): void {
   if (!dockWindow || dockWindow.isDestroyed()) return;
 
   expanded = false;
+  dismissArmed = false;
   dockWindow.hide();
+}
+
+/**
+ * Shrinks the panel back to the handle, leaving the dock where it is.
+ *
+ * The one way out of the panel, whether it was Escape, the close button or a
+ * click on something else entirely — so there is a single place that keeps the
+ * window's size, the renderer's idea of itself and the dismissal arming in
+ * step with each other.
+ */
+function collapseDock(): void {
+  if (!expanded) return;
+
+  expanded = false;
+  dismissArmed = false;
+  applyBounds();
+  publishPlacement();
 }
 
 /** Shows the dock with its panel already open, focused, ready for a keystroke. */
@@ -282,11 +325,16 @@ export function openDockPanel(): void {
   const window = ensureWindow();
 
   expanded = true;
+  dismissArmed = false;
   applyBounds();
   publishPlacement();
 
   window.show();
   window.focus();
+
+  /* Already had the keyboard — clicking the handle focuses the window before
+     it is asked to grow — so no `focus` event is coming to arm the dismissal. */
+  if (window.isFocused()) dismissArmed = true;
 }
 
 export function destroyDock(): void {
@@ -303,10 +351,31 @@ export function destroyDock(): void {
 const DRAG_INTERVAL_MS = 16;
 
 /**
+ * How far the cursor has to travel before a press counts as a drag.
+ *
+ * Every press moves the mouse a pixel or two, and without a threshold each one
+ * started the window chasing the cursor: the tab jumped out from under the
+ * very click that was opening it, and the placement was rewritten to disk for
+ * a gesture that never asked to move anything. Below this the dock stays
+ * exactly where it was found.
+ */
+const DRAG_START_PX = 6;
+
+/**
  * Nothing should hold the cursor forever if a pointer-up is somehow missed —
  * a crashed renderer, a display disconnected mid-drag.
  */
 const DRAG_TIMEOUT_MS = 30_000;
+
+/** The press in progress, from the moment it goes down to the moment it lifts. */
+let drag: {
+  /** Where the cursor was when the press began, to measure travel against. */
+  origin: Electron.Point;
+  /** How far below the window's top edge it was grabbed. */
+  grabY: number;
+  /** Whether it has travelled far enough to have stopped being a click. */
+  moved: boolean;
+} | null = null;
 
 /**
  * Follows the system cursor until the drag ends.
@@ -319,18 +388,37 @@ const DRAG_TIMEOUT_MS = 30_000;
  */
 function startDrag(): void {
   endDrag();
+  if (!dockWindow || dockWindow.isDestroyed()) return;
 
+  const origin = screen.getCursorScreenPoint();
+  const bounds = dockWindow.getBounds();
   const startedAt = Date.now();
 
+  drag = {
+    origin,
+    /* Clamped into the window: a press can be captured from just outside its
+       edge, and a grab point off the dock would offset every later move. */
+    grabY: Math.min(Math.max(origin.y - bounds.y, 0), bounds.height),
+    moved: false,
+  };
+
   dragTimer = setInterval(() => {
-    if (Date.now() - startedAt > DRAG_TIMEOUT_MS) {
+    if (!drag || Date.now() - startedAt > DRAG_TIMEOUT_MS) {
       endDrag();
       return;
     }
 
     const point = screen.getCursorScreenPoint();
+
+    if (!drag.moved) {
+      const travelled = Math.hypot(point.x - drag.origin.x, point.y - drag.origin.y);
+      if (travelled < DRAG_START_PX) return;
+      drag.moved = true;
+    }
+
     const display = screen.getDisplayNearestPoint(point);
     const area = display.workArea;
+    const height = (expanded ? PANEL_SIZE : HANDLE_SIZE).height;
 
     /* Whichever display the pointer is over is the display the dock is on,
        which is what makes it draggable to a second monitor. */
@@ -338,19 +426,42 @@ function startDrag(): void {
     /* And whichever half of that display it is in decides the edge, so the
        dock snaps as the gesture is made rather than after it is finished. */
     state.side = point.x < area.x + area.width / 2 ? 'left' : 'right';
-    state.offset = clampOffset((point.y - area.y) / area.height);
+
+    /*
+     * The point that was grabbed stays under the cursor. Centring on the
+     * cursor instead — which is what a bare `point.y` does — makes a 540px
+     * panel taken by its header leap a quarter of a screen downwards the
+     * instant it moves, and a 96px handle jump by up to half its height.
+     */
+    const top = point.y - drag.grabY;
+    const settled = Math.min(Math.max(top, area.y), area.y + area.height - height);
+    state.offset = clampOffset((settled + height / 2 - area.y) / area.height);
 
     applyBounds();
     publishPlacement();
   }, DRAG_INTERVAL_MS);
 }
 
-function endDrag(): void {
-  if (!dragTimer) return;
+/**
+ * Ends the press, and reports whether it turned out to be a drag.
+ *
+ * The renderer asks, because it cannot tell: the window follows the cursor, so
+ * from in there a drag across three monitors and a click that never moved look
+ * exactly alike.
+ */
+function endDrag(): boolean {
+  const moved = drag?.moved === true;
 
-  clearInterval(dragTimer);
-  dragTimer = null;
-  writeState();
+  if (dragTimer) {
+    clearInterval(dragTimer);
+    dragTimer = null;
+  }
+
+  drag = null;
+  /* Only a gesture that moved something has anything to remember. */
+  if (moved) writeState();
+
+  return moved;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -359,12 +470,10 @@ function endDrag(): void {
 
 function registerDockHandlers(): void {
   ipcMain.handle(DOCK_CHANNELS.setExpanded, (_event, next: boolean) => {
-    expanded = next === true;
-    applyBounds();
-    publishPlacement();
-
-    /* Growing into the panel is a request to type into it. */
-    if (expanded) dockWindow?.focus();
+    /* Growing into the panel is a request to type into it, which is exactly
+       what `openDockPanel` does; shrinking is the one collapse path. */
+    if (next === true) openDockPanel();
+    else collapseDock();
   });
 
   ipcMain.handle(DOCK_CHANNELS.setSide, (_event, side: DockSide) => {
@@ -375,6 +484,7 @@ function registerDockHandlers(): void {
   });
 
   ipcMain.handle(DOCK_CHANNELS.dragStart, () => startDrag());
+  /* The answer is what the renderer tells a click from a drag by. */
   ipcMain.handle(DOCK_CHANNELS.dragEnd, () => endDrag());
 
   ipcMain.handle(DOCK_CHANNELS.openApp, (_event, commandId?: string, argument?: string) => {
