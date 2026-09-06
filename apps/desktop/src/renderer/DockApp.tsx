@@ -8,21 +8,9 @@ import {
   type DockSide,
 } from '@noto/ui';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { openDesktopDatabase } from './platform/database';
-
-/**
- * Anything held down for longer than this was a drag, not a click.
- *
- * Distance would be the better test and is what the in-application dock uses,
- * but it is not available here: the window is placed under the cursor while it
- * is dragged, so the pointer stops moving relative to the page and the renderer
- * is sent no pointer moves to measure. Duration is what is left, and it
- * separates the two gestures well enough — nobody drags a window in 200ms, and
- * nobody holds a click for that long either.
- */
-const CLICK_LIMIT_MS = 220;
 
 /**
  * The Quick Note dock, as the desktop draws it.
@@ -48,8 +36,7 @@ export function DockApp() {
   const [side, setSide] = useState<DockSide>('right');
   const [expanded, setExpanded] = useState(false);
 
-  /** Set when a press was long enough to have been a drag, so its click is dropped. */
-  const draggedRef = useRef(false);
+  const openPanel = useCallback(() => void window.notoDock.setExpanded(true), []);
 
   /*
    * The dock window is transparent, so the page behind the handle must be too —
@@ -70,22 +57,34 @@ export function DockApp() {
     [],
   );
 
-  const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
+  /**
+   * A press on the handle or the panel's header.
+   *
+   * `onTap` runs if the press turns out not to have been a drag — which is a
+   * question the main process answers, since it is the only side that saw the
+   * cursor. Duration used to stand in for that here, and it was a poor stand-in:
+   * a deliberate quarter-second press on the tab was read as a drag and opened
+   * nothing at all.
+   */
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, onTap?: () => void) => {
     if (event.button !== 0) return;
 
     const target = event.currentTarget;
-    const pressedAt = Date.now();
 
     target.setPointerCapture(event.pointerId);
     void window.notoDock.dragStart();
 
-    const finish = () => {
+    const finish = (release: PointerEvent) => {
       target.releasePointerCapture(event.pointerId);
       target.removeEventListener('pointerup', finish);
       target.removeEventListener('pointercancel', finish);
 
-      draggedRef.current = Date.now() - pressedAt > CLICK_LIMIT_MS;
-      void window.notoDock.dragEnd();
+      /* A cancelled press — the system taking the pointer away — is not a tap. */
+      const lifted = release.type === 'pointerup';
+
+      void window.notoDock.dragEnd().then((moved) => {
+        if (lifted && !moved) onTap?.();
+      });
     };
 
     /*
@@ -145,13 +144,12 @@ export function DockApp() {
         ) : (
           <DockHandle
             side={side}
-            onDragStart={startDrag}
-            onOpen={() => {
-              if (draggedRef.current) {
-                draggedRef.current = false;
-                return;
-              }
-              void window.notoDock.setExpanded(true);
+            onDragStart={(event) => startDrag(event, openPanel)}
+            /* The pointer opens on release, above; a key press has no release
+               to wait for and arrives here as a click with no detail. */
+            onOpen={(event) => {
+              if (event.detail !== 0) return;
+              openPanel();
             }}
             className="h-full w-full"
           />

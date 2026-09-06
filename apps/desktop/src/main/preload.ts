@@ -59,7 +59,8 @@ const notoDock = {
     ipcRenderer.invoke(DOCK_CHANNELS.setSide, side) as Promise<void>,
 
   dragStart: (): Promise<void> => ipcRenderer.invoke(DOCK_CHANNELS.dragStart) as Promise<void>,
-  dragEnd: (): Promise<void> => ipcRenderer.invoke(DOCK_CHANNELS.dragEnd) as Promise<void>,
+  /** Resolves true when the press moved the dock, false when it was a click. */
+  dragEnd: (): Promise<boolean> => ipcRenderer.invoke(DOCK_CHANNELS.dragEnd) as Promise<boolean>,
 
   /** `commandId` runs in the application window once it is up. */
   openApp: (commandId?: string, argument?: string): Promise<void> =>

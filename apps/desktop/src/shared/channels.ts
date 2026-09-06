@@ -41,13 +41,19 @@ export const SHELL_CHANNELS = {
  * the drag starts and when it ends, and the main process follows the system
  * cursor in between — which is also the only side that knows where on the
  * desktop, across how many displays, that cursor actually is.
+ *
+ * For the same reason the *end* of a drag carries an answer back: whether the
+ * press moved the dock at all is a question only the side watching the system
+ * cursor can settle, and it is what separates a click from a drag.
  */
 export const DOCK_CHANNELS = {
   /** Renderer → main: grow to the panel, or shrink back to the handle. */
   setExpanded: 'noto:dock:set-expanded',
   /** Renderer → main: put the dock on this edge of the display. */
   setSide: 'noto:dock:set-side',
+  /** Renderer → main: a press went down on the handle or the panel's header. */
   dragStart: 'noto:dock:drag-start',
+  /** Renderer → main: it lifted. Answers with whether the dock actually moved. */
   dragEnd: 'noto:dock:drag-end',
   /** Renderer → main: bring the application window forward, and optionally run a command in it. */
   openApp: 'noto:dock:open-app',

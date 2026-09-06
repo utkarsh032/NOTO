@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 import notoIcon from '../../assets/noto-icon.png';
 import { GripIcon } from '../../components/icons';
@@ -7,8 +7,15 @@ import type { DockSide } from './dock-placement';
 
 export interface DockHandleProps {
   side: DockSide;
-  /** Opens the panel. */
-  onOpen(): void;
+  /**
+   * Opens the panel.
+   *
+   * Handed the activation, because not every host wants both halves of it: a
+   * `detail` of 0 is a key press, and anything higher came from the pointer.
+   * The desktop opens on the pointer's *release* — only there can a click be
+   * told from a drag — and takes just the key press from here.
+   */
+  onOpen(event: ReactMouseEvent<HTMLButtonElement>): void;
   /** Begins a drag. The host decides whether that moves a div or a window. */
   onDragStart(event: ReactPointerEvent<HTMLElement>): void;
   /** True while a drag is in progress, so the handle can stop pretending to be a button. */
