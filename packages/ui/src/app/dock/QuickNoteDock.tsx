@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { cn } from '../../utils/cn';
 import { DockHandle } from './DockHandle';
@@ -25,7 +25,7 @@ export interface QuickNoteDockProps {
 }
 
 /** How far a press has to travel before it stops being a click. */
-const DRAG_THRESHOLD_PX = 5;
+const DRAG_THRESHOLD_PX = 4;
 
 /**
  * The Quick Note dock, inside the application window.
@@ -56,9 +56,30 @@ export function QuickNoteDock(props: QuickNoteDockProps) {
 
   /* Set when a press turns into a drag, so the click it ends with is ignored. */
   const draggedRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const side = drag?.side ?? stored.side;
   const offset = drag?.offset ?? stored.offset;
+
+  /*
+   * Anything outside the panel puts it away.
+   *
+   * The panel is a 340px column over the document the user was reading, and
+   * reaching past it for that document is the ordinary way of being finished
+   * with it — asking for the close button as well makes the dock something you
+   * have to tidy up after.
+   */
+  useEffect(() => {
+    if (!expanded) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (panelRef.current?.contains(event.target as Node)) return;
+      setExpanded(false);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [expanded]);
 
   const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
     /* Only the primary button drags; a right-click is not a gesture here. */
@@ -70,16 +91,25 @@ export function QuickNoteDock(props: QuickNoteDockProps) {
     const target = event.currentTarget;
     target.setPointerCapture(event.pointerId);
 
-    const onMove = (move: PointerEvent) => {
-      const travelled =
-        Math.abs(move.clientX - origin.x) + Math.abs(move.clientY - origin.y) > DRAG_THRESHOLD_PX;
+    /*
+     * Where in the handle it was taken hold of, measured from the middle — the
+     * point the offset is expressed in. Keeping it is what stops the tab
+     * jumping under the pointer the instant the drag starts: grab it by the
+     * grip at the bottom and the grip is what stays under your finger.
+     */
+    const box = target.getBoundingClientRect();
+    const grabY = event.clientY - (box.top + box.height / 2);
 
-      if (!travelled && !draggedRef.current) return;
-      draggedRef.current = true;
+    const onMove = (move: PointerEvent) => {
+      if (!draggedRef.current) {
+        const travelled = Math.hypot(move.clientX - origin.x, move.clientY - origin.y);
+        if (travelled <= DRAG_THRESHOLD_PX) return;
+        draggedRef.current = true;
+      }
 
       setDrag({
         side: move.clientX < window.innerWidth / 2 ? 'left' : 'right',
-        offset: clampOffset(move.clientY / window.innerHeight),
+        offset: clampOffset((move.clientY - grabY) / window.innerHeight),
       });
     };
 
@@ -110,6 +140,7 @@ export function QuickNoteDock(props: QuickNoteDockProps) {
     <>
       {expanded ? (
         <div
+          ref={panelRef}
           className={cn(
             'fixed top-1/2 z-40 w-[340px] max-w-[calc(100vw-1rem)] -translate-y-1/2',
             side === 'right' ? 'right-0' : 'left-0',

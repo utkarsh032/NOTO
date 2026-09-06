@@ -153,7 +153,19 @@ export function DockPanel(props: DockPanelProps) {
       }}
     >
       <header
-        onPointerDown={onDragStart}
+        /*
+         * The header is a drag surface everywhere except on its own controls.
+         *
+         * A drag takes pointer capture, and a captured pointer retargets the
+         * mouse events it is compatible with — so the click that ends on Close
+         * is delivered to the header instead, and the button does nothing at
+         * all. The two buttons up here are the only things it has to let past.
+         */
+        onPointerDown={(event) => {
+          if (!onDragStart) return;
+          if ((event.target as HTMLElement).closest('button')) return;
+          onDragStart(event);
+        }}
         className={cn(
           'border-default flex shrink-0 items-center gap-1.5 border-b py-2 pr-2 pl-3',
           onDragStart && 'cursor-grab',

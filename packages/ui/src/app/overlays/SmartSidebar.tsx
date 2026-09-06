@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { showToast } from '../../components/toast-store';
 import {
   CameraIcon,
@@ -77,10 +79,28 @@ const ENTRIES: Entry[] = [
  * just a screen with less room on it.
  */
 export function SmartSidebar(props: SmartSidebarProps) {
-  if (!props.open) return null;
+  const railRef = useRef<HTMLElement>(null);
+  const { open, onClose } = props;
+
+  /* Reaching past the rail for what is behind it is a way of being done with
+     it, the same as it is for the dock's panel. */
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (railRef.current?.contains(event.target as Node)) return;
+      onClose();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
     <aside
+      ref={railRef}
       aria-label="Smart Sidebar"
       className="noto-print-hidden border-default bg-surface fixed top-1/2 right-0 z-40 hidden -translate-y-1/2 flex-col gap-1 rounded-l-2xl border border-r-0 py-3 pr-2 pl-2 shadow-[var(--noto-shadow-lg)] lg:flex"
       onKeyDown={(event) => {
