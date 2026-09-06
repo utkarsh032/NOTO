@@ -116,3 +116,59 @@ export function replaceRoute(route: Route | RouteName): void {
     `${window.location.pathname}${window.location.search}${routeToHash(next)}`,
   );
 }
+
+/**
+ * Who a route is for.
+ *
+ * `public` is the default and the majority, because Noto is local-first: the
+ * workspace, the documents, memory, search and settings are all somebody's own
+ * device, and requiring an account to reach them would be inventing a gate the
+ * product does not have.
+ *
+ * `private` is the short list that describes a person rather than their work —
+ * a profile, a device list, a security history. There is nothing to render
+ * there without an account, and rendering it half-empty is how a screen ends up
+ * showing the last person who used it.
+ *
+ * `anonymous` is the sign-in screen, which has nothing to offer somebody who is
+ * already signed in.
+ */
+export type RouteAccess = 'public' | 'private' | 'anonymous';
+
+const ROUTE_ACCESS: Record<RouteName, RouteAccess> = {
+  home: 'public',
+  workspace: 'public',
+  documents: 'public',
+  'quick-note': 'public',
+  memory: 'public',
+  search: 'public',
+  settings: 'public',
+  plans: 'public',
+  account: 'private',
+  login: 'anonymous',
+};
+
+export function routeAccess(name: RouteName): RouteAccess {
+  return ROUTE_ACCESS[name];
+}
+
+/**
+ * The sign-in route that comes back here afterwards.
+ *
+ * The route being left is carried in `login`'s own param, so it survives a
+ * reload and a shared link — `#/login/account` is "sign in, then the account
+ * screen". Somebody bounced off a private screen should land on it once they
+ * are through, not on Home wondering where they were going.
+ */
+export function loginRouteFor(from: Route): Route {
+  return from.name === 'login' ? { name: 'login' } : { name: 'login', param: from.name };
+}
+
+/** Where a finished sign-in should land. Home unless the login route named somewhere. */
+export function returnRouteFrom(login: Route): Route {
+  const name = ROUTE_NAMES.find((candidate) => candidate === login.param);
+
+  // A return to `login` itself would be a loop, and one to another `anonymous`
+  // route would be the same loop with more steps.
+  return name && routeAccess(name) !== 'anonymous' ? { name } : DEFAULT_ROUTE;
+}

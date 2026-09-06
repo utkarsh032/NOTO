@@ -1,8 +1,19 @@
 import type { Device, User } from '@noto/types';
-import { MOCK_PLAN, MOCK_SECURITY, type AccountSignUpInput, type AccountValue } from '@noto/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  MOCK_PLAN,
+  MOCK_SECURITY,
+  showToast,
+  type AccountSignUpInput,
+  type AccountValue,
+} from '@noto/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { cloudConfigured, hasStoredSession, turnstileSiteKey } from './cloud-config.ts';
+import {
+  clearStoredSession,
+  cloudConfigured,
+  hasStoredSession,
+  turnstileSiteKey,
+} from './cloud-config.ts';
 
 /**
  * The web application's account.
@@ -20,67 +31,157 @@ import { cloudConfigured, hasStoredSession, turnstileSiteKey } from './cloud-con
  * a subscription or a second factor exists yet to read.
  */
 export function useWebAccount(): AccountValue {
-  const [status, setStatus] = useState<AccountValue['status']>(
-    cloudConfigured ? 'signed-out' : 'unavailable',
-  );
+  /*
+   * A stored session opens as `restoring`, not as `signed-out`.
+   *
+   * Bringing it back takes a round trip, and calling that signed out is a lie
+   * that lasts long enough to act on: the header flashes "Sign in", and a
+   * route guard reading the same value throws the person off their own account
+   * screen on every reload.
+   */
+  const [status, setStatus] = useState<AccountValue['status']>(() => {
+    if (!cloudConfigured) return 'unavailable';
+
+    return hasStoredSession() ? 'restoring' : 'signed-out';
+  });
+
   const [user, setUser] = useState<User | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
 
+  /*
+   * Whether to listen for Supabase's own view of the session.
+   *
+   * True from the start when storage holds a session, and true from the moment
+   * a sign-in succeeds. That second case used to be missing, and it mattered:
+   * somebody who signed in on a browser with nothing stored was never being
+   * listened for, so a sign-out in another tab and an expired refresh token
+   * both went unnoticed until the next reload.
+   */
+  const [watching, setWatching] = useState(() => cloudConfigured && hasStoredSession());
+
+  /*
+   * Whether there is somebody to lose.
+   *
+   * `signOut` clears this before it asks Supabase for anything, so the
+   * `SIGNED_OUT` that follows a deliberate sign-out reads as nothing lost —
+   * while the same event arriving from another tab, or from a refresh token
+   * that ran out, still finds it true and is worth telling somebody about.
+   */
+  const wasSignedIn = useRef(false);
+
   const reset = useCallback(() => {
+    wasSignedIn.current = false;
     setUser(null);
     setDevices([]);
     setStatus('signed-out');
   }, []);
 
-  const load = useCallback(async () => {
-    const cloud = await import('./cloud.ts');
+  /** Reads the profile behind the current session. False when there is none. */
+  const load = useCallback(async (): Promise<boolean> => {
+    try {
+      const cloud = await import('./cloud.ts');
 
-    const profile = await cloud.fetchUser();
-    if (!profile) {
+      const profile = await cloud.fetchUser();
+      if (!profile) {
+        reset();
+
+        return false;
+      }
+
+      wasSignedIn.current = true;
+      setUser(profile);
+      setDevices(await cloud.fetchDevices());
+      setStatus('signed-in');
+
+      return true;
+    } catch {
+      /*
+       * The profile could not be read — offline, or the session is no longer
+       * good. Either way this ends as signed out rather than stuck in
+       * `restoring`, which nothing downstream would ever resolve.
+       */
       reset();
 
-      return;
+      return false;
     }
-
-    setUser(profile);
-    setDevices(await cloud.fetchDevices());
-    setStatus('signed-in');
   }, [reset]);
 
   useEffect(() => {
     // No credentials, or nobody has ever signed in on this browser. Either way
     // there is nothing to restore and no reason to fetch the client.
-    if (!cloudConfigured || !hasStoredSession()) return;
+    if (!cloudConfigured || !watching) return;
 
     let cancelled = false;
     let unsubscribe = (): void => {};
 
-    void import('./cloud.ts').then((cloud) => {
-      const client = cloud.supabase;
-      if (cancelled || !client) return;
+    void import('./cloud.ts')
+      .then((cloud) => {
+        const client = cloud.supabase;
+        if (cancelled) return;
 
-      /*
-       * Restores a session left by a previous visit, and follows a sign-out
-       * that happened in another tab — the session lives in storage this tab
-       * shares.
-       *
-       * `SIGNED_IN` is deliberately not handled: `signIn` has already loaded
-       * the profile by the time that event arrives, and reacting to both would
-       * fetch it twice for every sign-in.
-       */
-      const { data } = client.auth.onAuthStateChange((event, session) => {
-        if (event === 'INITIAL_SESSION' && session) void load();
-        if (event === 'SIGNED_OUT') reset();
+        /*
+         * Configured, but the client could not be built — a malformed URL, or a
+         * chunk that did not arrive. `restoring` has to end somewhere, and a
+         * status nothing ever resolves would leave the account route waiting on
+         * a session that is never coming.
+         */
+        if (!client) {
+          reset();
+
+          return;
+        }
+
+        /*
+         * Restores a session left by a previous visit, and follows every later
+         * change to it — including the ones this tab did not make. The session
+         * lives in storage every tab shares, and a refresh token that stops
+         * working ends the same way a sign-out does.
+         *
+         * `SIGNED_IN` is deliberately not handled: `signIn` has already loaded
+         * the profile by the time that event arrives, and reacting to both would
+         * fetch it twice for every sign-in.
+         */
+        const { data } = client.auth.onAuthStateChange((event, session) => {
+          if (event === 'INITIAL_SESSION') {
+            /* No session behind the key in storage — expired, or cleared while
+             this tab was closed. `restoring` has to resolve either way. */
+            if (!session) {
+              reset();
+
+              return;
+            }
+
+            /* Already loaded. This subscription starts after a sign-in as well
+             as on a reload, and `signIn` has fetched the profile by then;
+             fetching it again would be the same request twice. */
+            if (!wasSignedIn.current) void load();
+
+            return;
+          }
+
+          if (event === 'SIGNED_OUT') {
+            const lost = wasSignedIn.current;
+
+            reset();
+
+            /* Somebody else ended it: another tab, or a refresh token that ran
+             out. Saying so is the difference between "Noto forgot me" and
+             "my session expired". */
+            if (lost) showToast('Your session ended. Sign in again to keep syncing.');
+          }
+        });
+
+        unsubscribe = () => data.subscription.unsubscribe();
+      })
+      .catch(() => {
+        if (!cancelled) reset();
       });
-
-      unsubscribe = () => data.subscription.unsubscribe();
-    });
 
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [load, reset]);
+  }, [watching, load, reset]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -95,7 +196,32 @@ export function useWebAccount(): AccountValue {
         return outcome;
       }
 
-      await load();
+      /*
+       * The credentials were right, and that is not the same as being signed
+       * in: without a profile there is no name, no email and nothing for the
+       * account screen to show. Reporting success here would send somebody to
+       * a screen that then had to explain itself.
+       *
+       * The session is left in storage on purpose. The next visit resolves it
+       * the same way a reload does, so a moment of bad network costs a retry
+       * rather than the sign-in.
+       */
+      if (!(await load())) {
+        return {
+          ok: false,
+          message: 'Signed in, but your profile could not be loaded. Check your connection.',
+        };
+      }
+
+      /*
+       * There is a session now, so this tab starts following it — a browser
+       * with nothing in storage a moment ago was not being listened to, which
+       * is how a sign-out in another tab used to go unnoticed here.
+       *
+       * After the load rather than before, so the `INITIAL_SESSION` the new
+       * subscription receives finds the profile already in hand.
+       */
+      setWatching(true);
 
       return { ok: true };
     },
@@ -115,10 +241,35 @@ export function useWebAccount(): AccountValue {
     await cloud.resendConfirmation(email);
   }, []);
 
+  /**
+   * Ends the session.
+   *
+   * The account is cleared before anything is awaited, so the moment this is
+   * called there is no name, no email and no device list left for a screen to
+   * render — regardless of how long the server takes to revoke the token, or
+   * whether it answers at all. `cloud.signOut` guarantees the stored session
+   * goes with it.
+   */
   const signOut = useCallback(async () => {
-    const cloud = await import('./cloud.ts');
-    await cloud.signOut();
     reset();
+
+    try {
+      const cloud = await import('./cloud.ts');
+      const revoked = await cloud.signOut();
+
+      /* Signed out here either way. But "sign out" is usually taken to mean
+         everywhere, and a token the server never heard about stays good on the
+         other devices until it expires — so that difference gets said. */
+      if (!revoked) {
+        showToast(
+          'Signed out on this device. The server was not reached, so other devices may still be signed in.',
+        );
+      }
+    } catch {
+      // The client itself could not be loaded. The session is still not
+      // spending another reload in this browser.
+      clearStoredSession();
+    }
   }, [reset]);
 
   return useMemo<AccountValue>(

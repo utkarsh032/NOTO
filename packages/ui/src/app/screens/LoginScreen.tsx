@@ -21,9 +21,10 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
-import { navigate } from '../router';
+import { navigate, returnRouteFrom } from '../router';
 import { TurnstileWidget, type TurnstileHandle } from '../TurnstileWidget';
 import { useAccount } from '../use-account';
+import { useRoute } from '../use-route';
 
 /**
  * Shown when the build has no cloud configured, which is a supported state
@@ -84,6 +85,14 @@ const PROMISES: AccountPromise[] = [
  */
 export function LoginScreen() {
   const [mode, setMode] = useState<Mode>('sign-in');
+  const route = useRoute();
+
+  /*
+   * Arrived by being turned away from a private screen rather than by asking
+   * for this one. Saying so is the difference between a form that explains
+   * itself and a form that appeared for no reason anyone can see.
+   */
+  const redirected = route.param !== undefined;
 
   return (
     <main className="bg-background flex h-full min-h-0">
@@ -108,6 +117,13 @@ export function LoginScreen() {
               ? 'Sign in to sync your documents, memory and settings across your devices.'
               : 'One account, every device. Your existing local documents come with you.'}
           </p>
+
+          {redirected ? (
+            <p className="border-brand-subtle bg-brand-soft text-secondary text-body-sm mt-4 rounded-md border px-3.5 py-2.5">
+              That screen is about your account, so there is nothing on it to show until you are
+              signed in. You will land back on it afterwards.
+            </p>
+          ) : null}
 
           <ProviderButtons />
 
@@ -267,6 +283,7 @@ function CredentialsForm({
   onModeChange: (mode: Mode) => void;
 }) {
   const passwordId = useId();
+  const route = useRoute();
   const { signIn, signUp, resendConfirmation, turnstileSiteKey } = useAccount();
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -360,7 +377,13 @@ function CredentialsForm({
 
     if (result.ok) {
       setUnconfirmed(false);
-      navigate('home');
+
+      /*
+       * Back to where they were going. Somebody sent here by the guard asked
+       * for the account screen, not for Home — and landing on Home after a
+       * successful sign-in reads as the sign-in having gone somewhere else.
+       */
+      navigate(returnRouteFrom(route));
 
       return;
     }
