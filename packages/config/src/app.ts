@@ -37,6 +37,24 @@ export const STORAGE_KEYS = {
    * per release rather than once per launch.
    */
   dismissedUpdate: 'noto.update.dismissed',
+  /**
+   * Which documents are files on disk, and where those files are.
+   *
+   * Kept outside the database because it is about this machine rather than
+   * about the document: the same note synced to a second device is not sitting
+   * at `C:\Users\…` over there, and a path carried between them would be a
+   * path to nothing.
+   */
+  localFiles: 'noto.local-files',
+  /**
+   * The files most recently opened or saved, newest first.
+   *
+   * Beside the link map rather than inside it: a link says which file a
+   * document belongs to and disappears with the document, while this is a list
+   * of places on this machine somebody has been — which outlives every document
+   * it was ever attached to, and is the whole point of a Recent menu.
+   */
+  recentFiles: 'noto.recent-files',
 } as const;
 
 /**

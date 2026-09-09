@@ -39,6 +39,54 @@ export const SHELL_CHANNELS = {
 } as const;
 
 /**
+ * Files on the user's disk.
+ *
+ * The renderer is sandboxed and never touches the file system, so choosing a
+ * file, reading it and writing it all happen in the main process. `open` and
+ * `saveAs` end in the operating system's own dialogs and hand back the paths
+ * they produced; `write` takes a path back, and is honoured only for one that
+ * a dialog handed out — see `main/files.ts` for why that line is drawn there.
+ */
+export const FILE_CHANNELS = {
+  open: 'noto:file:open',
+  saveAs: 'noto:file:save-as',
+  read: 'noto:file:read',
+  write: 'noto:file:write',
+} as const;
+
+/** A file read off the disk, for the renderer to turn into a document. */
+export interface OpenedFileReport {
+  path: string;
+  name: string;
+  text: string;
+}
+
+/** Where a Save As dialog ended up. Nothing has been written to it yet. */
+export interface SavedFileReport {
+  path: string;
+  name: string;
+}
+
+/**
+ * What was in a file, or why it could not be read.
+ *
+ * `read` is how Recent reopens a file: no dialog, just a path the renderer was
+ * given earlier. It is held to exactly the same rule as `write` — a path a
+ * dialog handed out, and nothing else — because a renderer that could name any
+ * path and be handed its contents is a renderer that can read the user's disk.
+ */
+export interface ReadReport {
+  text: string | null;
+  reason?: string;
+}
+
+/** Whether a write landed. A refused path arrives here as a reason, not a throw. */
+export interface WriteReport {
+  written: boolean;
+  reason?: string;
+}
+
+/**
  * The Quick Note dock.
  *
  * The dock is its own frameless, always-on-top window, so most of what it does

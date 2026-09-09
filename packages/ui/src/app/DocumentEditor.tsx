@@ -6,10 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
 import { AlertIcon } from '../components/icons';
+import { showToast } from '../components/toast-store';
 import { cn } from '../utils/cn';
 import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
+import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { saveDocumentToFile } from './local-file';
 import { printDocument } from './print';
 import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
@@ -278,6 +281,47 @@ export function DocumentEditor({
   }, [editor]);
 
   /*
+   * Save, the way Notepad means it: the document goes to a file on disk. One
+   * that already has a file is written straight back to it; one that has none
+   * is asked where, once. Save As always asks.
+   *
+   * The workspace copy is flushed as well, but started rather than awaited. A
+   * file dialog will only open while the browser still counts the key press as
+   * in hand, and waiting on a database write spends that — so the flush goes
+   * first and the dialog is the first thing waited for. Autosave was going to
+   * write the workspace copy anyway; this only brings it forward.
+   *
+   * A dismissed dialog says nothing, because it was a decision. A save that
+   * failed says so, because somebody who pressed Save and heard nothing is
+   * somebody who believes their work is on disk.
+   */
+  const saveToFile = useCallback(
+    async (chooseLocation: boolean) => {
+      void flush();
+
+      try {
+        const saved = await saveDocumentToFile(
+          documentId,
+          { title: titleRef.current, content: contentRef.current },
+          { chooseLocation },
+        );
+
+        if (!saved) return;
+
+        showToast(saved.linked ? `Saved to ${saved.file.label}` : `Saved ${saved.file.name}`, {
+          tone: 'success',
+        });
+      } catch (error) {
+        showToast(
+          error instanceof Error && error.message ? error.message : 'Noto could not save the file.',
+          { tone: 'error' },
+        );
+      }
+    },
+    [documentId, flush],
+  );
+
+  /*
    * Save is bound here because this is where the unsaved draft lives, and find
    * because this is what holds the editor. Formatting and undo are deliberately
    * absent: the editor owns those through ProseMirror's keymap, so a shortcut
@@ -285,12 +329,13 @@ export function DocumentEditor({
    */
   const shortcutHandlers = useMemo(
     () => ({
-      'document.save': () => void flush(),
+      'document.save': () => void saveToFile(false),
+      'document.saveAs': () => void saveToFile(true),
       'document.print': () => void print(),
       'edit.find': () => setFind({ open: true, replace: false }),
       'edit.replace': () => setFind({ open: true, replace: true }),
     }),
-    [flush, print],
+    [saveToFile, print],
   );
 
   useCommandShortcuts(shortcutHandlers, {
@@ -298,6 +343,20 @@ export function DocumentEditor({
     hasSelection: false,
     isEditable: true,
   });
+
+  /*
+   * The same handlers, reached without a key. The command palette and any menu
+   * run commands by id through the shell, and the shell forwards the ones it
+   * has no handler of its own for — these belong to whichever editor is in
+   * front, and this is the editor in front.
+   */
+  useEffect(
+    () =>
+      subscribeToAppCommands((commandId) => {
+        shortcutHandlers[commandId as keyof typeof shortcutHandlers]?.();
+      }),
+    [shortcutHandlers],
+  );
 
   /*
    * One card: the toolbar at its head, the page under it, the same white

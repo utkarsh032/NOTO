@@ -458,6 +458,20 @@ export function downloadDocument(
   const contents = serialiseDocument(document, format);
   const fileName = `${slugify(document.title || 'untitled') || 'untitled'}.${info.extension}`;
 
+  deliverFile({ fileName, contents, mimeType: info.mimeType, format });
+
+  return true;
+}
+
+/**
+ * Hands a finished file to the platform, by whichever route it has.
+ *
+ * Separate from `downloadDocument` because export is not the only thing that
+ * ends in a download: a browser without a file picker saves a document the same
+ * way, and on a phone both have to cross into the native side to reach the
+ * share sheet. One delivery, whatever asked for it.
+ */
+export function deliverFile(request: DownloadRequest): void {
   // Captured before the await: a handler torn down mid-export would otherwise
   // turn into a silent no-op, after the dialog has already said "Exported".
   const handler = downloadHandler;
@@ -465,7 +479,7 @@ export function downloadDocument(
   if (handler) {
     void (async () => {
       try {
-        await handler({ fileName, contents, mimeType: info.mimeType, format });
+        await handler(request);
       } catch (error) {
         // A dismissed share sheet arrives here alongside a real failure, and
         // neither is a reason to take the editor down around them.
@@ -473,24 +487,22 @@ export function downloadDocument(
       }
     })();
 
-    return true;
+    return;
   }
 
-  const blob = new Blob([contents], {
-    type: `${info.mimeType};charset=utf-8`,
+  const blob = new Blob([request.contents], {
+    type: `${request.mimeType};charset=utf-8`,
   });
   const url = URL.createObjectURL(blob);
 
   const anchor = window.document.createElement('a');
   anchor.href = url;
-  anchor.download = fileName;
+  anchor.download = request.fileName;
   window.document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
 
   setTimeout(() => URL.revokeObjectURL(url), 0);
-
-  return true;
 }
 
 /* -------------------------------------------------------------------------- */

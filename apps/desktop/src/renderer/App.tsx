@@ -4,6 +4,7 @@ import {
   NotoDataContext,
   emitAppCommand,
   setExternalLinkHandler,
+  setLocalFileGateway,
   setPrintHandler,
   setUpdateProvider,
   useNotoDataSource,
@@ -11,6 +12,7 @@ import {
 import { useCallback, useEffect } from 'react';
 
 import { openDesktopDatabase } from './platform/database';
+import { desktopLocalFileGateway } from './platform/files';
 import { desktopUpdateProvider, subscribeToUpdateStatus } from './platform/updates';
 import { useDesktopAccount } from './platform/use-desktop-account';
 
@@ -42,6 +44,19 @@ export function App() {
     });
 
     return () => setPrintHandler(null);
+  }, []);
+
+  /*
+   * Files on disk.
+   *
+   * The browser build reaches the disk through the File System Access API and
+   * a sandbox; the desktop reaches it through the operating system's own
+   * dialogs in the main process, and gets a real path back. Save, Save As and
+   * Open mean the same thing on both — this only decides who opens the dialog.
+   */
+  useEffect(() => {
+    setLocalFileGateway(desktopLocalFileGateway);
+    return () => setLocalFileGateway(null);
   }, []);
 
   /*

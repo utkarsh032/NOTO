@@ -282,6 +282,29 @@ export {
   type ExportFormatInfo,
   type ImportedDocument,
 } from './app/export';
+export {
+  DEFAULT_LOCAL_FILE_FORMAT,
+  LOCAL_FILE_ACCEPT,
+  canWriteFilesInPlace,
+  fileNameFor,
+  formatForFileName,
+  linkFile,
+  linkedFile,
+  mimeTypeFor,
+  openFilesFromDisk,
+  saveDocumentToFile,
+  setLocalFileGateway,
+  subscribeToLocalFiles,
+  unlinkFile,
+  useLocalFile,
+  writableFormats,
+  type LocalFile,
+  type LocalFileGateway,
+  type OpenedFile,
+  type SaveTarget,
+  type SaveToFileOptions,
+  type SavedToFile,
+} from './app/local-file';
 
 /* ── Mock data, until the services behind it exist ─────────────────────── */
 
