@@ -1,7 +1,10 @@
 import {
+  AccountContext,
   NotoApp,
   NotoDataContext,
   emitAppCommand,
+  setExternalLinkHandler,
+  setLocalFileGateway,
   setPrintHandler,
   setUpdateProvider,
   useNotoDataSource,
@@ -9,15 +12,19 @@ import {
 import { useCallback, useEffect } from 'react';
 
 import { openDesktopDatabase } from './platform/database';
+import { desktopLocalFileGateway } from './platform/files';
 import { desktopUpdateProvider, subscribeToUpdateStatus } from './platform/updates';
+import { useDesktopAccount } from './platform/use-desktop-account';
 
 /**
- * Desktop entry point. It supplies SQLite-backed data to the shared Noto shell;
- * the interface itself is the same one the web application renders.
+ * Desktop entry point. It supplies SQLite-backed data and a Supabase-backed
+ * account to the shared Noto shell; the interface itself is the same one the
+ * web application renders.
  */
 export function App() {
   const open = useCallback(() => openDesktopDatabase(), []);
   const data = useNotoDataSource({ open });
+  const account = useDesktopAccount();
 
   /*
    * Printing goes through the main process rather than `window.print()`:
@@ -37,6 +44,36 @@ export function App() {
     });
 
     return () => setPrintHandler(null);
+  }, []);
+
+  /*
+   * Files on disk.
+   *
+   * The browser build reaches the disk through the File System Access API and
+   * a sandbox; the desktop reaches it through the operating system's own
+   * dialogs in the main process, and gets a real path back. Save, Save As and
+   * Open mean the same thing on both — this only decides who opens the dialog.
+   */
+  useEffect(() => {
+    setLocalFileGateway(desktopLocalFileGateway);
+    return () => setLocalFileGateway(null);
+  }, []);
+
+  /*
+   * Links out of Noto.
+   *
+   * A packaged renderer is served from `file://`, where `window.open` does not
+   * reach the user's browser — so the URL goes to the main process, which
+   * checks the scheme and hands it to the operating system. Creating an account
+   * is the first thing that needs it: Turnstile has no hostname to attest to
+   * here, so sign-up happens on the web application instead.
+   */
+  useEffect(() => {
+    setExternalLinkHandler(async (url) => {
+      await window.notoShell.openExternal(url);
+    });
+
+    return () => setExternalLinkHandler(null);
   }, []);
 
   /*
@@ -68,7 +105,9 @@ export function App() {
 
   return (
     <NotoDataContext.Provider value={data}>
-      <NotoApp />
+      <AccountContext.Provider value={account}>
+        <NotoApp />
+      </AccountContext.Provider>
     </NotoDataContext.Provider>
   );
 }

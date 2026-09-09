@@ -206,7 +206,7 @@ describe('formatting commands', () => {
     expect(findCommandForEvent(CORE_COMMANDS, link, editing, 'other')?.id).toBe('format.link');
   });
 
-  it('does not let strikethrough shadow save', () => {
+  it('keeps the three save keys on the file commands, as every editor does', () => {
     expect(
       findCommandForEvent(CORE_COMMANDS, press('s', { ctrlKey: true }), editing, 'other')?.id,
     ).toBe('document.save');
@@ -214,6 +214,14 @@ describe('formatting commands', () => {
       findCommandForEvent(
         CORE_COMMANDS,
         press('S', { ctrlKey: true, shiftKey: true }),
+        editing,
+        'other',
+      )?.id,
+    ).toBe('document.saveAs');
+    expect(
+      findCommandForEvent(
+        CORE_COMMANDS,
+        press('X', { ctrlKey: true, shiftKey: true }),
         editing,
         'other',
       )?.id,

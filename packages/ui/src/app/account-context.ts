@@ -102,6 +102,21 @@ export interface AccountValue {
    * token mean anything lives only in the Edge Function.
    */
   turnstileSiteKey: string | null;
+
+  /**
+   * Where to create an account when this build cannot do it itself.
+   *
+   * The desktop cannot: sign-up is behind Turnstile, which issues a token
+   * against the hostname the widget was served from, and a packaged renderer
+   * is served from `file://` — an opaque origin with no hostname to attest
+   * to. So the desktop sends people to the web application, which has a real
+   * one, and signing in afterwards works locally because signing in has no bot
+   * check to fail.
+   *
+   * `null` wherever `signUp` is offered, and wherever there is no cloud at all
+   * — in which case there is nowhere to send anyone.
+   */
+  signUpUrl: string | null;
 }
 
 /**

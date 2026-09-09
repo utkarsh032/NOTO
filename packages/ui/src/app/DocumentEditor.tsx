@@ -6,10 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
 import { AlertIcon } from '../components/icons';
+import { showToast } from '../components/toast-store';
 import { cn } from '../utils/cn';
 import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
+import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
+import { saveDocumentToFile } from './local-file';
 import { printDocument } from './print';
 import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
@@ -278,6 +282,47 @@ export function DocumentEditor({
   }, [editor]);
 
   /*
+   * Save, the way Notepad means it: the document goes to a file on disk. One
+   * that already has a file is written straight back to it; one that has none
+   * is asked where, once. Save As always asks.
+   *
+   * The workspace copy is flushed as well, but started rather than awaited. A
+   * file dialog will only open while the browser still counts the key press as
+   * in hand, and waiting on a database write spends that — so the flush goes
+   * first and the dialog is the first thing waited for. Autosave was going to
+   * write the workspace copy anyway; this only brings it forward.
+   *
+   * A dismissed dialog says nothing, because it was a decision. A save that
+   * failed says so, because somebody who pressed Save and heard nothing is
+   * somebody who believes their work is on disk.
+   */
+  const saveToFile = useCallback(
+    async (chooseLocation: boolean) => {
+      void flush();
+
+      try {
+        const saved = await saveDocumentToFile(
+          documentId,
+          { title: titleRef.current, content: contentRef.current },
+          { chooseLocation },
+        );
+
+        if (!saved) return;
+
+        showToast(saved.linked ? `Saved to ${saved.file.label}` : `Saved ${saved.file.name}`, {
+          tone: 'success',
+        });
+      } catch (error) {
+        showToast(
+          error instanceof Error && error.message ? error.message : 'Noto could not save the file.',
+          { tone: 'error' },
+        );
+      }
+    },
+    [documentId, flush],
+  );
+
+  /*
    * Save is bound here because this is where the unsaved draft lives, and find
    * because this is what holds the editor. Formatting and undo are deliberately
    * absent: the editor owns those through ProseMirror's keymap, so a shortcut
@@ -285,12 +330,13 @@ export function DocumentEditor({
    */
   const shortcutHandlers = useMemo(
     () => ({
-      'document.save': () => void flush(),
+      'document.save': () => void saveToFile(false),
+      'document.saveAs': () => void saveToFile(true),
       'document.print': () => void print(),
       'edit.find': () => setFind({ open: true, replace: false }),
       'edit.replace': () => setFind({ open: true, replace: true }),
     }),
-    [flush, print],
+    [saveToFile, print],
   );
 
   useCommandShortcuts(shortcutHandlers, {
@@ -300,16 +346,38 @@ export function DocumentEditor({
   });
 
   /*
+   * The same handlers, reached without a key. The command palette and any menu
+   * run commands by id through the shell, and the shell forwards the ones it
+   * has no handler of its own for — these belong to whichever editor is in
+   * front, and this is the editor in front.
+   */
+  useEffect(
+    () =>
+      subscribeToAppCommands((commandId) => {
+        shortcutHandlers[commandId as keyof typeof shortcutHandlers]?.();
+      }),
+    [shortcutHandlers],
+  );
+
+  /*
    * One card: the toolbar at its head, the page under it, the same white
    * surface throughout. The document is the object on the screen, and a
    * formatting bar floating on the background above a second, narrower card
    * reads as two objects — chrome and page — rather than one thing being
    * written in.
    *
-   * The measure stays inside the card. The card takes the width of the pane so
-   * the document fills the window it was given, and the text is held to a
-   * comfortable line length within it.
+   * What that card holds is the user's choice. Simple is the default and the
+   * one Noto opens with: the text starts at the left edge of the card and runs
+   * the width of the window, because a note is not a publication and half a
+   * window of empty margin is half a window wasted. Page is the other choice,
+   * asked for: a sheet of a stated size with stated margins, centred on the
+   * surface behind it, so what is on the screen is what comes out of the
+   * printer.
    */
+  const layout = usePageLayout();
+  usePrintPageRule(layout);
+  const onPaper = layout.mode === 'page';
+
   return (
     <div className="flex min-h-full flex-col px-4 pb-4 sm:px-6">
       {/*
@@ -345,8 +413,24 @@ export function DocumentEditor({
 
       {/* `noto-print-document` is what the print rules strip the card back to
           a page with: no border, no shadow, no measure of its own. */}
-      <article className="noto-print-document noto-print-sheet border-default bg-surface flex-1 rounded-b-xl border border-t-0 px-6 py-8 sm:px-10 sm:py-10">
-        <div className="max-w-editor mx-auto w-full">
+      <article
+        className={cn(
+          'noto-print-document noto-print-sheet border-default flex-1 rounded-b-xl border border-t-0',
+          onPaper
+            ? /* A sheet on a desk: the page is the white object, and the card
+                 behind it steps back to being the surface it lies on. */
+              'noto-page-desk px-4 py-6 sm:px-8 sm:py-8'
+            : 'bg-surface px-6 py-8 sm:px-10 sm:py-10',
+        )}
+      >
+        <div
+          className={cn(
+            'w-full',
+            onPaper &&
+              'noto-page border-default bg-surface mx-auto border shadow-[var(--noto-shadow-md)]',
+          )}
+          style={onPaper ? sheetStyle(layout) : undefined}
+        >
           <div className="mb-6">
             {/*
              * An input carries an intrinsic minimum width, so on a narrow

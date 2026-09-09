@@ -61,7 +61,7 @@ export function QuickActionCard({
           the card rather than being a second control inside it. */}
       <span
         aria-hidden="true"
-        className="border-default text-tertiary group-hover/action:border-brand group-hover/action:bg-brand group-hover/action:text-on-brand mt-6 flex h-8 w-8 shrink-0 items-center justify-center self-end rounded-full border transition-colors"
+        className="border-default text-tertiary group-hover/action:border-brand group-hover/action:bg-brand group-hover/action:text-on-brand mt-3 flex h-8 w-8 shrink-0 items-center justify-center self-end rounded-full border transition-colors"
       >
         <ArrowRightIcon className="h-4 w-4" />
       </span>

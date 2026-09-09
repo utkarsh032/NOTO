@@ -2,11 +2,16 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import {
   DOCK_CHANNELS,
+  FILE_CHANNELS,
   SHELL_CHANNELS,
   SQL_CHANNELS,
   UPDATER_CHANNELS,
   type DockPlacementReport,
+  type OpenedFileReport,
+  type ReadReport,
+  type SavedFileReport,
   type UpdateReport,
+  type WriteReport,
 } from '../shared/channels';
 
 /**
@@ -41,6 +46,42 @@ const notoShell = {
     ipcRenderer.on(SHELL_CHANNELS.command, handler);
     return () => ipcRenderer.off(SHELL_CHANNELS.command, handler);
   },
+
+  /**
+   * Opens a URL in the user's own browser. Answers whether it was allowed.
+   *
+   * The main process refuses anything that is not `https:`, so a caller cannot
+   * assume this happened — which is why it reports back rather than returning
+   * nothing.
+   */
+  openExternal: (url: string): Promise<boolean> =>
+    ipcRenderer.invoke(SHELL_CHANNELS.openExternal, url) as Promise<boolean>,
+};
+
+/**
+ * Files on the user's disk.
+ *
+ * Four calls, and every one of them either ends in one of the operating
+ * system's own dialogs or names a path that came out of one. The renderer
+ * never chooses a path for itself — `main/files.ts` refuses a read or a write
+ * to any it did not hand out.
+ */
+const notoFiles = {
+  /** Resolves `null` when the dialog was dismissed. */
+  open: (): Promise<OpenedFileReport[] | null> =>
+    ipcRenderer.invoke(FILE_CHANNELS.open) as Promise<OpenedFileReport[] | null>,
+
+  /** Chooses where to save. Resolves `null` when dismissed; nothing is written yet. */
+  saveAs: (suggestedName: string): Promise<SavedFileReport | null> =>
+    ipcRenderer.invoke(FILE_CHANNELS.saveAs, suggestedName) as Promise<SavedFileReport | null>,
+
+  /** Reads a path a dialog produced, for reopening it from Recent. */
+  read: (path: string): Promise<ReadReport> =>
+    ipcRenderer.invoke(FILE_CHANNELS.read, path) as Promise<ReadReport>,
+
+  /** Writes to a path a dialog produced. Answers whether it landed, and why not. */
+  write: (path: string, contents: string): Promise<WriteReport> =>
+    ipcRenderer.invoke(FILE_CHANNELS.write, path, contents) as Promise<WriteReport>,
 };
 
 /**
@@ -97,10 +138,12 @@ const notoUpdates = {
 
 contextBridge.exposeInMainWorld('notoSql', notoSql);
 contextBridge.exposeInMainWorld('notoShell', notoShell);
+contextBridge.exposeInMainWorld('notoFiles', notoFiles);
 contextBridge.exposeInMainWorld('notoDock', notoDock);
 contextBridge.exposeInMainWorld('notoUpdates', notoUpdates);
 
 export type NotoSqlBridge = typeof notoSql;
 export type NotoShellBridge = typeof notoShell;
+export type NotoFilesBridge = typeof notoFiles;
 export type NotoDockBridge = typeof notoDock;
 export type NotoUpdatesBridge = typeof notoUpdates;

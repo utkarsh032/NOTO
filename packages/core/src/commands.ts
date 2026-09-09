@@ -77,11 +77,45 @@ export const CORE_COMMANDS: readonly Command[] = [
     category: 'file',
     shortcut: 'CmdOrCtrl+Shift+N',
   },
+  /*
+   * Files on the user's own disk.
+   *
+   * These three are Notepad's, deliberately and down to the keys. A workspace
+   * is a good place to keep a thousand notes and a bad place to keep the one
+   * file somebody has to hand to a colleague, and a notes application that can
+   * only ever save inside itself is a place work goes into rather than through.
+   *
+   * So Save means what it means everywhere else: write this document to a file.
+   * A document that already has one is written straight to it; a document that
+   * has none is asked where to go, once, and remembers the answer. Save As
+   * always asks. Open reads a file from disk into a tab, and what is typed
+   * there afterwards goes back to the same file.
+   *
+   * None of it replaces autosave. The workspace copy is still written on its
+   * own timer and flushed by every one of these, so the file on disk is a
+   * second home for the document rather than the only one.
+   */
+  {
+    id: 'document.open',
+    title: 'Open File…',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+O',
+    keywords: ['file', 'disk', 'import', 'browse', 'load'],
+  },
   {
     id: 'document.save',
     title: 'Save Document',
     category: 'file',
     shortcut: 'CmdOrCtrl+S',
+    keywords: ['file', 'disk', 'write'],
+    isEnabled: requiresDocument,
+  },
+  {
+    id: 'document.saveAs',
+    title: 'Save Document As…',
+    category: 'file',
+    shortcut: 'CmdOrCtrl+Shift+S',
+    keywords: ['save as', 'file', 'disk', 'copy', 'elsewhere'],
     isEnabled: requiresDocument,
   },
   {
@@ -184,7 +218,13 @@ export const CORE_COMMANDS: readonly Command[] = [
     title: 'Strikethrough',
     category: 'format',
     scope: 'editor',
-    shortcut: 'CmdOrCtrl+Shift+S',
+    /*
+     * Not `CmdOrCtrl+Shift+S`, which Save As now owns — the key means Save As
+     * in every application that has a file menu, and somebody reaching for it
+     * over an open document is reaching to save it. This is the binding Google
+     * Docs, Notion and Slack use for strikethrough.
+     */
+    shortcut: 'CmdOrCtrl+Shift+X',
     keywords: ['strikethrough', 'cross out'],
     isEnabled: requiresEditable,
   },

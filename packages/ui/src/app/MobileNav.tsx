@@ -27,8 +27,8 @@ interface MobileEntry {
  * them: write something down, find something, and get to the work.
  *
  * Deliberately not the desktop sidebar in a drawer. Settings and Account are
- * reachable from the header; putting them here would spend two of five slots on
- * screens nobody opens on a phone.
+ * reachable from the avatar in the bar at the top; putting them here would
+ * spend two of five slots on screens nobody opens on a phone.
  */
 const ENTRIES: MobileEntry[] = [
   {

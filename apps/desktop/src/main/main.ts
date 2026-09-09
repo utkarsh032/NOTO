@@ -14,6 +14,7 @@ import {
   setDockPinned,
   showDock,
 } from './dock';
+import { registerFileHandlers } from './files';
 import { registerShellHandlers, registerSqlHandlers, registerUpdateHandlers } from './ipc';
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts';
 import { closeConnection, openConnection } from './sqlite';
@@ -283,6 +284,7 @@ void app.whenReady().then(() => {
   openConnection(app.getPath('userData'));
   registerSqlHandlers();
   registerShellHandlers();
+  registerFileHandlers();
   registerUpdateHandlers();
 
   initialiseDock({

@@ -1,7 +1,7 @@
 import { canZoomIn, canZoomOut, formatZoom, useSettingsStore, zoomIn, zoomOut } from '@noto/core';
 
 import { StatusIndicator, type StatusKind } from '../../components/StatusIndicator';
-import { HelpIcon, MinusIcon, PlusIcon } from '../../components/icons';
+import { FileIcon, HelpIcon, MinusIcon, PlusIcon } from '../../components/icons';
 import { cn } from '../../utils/cn';
 
 export type EditorSaveState = 'saved' | 'unsaved' | 'saving';
@@ -12,6 +12,14 @@ export interface EditorStatusBarProps {
   saveState: EditorSaveState;
   /** `true` when the application knows it cannot reach the network. */
   offline?: boolean;
+  /**
+   * The file on disk this document is, when it is one.
+   *
+   * Shown by name, with the whole path on hover: a document opened from disk
+   * should say so where the counts are, and a path that long would push them
+   * off the bar.
+   */
+  file?: { name: string; label: string } | null;
   zoom: number;
   onHelp(): void;
   className?: string;
@@ -41,6 +49,7 @@ export function EditorStatusBar({
   characters,
   saveState,
   offline = false,
+  file = null,
   zoom,
   onHelp,
   className,
@@ -60,6 +69,17 @@ export function EditorStatusBar({
         {characters.toLocaleString()} characters
       </span>
       <span className="hidden md:inline">English (US)</span>
+
+      {file ? (
+        <span
+          className="hidden min-w-0 items-center gap-1.5 md:inline-flex"
+          title={file.label}
+          aria-label={`Saved to ${file.label}`}
+        >
+          <FileIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="truncate">{file.name}</span>
+        </span>
+      ) : null}
 
       <span className="ml-auto flex items-center gap-3">
         {/* Offline is a normal state for a local-first application, so it is

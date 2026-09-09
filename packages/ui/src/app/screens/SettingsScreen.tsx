@@ -1,6 +1,20 @@
-import { AUTOSAVE_DELAY_MS, APP_NAME, APP_VERSION, RELEASES_URL, ZOOM_LEVELS } from '@noto/config';
+import {
+  AUTOSAVE_DELAY_MS,
+  APP_NAME,
+  APP_VERSION,
+  MARGIN_PRESETS,
+  PAGE_SIZES,
+  RELEASES_URL,
+  ZOOM_LEVELS,
+} from '@noto/config';
 import { CORE_COMMANDS, formatShortcut, useSettingsStore } from '@noto/core';
-import type { EditorFontFamily, ThemeMode } from '@noto/types';
+import type {
+  EditorFontFamily,
+  MarginPresetId,
+  PageLayoutMode,
+  PageSizeId,
+  ThemeMode,
+} from '@noto/types';
 import { useMemo, useState } from 'react';
 
 import { Badge } from '../../components/Badge';
@@ -33,6 +47,7 @@ import {
 import { cn } from '../../utils/cn';
 import { formatBytes, relativeTime } from '../../utils/format';
 import { PageContainer } from '../PageContainer';
+import { MarginFields } from '../editor/MarginFields';
 import { SettingsRow, SettingsSection } from '../settings/SettingsSection';
 import { detectShortcutPlatform } from '../use-command-shortcuts';
 import {
@@ -87,7 +102,7 @@ const CATEGORIES: Category[] = [
  * Settings.
  *
  * Every control here changes something the moment it is used, which is why
- * there is no Save button: the theme switch beside it in the header applies
+ * there is no Save button: the theme switch in the sidebar's footer applies
  * instantly, and one half of a settings screen that saves while the other half
  * does not is the kind of inconsistency people learn by losing work to. Reset
  * is the way back, and it asks first.
@@ -383,6 +398,99 @@ export function SettingsScreen() {
                     />
                   }
                 />
+              </SettingsSection>
+
+              {/*
+               * Paper. Simple is what Noto opens with — a text file, no page
+               * — and everything here is for the document that is going to be
+               * printed instead. Choosing a size or a margin turns the page on
+               * by itself, the same way the toolbar's control does: nobody
+               * sets Letter and Narrow meaning to keep looking at a text file.
+               */}
+              <SettingsSection
+                title="Page layout"
+                description="Whether the document is a text file or a sheet of paper."
+              >
+                <SettingsRow
+                  label="Layout"
+                  description="Simple runs the text the width of the window, from the left edge."
+                  htmlFor="noto-page-mode"
+                  control={
+                    <Select
+                      id="noto-page-mode"
+                      fieldSize="sm"
+                      className="w-44"
+                      value={settings.editor.pageMode}
+                      onChange={(event) =>
+                        updateEditor({ pageMode: event.target.value as PageLayoutMode })
+                      }
+                    >
+                      <option value="simple">Simple text</option>
+                      <option value="page">Page layout</option>
+                    </Select>
+                  }
+                />
+                <SettingsRow
+                  label="Paper size"
+                  description="The sheet the page is drawn at, and printed on."
+                  htmlFor="noto-page-size"
+                  control={
+                    <Select
+                      id="noto-page-size"
+                      fieldSize="sm"
+                      className="w-44"
+                      value={settings.editor.pageSize}
+                      onChange={(event) =>
+                        updateEditor({
+                          pageMode: 'page',
+                          pageSize: event.target.value as PageSizeId,
+                        })
+                      }
+                    >
+                      {PAGE_SIZES.map((size) => (
+                        <option key={size.id} value={size.id}>
+                          {size.label} ({size.width} × {size.height} in)
+                        </option>
+                      ))}
+                    </Select>
+                  }
+                />
+                <SettingsRow
+                  label="Margins"
+                  description="The same named margins every office suite ships."
+                  htmlFor="noto-margins"
+                  control={
+                    <Select
+                      id="noto-margins"
+                      fieldSize="sm"
+                      className="w-44"
+                      value={settings.editor.marginPreset}
+                      onChange={(event) =>
+                        updateEditor({
+                          pageMode: 'page',
+                          marginPreset: event.target.value as MarginPresetId,
+                        })
+                      }
+                    >
+                      {MARGIN_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </Select>
+                  }
+                />
+                {settings.editor.marginPreset === 'custom' ? (
+                  <SettingsRow label="Custom margins" description="In inches.">
+                    <MarginFields
+                      className="mt-2.5"
+                      value={settings.editor.customMargins}
+                      onChange={(customMargins) =>
+                        updateEditor({ pageMode: 'page', customMargins })
+                      }
+                    />
+                  </SettingsRow>
+                ) : null}
               </SettingsSection>
 
               <SettingsSection title="Writing" description="What the editor does while you type.">

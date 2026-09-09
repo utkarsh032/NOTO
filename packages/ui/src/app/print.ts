@@ -2,8 +2,8 @@
  * Printing a document.
  *
  * What actually prints is decided by the print stylesheet, not by this module:
- * the sidebar, the header, the tab bar, the toolbar and the find bar are all
- * marked to disappear, leaving the document itself on the page. That is what
+ * the sidebar, the header of tabs, the toolbar and the find bar are all marked
+ * to disappear, leaving the document itself on the page. That is what
  * makes the web and desktop output identical, and it is why there is no second
  * render path to keep in step with the editor.
  *

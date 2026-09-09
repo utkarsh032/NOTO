@@ -91,29 +91,38 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
   return (
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="noto-scroll min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-5 py-6 sm:px-8 sm:py-8">
-          {/* Greeting. The illustration is decoration and says so, so a screen
-              reader hears the greeting and moves straight on. */}
+        <div className="mx-auto w-full px-5 py-5 sm:px-8 sm:py-6">
+          {/*
+           * Greeting. It is a welcome, not a heading anyone reads twice, so it
+           * takes the same size and the same rhythm as every other screen's
+           * title rather than a larger one of its own — and the illustration
+           * beside it is sized to the text rather than the other way round.
+           * What set the height of this band before was the picture, which is
+           * the one thing on Home nobody came for.
+           *
+           * The illustration is decoration and says so, so a screen reader
+           * hears the greeting and moves straight on.
+           */}
           <section className="flex items-center justify-between gap-6">
             <div className="min-w-0">
-              <h1 className="text-primary text-display">
+              <h1 className="text-primary text-h1">
                 {user ? `${greetingFor()}, ${firstNameOf(user)}!` : `${greetingFor()}!`}{' '}
                 <span aria-hidden="true" className="inline-block">
                   👋
                 </span>
               </h1>
-              <p className="text-secondary text-body-lg mt-2">
+              <p className="text-secondary text-body mt-1.5">
                 Start writing or pick up where you left off.
               </p>
             </div>
 
-            <HomeHeroIllustration className="-my-2 hidden h-32 w-52 shrink-0 lg:block xl:h-36 xl:w-60" />
+            <HomeHeroIllustration className="hidden h-20 w-32 shrink-0 lg:block xl:h-24 xl:w-40" />
           </section>
 
           {/* Four things you might be here to do. */}
           <section
             aria-label="Quick actions"
-            className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
           >
             <QuickActionCard
               tone="brand"
@@ -145,11 +154,11 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
             />
           </section>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             {/* Recent Documents. */}
             <section
               aria-labelledby="noto-home-recent"
-              className="border-default bg-surface rounded-xl border p-5 shadow-sm sm:p-6"
+              className="border-default bg-surface rounded-xl border p-5 shadow-sm"
             >
               <div className="flex items-center justify-between gap-4">
                 <h2 id="noto-home-recent" className="text-primary text-h3">
@@ -203,7 +212,7 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
             {/* Start Writing. */}
             <section
               aria-labelledby="noto-home-templates"
-              className="border-default bg-surface rounded-xl border p-5 shadow-sm sm:p-6"
+              className="border-default bg-surface rounded-xl border p-5 shadow-sm"
             >
               <div className="flex items-center justify-between gap-4">
                 <h2 id="noto-home-templates" className="text-primary text-h3">
@@ -245,7 +254,7 @@ export function HomeScreen({ onQuickNote, onQuickPaste }: HomeScreenProps) {
           {recent.length > 0 ? (
             <section
               aria-labelledby="noto-home-continue"
-              className="border-default bg-surface mt-6 rounded-xl border p-5 shadow-sm sm:p-6"
+              className="border-default bg-surface mt-5 rounded-xl border p-5 shadow-sm"
             >
               <div className="flex items-center justify-between gap-4">
                 <h2 id="noto-home-continue" className="text-primary text-h3">

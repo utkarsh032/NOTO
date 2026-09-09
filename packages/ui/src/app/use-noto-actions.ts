@@ -18,9 +18,10 @@ export interface NotoActions {
    * Writes an imported file into a new document, without opening it.
    *
    * Importing ten files should leave you looking at the list you imported them
-   * into, not at the tenth one.
+   * into, not at the tenth one. The id comes back so a caller that does want
+   * to open it — or to remember which file on disk it came from — can.
    */
-  importDocument(imported: ImportedDocument): Promise<void>;
+  importDocument(imported: ImportedDocument): Promise<Id | null>;
 }
 
 /**
@@ -69,9 +70,10 @@ export function useNotoActions(): NotoActions {
   const importDocument = useCallback(
     async (imported: ImportedDocument) => {
       const id = await createDocument();
-      if (!id) return;
+      if (!id) return null;
 
       await updateDocument(id, { title: imported.title, content: imported.content });
+      return id;
     },
     [createDocument, updateDocument],
   );

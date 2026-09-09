@@ -1,5 +1,5 @@
 import type { SqlValue } from '@noto/database/sqlite';
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, shell } from 'electron';
 
 import { SHELL_CHANNELS, SQL_CHANNELS, UPDATER_CHANNELS } from '../shared/channels';
 import { execute, select } from './sqlite';
@@ -42,6 +42,34 @@ export function registerShellHandlers(): void {
         );
       }),
   );
+
+  /*
+   * Opening a link outside Noto.
+   *
+   * `shell.openExternal` hands a string to the operating system to do
+   * something with, and the operating system will do a great deal more than
+   * open a web page — `file:` reaches the disk, and on Windows a handler
+   * exists for schemes that run programs. So the scheme is checked here rather
+   * than trusted from the renderer: https, and nothing else, whatever a page
+   * asks for. A renderer is the side an injected script would be speaking
+   * from, which is exactly why it does not get to make this decision.
+   */
+  ipcMain.handle(SHELL_CHANNELS.openExternal, async (_event, target: unknown) => {
+    if (typeof target !== 'string') return false;
+
+    let url: URL;
+    try {
+      url = new URL(target);
+    } catch {
+      return false;
+    }
+
+    if (url.protocol !== 'https:') return false;
+
+    await shell.openExternal(url.toString());
+
+    return true;
+  });
 }
 
 /**

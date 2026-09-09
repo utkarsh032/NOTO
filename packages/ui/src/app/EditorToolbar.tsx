@@ -50,6 +50,7 @@ import {
   WrapTextIcon,
 } from '../components/icons';
 import { cn } from '../utils/cn';
+import { PageLayoutMenu, PageMarginsPrompt } from './editor/PageLayoutMenu';
 import { detectShortcutPlatform } from './use-command-shortcuts';
 import type { FormattingPrompts } from './use-formatting-prompts';
 
@@ -339,6 +340,14 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         </ToolbarButton>
 
         {/*
+         * Page size and margins. Beside the table rather than in the overflow
+         * menu: both are about the shape of the document rather than the text
+         * in it, and this is the control someone goes looking for the moment
+         * they decide the thing they are writing is going to be printed.
+         */}
+        <PageLayoutMenu onCustomMargins={() => prompts.openPrompt('margins')} />
+
+        {/*
          * Everything that is real but rarely reached for. It is a menu rather
          * than eight more glyphs: a bar the eye has to scan is a bar that costs
          * more than the controls on it are worth.
@@ -409,6 +418,7 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
       {prompts.open === 'table' ? (
         <TablePrompt editor={editor} onClose={prompts.closePrompt} />
       ) : null}
+      {prompts.open === 'margins' ? <PageMarginsPrompt onClose={prompts.closePrompt} /> : null}
 
       {format.isInTable ? (
         <div

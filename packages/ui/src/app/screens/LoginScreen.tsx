@@ -11,6 +11,7 @@ import {
   ArrowRightIcon,
   BoltIcon,
   CloudOffIcon,
+  ExternalLinkIcon,
   EyeIcon,
   EyeOffIcon,
   GithubIcon,
@@ -21,6 +22,7 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
+import { openExternalLink } from '../external-link';
 import { navigate, returnRouteFrom } from '../router';
 import { TurnstileWidget, type TurnstileHandle } from '../TurnstileWidget';
 import { useAccount } from '../use-account';
@@ -85,6 +87,7 @@ const PROMISES: AccountPromise[] = [
  */
 export function LoginScreen() {
   const [mode, setMode] = useState<Mode>('sign-in');
+  const { signUp, signUpUrl } = useAccount();
   const route = useRoute();
 
   /*
@@ -133,7 +136,11 @@ export function LoginScreen() {
             <span className="bg-default h-px flex-1" />
           </div>
 
-          <CredentialsForm mode={mode} onModeChange={setMode} />
+          {mode === 'sign-up' && !signUp && signUpUrl ? (
+            <SignUpElsewhere url={signUpUrl} onBack={() => setMode('sign-in')} />
+          ) : (
+            <CredentialsForm mode={mode} onModeChange={setMode} />
+          )}
 
           <p className="text-secondary text-body-sm mt-6 text-center">
             {mode === 'sign-in' ? "Don't have an account?" : 'Already have an account?'}{' '}
@@ -234,6 +241,60 @@ function BrandPanel() {
         {APP_NAME} {APP_VERSION} · Local-first, on Web, Desktop and Mobile
       </p>
     </aside>
+  );
+}
+
+/**
+ * Creating an account, where this build cannot.
+ *
+ * Shown instead of the form rather than after it. The desktop used to render
+ * every field, take a name, an address and a password, and only then say that
+ * sign-up "is not open in this build" — which was true, unhelpful, and arrived
+ * after the work. The reason is not a shortcoming to apologise for: Turnstile
+ * attests to the hostname a widget was served from, and a packaged renderer has
+ * none, so the check would be theatre wherever it appeared.
+ *
+ * What it says is where sign-up *does* work, and that coming back here
+ * afterwards is the whole of the rest — because signing in has no bot check to
+ * fail, and works on this device.
+ */
+function SignUpElsewhere({ url, onBack }: { url: string; onBack: () => void }) {
+  return (
+    <div className="border-default bg-surface-secondary flex flex-col gap-4 rounded-xl border px-5 py-5">
+      <div className="flex items-start gap-2.5">
+        <ExternalLinkIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
+        <div className="min-w-0">
+          <h2 className="text-primary text-body font-semibold">
+            Create your account in your browser
+          </h2>
+          <p className="text-secondary text-body-sm mt-1">
+            The bot check that guards sign-up needs a web address to vouch for, and the desktop app
+            runs from a file on this computer rather than from one. Sign up on the web, then come
+            back here and sign in — signing in works fine on the desktop.
+          </p>
+        </div>
+      </div>
+
+      <Button
+        variant="primary"
+        className="w-full"
+        onClick={() => {
+          void openExternalLink(url);
+          showToast('Opening Noto in your browser.');
+        }}
+        leading={<ExternalLinkIcon className="h-4 w-4" />}
+      >
+        Open Noto in your browser
+      </Button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-brand-strong text-body-sm focus-visible:outline-brand rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        I already have an account — sign in
+      </button>
+    </div>
   );
 }
 

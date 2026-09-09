@@ -66,9 +66,10 @@ async function runOverflowCommand(page: Page, name: string) {
 
 async function firstVisit(page: Page) {
   await page.goto('/');
-  // `exact` makes the match case-sensitive, which is what separates the empty
-  // state's "New document" from the sidebar's "New Document".
-  await page.getByRole('button', { name: 'New document', exact: true }).click();
+  // Scoped to `main`, because the header has a New document control too, and
+  // `exact` is case-sensitive, which is what separates both of those from the
+  // sidebar's "New Document".
+  await page.getByRole('main').getByRole('button', { name: 'New document', exact: true }).click();
   await expect(titleField(page)).toHaveValue('Untitled');
 }
 
@@ -159,6 +160,44 @@ test.describe('files', () => {
 
     await expect(documentRow(page, 'After')).toBeVisible();
     await expect(titleField(page)).toHaveValue('After');
+  });
+
+  /*
+   * Opening is not editing.
+   *
+   * The list is ordered by when each document was last changed, so a document
+   * that jumps to the top of it for having been looked at is a document whose
+   * timestamp is a lie. It used to: mounting an editor set its editable flag,
+   * and Tiptap announces that as an update like any other.
+   */
+  test('opening a document does not count as changing it', async ({ page }) => {
+    await firstVisit(page);
+    await setTitle(page, 'Older');
+    await newDocument(page, 'Newer');
+
+    const list = page.getByRole('list', { name: 'All documents' });
+    await expect(list.getByRole('button', { name: /^(Older|Newer)/ })).toHaveText([
+      /^Newer/,
+      /^Older/,
+    ]);
+
+    await documentRow(page, 'Older').click();
+    await expect(titleField(page)).toHaveValue('Older');
+
+    // Well past the autosave window, so a write would have landed by now.
+    await page.waitForTimeout(1500);
+    await expect(list.getByRole('button', { name: /^(Older|Newer)/ })).toHaveText([
+      /^Newer/,
+      /^Older/,
+    ]);
+
+    // And a real edit still moves it, which is what the order is for.
+    await body(page).click();
+    await page.keyboard.type('changed');
+    await expect(list.getByRole('button', { name: /^(Older|Newer)/ })).toHaveText(
+      [/^Older/, /^Newer/],
+      { timeout: 15_000 },
+    );
   });
 
   test('offers a closed document under Recent', async ({ page }) => {

@@ -73,7 +73,8 @@ export { useResolvedTheme } from './theme/use-resolved-theme';
 export { NotoApp } from './app/NotoApp';
 export { NotoAppShell, type NotoAppShellProps } from './app/NotoAppShell';
 export { Sidebar, type SidebarProps } from './app/Sidebar';
-export { Header, type HeaderProps } from './app/Header';
+export { AppHeader, type AppHeaderProps } from './app/AppHeader';
+export { MobileHeader, type MobileHeaderProps } from './app/MobileHeader';
 export { NavItem, type NavItemProps } from './app/NavItem';
 export { SidebarUpdateButton, SidebarVersion, type SidebarUpdateProps } from './app/SidebarUpdate';
 export { UserMenu, type UserMenuProps } from './app/UserMenu';
@@ -102,6 +103,12 @@ export { useDebouncedValue } from './app/use-debounced-value';
 export { useNotoActions, type NotoActions } from './app/use-noto-actions';
 export { useAccount, firstNameOf } from './app/use-account';
 export { claimFirstLaunch } from './app/welcome';
+export {
+  useCloudAccount,
+  type CloudAccountOptions,
+  type CloudGateway,
+  type CloudSessionEvent,
+} from './app/use-cloud-account';
 export {
   AccountContext,
   useAccountContext,
@@ -234,6 +241,11 @@ export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
 export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
 export {
+  openExternalLink,
+  setExternalLinkHandler,
+  type ExternalLinkHandler,
+} from './app/external-link';
+export {
   checkForUpdates,
   dismissUpdate,
   installUpdate,
@@ -271,6 +283,29 @@ export {
   type ExportFormatInfo,
   type ImportedDocument,
 } from './app/export';
+export {
+  DEFAULT_LOCAL_FILE_FORMAT,
+  LOCAL_FILE_ACCEPT,
+  canWriteFilesInPlace,
+  fileNameFor,
+  formatForFileName,
+  linkFile,
+  linkedFile,
+  mimeTypeFor,
+  openFilesFromDisk,
+  saveDocumentToFile,
+  setLocalFileGateway,
+  subscribeToLocalFiles,
+  unlinkFile,
+  useLocalFile,
+  writableFormats,
+  type LocalFile,
+  type LocalFileGateway,
+  type OpenedFile,
+  type SaveTarget,
+  type SaveToFileOptions,
+  type SavedToFile,
+} from './app/local-file';
 
 /* ── Mock data, until the services behind it exist ─────────────────────── */
 

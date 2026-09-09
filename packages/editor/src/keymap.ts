@@ -51,12 +51,25 @@ export const NotoKeymap = Extension.create({
 
     for (const command of CORE_COMMANDS) {
       if (!command.shortcut) continue;
-      // The registry says which keys are the editor's. Everything else belongs
-      // to the window listener, and binding it here too would run it twice.
-      if (scopeOf(command) !== 'editor') continue;
 
       const binding = toKeymapBinding(command.shortcut);
       if (!binding) continue;
+
+      /*
+       * The registry says which keys are the editor's. Everything else belongs
+       * to the window listener, and binding it here too would run it twice.
+       *
+       * It is still claimed here, though — as handled, so that no extension
+       * loaded before this one gets it. The defaults Tiptap ships are the
+       * reason: its Strike binds `Mod-Shift-s`, and left alone it would cross
+       * out the selection on the way to Save As. Claiming the key stops the
+       * editor acting on it; the event still reaches the window, which is
+       * where the command actually runs.
+       */
+      if (scopeOf(command) !== 'editor') {
+        shortcuts[binding] = () => true;
+        continue;
+      }
 
       const action = EDITOR_ACTIONS[command.id];
 

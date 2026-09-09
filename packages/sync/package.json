@@ -6,7 +6,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./supabase": "./src/supabase/index.ts"
+    "./session": "./src/session.ts",
+    "./supabase": "./src/supabase/index.ts",
+    "./supabase/account": "./src/supabase/account.ts"
   },
   "scripts": {
     "lint": "eslint .",

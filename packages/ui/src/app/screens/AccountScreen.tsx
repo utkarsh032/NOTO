@@ -234,7 +234,7 @@ export function AccountScreen() {
           />
 
           {/*
-           * Signing out belongs here as well as in the header menu. This is the
+           * Signing out belongs here as well as in the avatar menu. This is the
            * screen somebody opens when they want to do something about their
            * account, and "stop being signed in on this device" is the one thing
            * on it that works today.

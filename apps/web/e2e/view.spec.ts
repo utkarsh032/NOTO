@@ -36,7 +36,9 @@ async function newDocument(page: Page, title: string) {
 
 async function firstVisit(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'New document', exact: true }).click();
+  // Scoped to `main`: the header carries a New document control as well, and
+  // only case separates both of them from the sidebar's "New Document".
+  await page.getByRole('main').getByRole('button', { name: 'New document', exact: true }).click();
   await expect(titleField(page)).toHaveValue('Untitled');
 }
 
