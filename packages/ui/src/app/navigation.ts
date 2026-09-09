@@ -9,7 +9,7 @@ import {
   SearchIcon,
   type IconProps,
 } from '../components/icons';
-import type { Route } from './router';
+import type { Route, RouteName } from './router';
 
 export interface NavEntry {
   id: string;
@@ -23,8 +23,8 @@ export interface NavEntry {
  *
  * One list, not two. Settings and Account used to sit below a rule at the
  * bottom of this one; they are about the person rather than about the work, the
- * avatar in the header already leads to both, and a destination listed twice is
- * a destination the user has to choose a route to.
+ * avatar in the sidebar's footer already leads to both, and a destination listed
+ * twice is a destination the user has to choose a route to.
  *
  * Quick Notes is a screen of its own — the place a captured thought lands and
  * is turned into something — while Clipboard History is Memory with a type
@@ -69,4 +69,33 @@ export function isEntryActive(entry: NavEntry, route: Route): boolean {
   }
 
   return true;
+}
+
+/**
+ * What each screen is called, for the one place that has to name the screen
+ * rather than link to it: the header, when no document is open and the tabs
+ * have nothing to say.
+ *
+ * These are the sidebar's own labels wherever the sidebar has one, so the row
+ * you clicked and the title you land on are the same words. `workspace` is the
+ * rare one: it shows only when every tab has been closed while standing on it,
+ * over the "Nothing open" state.
+ */
+const ROUTE_TITLES: Record<RouteName, string> = {
+  home: 'Home',
+  workspace: 'Workspace',
+  documents: 'All Documents',
+  'quick-note': 'Quick Notes',
+  memory: 'Noto Memory',
+  search: 'Search',
+  settings: 'Settings',
+  account: 'Account',
+  plans: 'Plans & Pricing',
+  login: 'Sign in',
+};
+
+/** The name of the screen a route opens. */
+export function routeTitle(route: Route): string {
+  if (route.name === 'memory' && route.param === 'clipboard') return 'Clipboard History';
+  return ROUTE_TITLES[route.name];
 }

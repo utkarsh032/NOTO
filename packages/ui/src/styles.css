@@ -445,6 +445,33 @@
 }
 
 /*
+ * The tab strip.
+ *
+ * It scrolls sideways but never shows a bar for it. The strip ends where the
+ * document begins — the open tab's fill runs into the page below it — and a
+ * ten-pixel bar laid across that edge would cut the two apart again. Tabs
+ * narrow together first, so scrolling only starts once there are more open
+ * than a window can hold, and whichever one is activated is brought into view.
+ */
+.noto-tabs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.noto-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noto-tabs {
+    scroll-behavior: auto;
+  }
+}
+
+/*
  * Print.
  *
  * What comes out of the printer is the same DOM the editor renders, with the
@@ -488,6 +515,7 @@
     max-width: none !important;
     padding: 0 !important;
   }
+
 
   /* `!important` because zoom is applied inline, and an author rule marked
      important is the one thing that outranks an inline style. */

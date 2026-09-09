@@ -14,8 +14,8 @@ export interface SignOutControl {
 /**
  * Signing out, in one place.
  *
- * It is offered from the header and from the account screen, and those two
- * were never going to stay in step if each wrote its own version — the header's
+ * It is offered from the avatar menu and from the account screen, and those two
+ * were never going to stay in step if each wrote its own version — the menu's
  * used to navigate to the sign-in screen without ending anything, which left
  * the session in storage and the person signed back in on the next reload.
  *

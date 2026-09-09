@@ -8,27 +8,15 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../../components/Button';
-import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
-import { IconButton } from '../../components/IconButton';
-import {
-  ExportIcon,
-  KeyboardIcon,
-  MoreIcon,
-  PanelRightIcon,
-  PlusIcon,
-  PrinterIcon,
-  SidebarIcon,
-} from '../../components/icons';
+import { PlusIcon } from '../../components/icons';
 import { WritingIllustration } from '../../components/illustrations';
 import { DocumentEditor, type SaveState } from '../DocumentEditor';
 import { EditorScrollArea } from '../EditorScrollArea';
-import { TabBar } from '../TabBar';
 import { ContextPanel, type ContextTab } from '../editor/ContextPanel';
 import { EditorStatusBar } from '../editor/EditorStatusBar';
-import { useDocumentOperations } from '../documents/use-document-operations';
 import { useNotoData } from '../data-context';
-import { printDocument } from '../print';
+import { useLocalFile } from '../local-file';
 import { replaceRoute } from '../router';
 import { useDocumentTabs } from '../use-document-tabs';
 import { useNotoActions } from '../use-noto-actions';
@@ -42,11 +30,18 @@ export interface WorkspaceScreenProps {
 }
 
 /**
- * The workspace: tabs, the document, and what is beside it.
+ * The workspace: the document, and what is beside it.
  *
  * This is the screen Noto exists for, so the arrangement is deliberately plain
- * — a strip of tabs, the page, a line of facts underneath — and everything that
- * is not the document either scrolls away with it or sits quietly at an edge.
+ * — the page, and a line of facts underneath — and everything that is not the
+ * document either scrolls away with it or sits quietly at an edge.
+ *
+ * The tabs are no longer here. They are the window's header now, above every
+ * screen rather than only this one, and the two controls that used to sit at
+ * the end of the strip went with them; what they act on is the document, but
+ * where they belong is the bar that names it. This screen reads whether the
+ * context panel is open from the shared UI store, which is the one answer both
+ * ends of that arrangement agree on.
  */
 export function WorkspaceScreen({
   documentId,
@@ -56,22 +51,17 @@ export function WorkspaceScreen({
   const { activeDocument, workspace } = useNotoData();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
-  const operations = useDocumentOperations();
-
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   const zoom = useSettingsStore((state) => clampZoom(state.settings.editor.zoom));
 
-  /*
-   * Open to begin with. The outline is how a long document is navigated, and a
-   * panel that has to be found before it can help is one most people never
-   * find; the control beside the tabs is there to put it away.
-   */
-  const [panelOpen, setPanelOpen] = useState(true);
+  const panelOpen = useUiStore((state) => state.contextPanelOpen);
   const [panelTab, setPanelTab] = useState<ContextTab>('outline');
   const [saveState, setSaveState] = useState<SaveState>('saved');
 
   const activeId = activeDocument?.id ?? null;
+
+  /* The file on disk behind the open document, for the status bar to name. */
+  const localFile = useLocalFile(activeId);
 
   /*
    * Which document is open and what the address says are kept in step in one
@@ -127,81 +117,6 @@ export function WorkspaceScreen({
     <>
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/*
-         * The tab strip: which documents are open, and the two controls that
-         * decide how much of the window the document itself gets.
-         */}
-        <div className="noto-print-hidden border-default bg-surface flex min-h-12 shrink-0 items-stretch gap-2 border-b px-2">
-          <TabBar
-            tabs={tabs.tabs}
-            onSelect={tabs.open}
-            onClose={tabs.close}
-            onNew={() => void actions.newDocument()}
-            className="min-w-0 flex-1"
-          />
-
-          <div className="ml-auto flex shrink-0 items-center gap-1 self-center">
-            {/* The two panels, as one pair: what they do is the same thing to
-                opposite edges of the window. */}
-            <div className="border-default hidden items-center rounded-md border lg:flex">
-              <IconButton
-                label="Toggle sidebar"
-                icon={<SidebarIcon className="h-4 w-4" />}
-                onClick={toggleSidebar}
-                size="sm"
-                className="rounded-r-none"
-              />
-              <span className="bg-default h-5 w-px" aria-hidden="true" />
-              <IconButton
-                label={panelOpen ? 'Hide document details' : 'Show document details'}
-                icon={<PanelRightIcon className="h-4 w-4" />}
-                isActive={panelOpen}
-                disabled={!activeDocument}
-                onClick={() => setPanelOpen((open) => !open)}
-                size="sm"
-                className="rounded-l-none"
-              />
-            </div>
-
-            <Dropdown
-              label="Document menu"
-              items={[
-                {
-                  id: 'export',
-                  label: 'Export…',
-                  icon: <ExportIcon className="h-4 w-4" />,
-                  disabled: !activeDocument,
-                  onSelect: () => {
-                    if (activeDocument) operations.exportDocument(activeDocument);
-                  },
-                },
-                {
-                  id: 'print',
-                  label: 'Print…',
-                  icon: <PrinterIcon className="h-4 w-4" />,
-                  disabled: !activeDocument,
-                  onSelect: () => void printDocument(),
-                },
-                {
-                  id: 'shortcuts',
-                  label: 'Keyboard shortcuts',
-                  icon: <KeyboardIcon className="h-4 w-4" />,
-                  separated: true,
-                  onSelect: onShortcuts,
-                },
-              ]}
-              trigger={(triggerProps) => (
-                <IconButton
-                  {...triggerProps}
-                  label="Document menu"
-                  icon={<MoreIcon className="h-5 w-5" />}
-                  size="sm"
-                />
-              )}
-            />
-          </div>
-        </div>
-
-        {/*
          * Keyed by the open document so that switching tabs restores where the
          * reader was, rather than dropping them back at the title.
          */}
@@ -238,6 +153,7 @@ export function WorkspaceScreen({
             words={activeDocument.wordCount}
             characters={characters}
             saveState={saveState}
+            file={localFile}
             zoom={zoom}
             onHelp={onShortcuts}
           />
@@ -252,8 +168,6 @@ export function WorkspaceScreen({
           location={workspace?.name ?? 'This workspace'}
         />
       ) : null}
-
-      {operations.dialogs}
     </>
   );
 }

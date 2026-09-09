@@ -1,16 +1,20 @@
 import { useSettingsStore, useUiStore } from '@noto/core';
+import type { ThemeMode, User } from '@noto/types';
 import { useMemo } from 'react';
 
 import notoIcon from '../assets/noto-icon.png';
 import notoWordmark from '../assets/noto-wordmark.png';
 import { Button } from '../components/Button';
+import { IconButton } from '../components/IconButton';
 import { KeyHint } from '../components/KeyHint';
 import { Skeleton } from '../components/Skeleton';
 import { SyncStatus } from '../components/SyncStatus';
-import { ClockIcon, PinIcon, PlusIcon } from '../components/icons';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { ClockIcon, PinIcon, PlusIcon, SearchIcon } from '../components/icons';
 import { QuickNoteIllustration } from '../components/illustrations';
 import { cn } from '../utils/cn';
 import { NavItem } from './NavItem';
+import { UserMenu } from './UserMenu';
 import { SidebarDocumentList } from './SidebarDocumentList';
 import { SidebarToggle } from './SidebarToggle';
 import { SidebarUpdateButton, SidebarVersion } from './SidebarUpdate';
@@ -28,6 +32,21 @@ export interface SidebarProps {
   onQuickNote(): void;
   /** Formatted for this platform — "Ctrl Alt N" or "⌥⌘N". */
   quickNoteShortcut: string;
+  /** Opens the command palette, which is also where searching starts. */
+  onSearch(): void;
+  /** Formatted for this platform — "Ctrl K" or "⌘K". */
+  searchShortcut: string;
+  /** `null` when nobody is signed in. The menu still opens; the identity does not. */
+  user: User | null;
+  theme: ThemeMode;
+  onTheme(mode: ThemeMode): void;
+  onOpenAccount(): void;
+  onOpenSettings(): void;
+  onOpenShortcuts(): void;
+  /** Opens the plan comparison. */
+  onOpenPlans(): void;
+  /** Ends the session, which lands on the sign-in screen. */
+  onSignOut(): void;
 }
 
 /**
@@ -40,11 +59,15 @@ export interface SidebarProps {
  * down, and whether the work is safe — are pinned to the bottom where they can
  * be found without reading.
  *
- * One unbroken list of destinations, where there used to be two separated by a
- * rule. Settings and Account were the second group, and they are gone from here
- * deliberately: they are about the person rather than about the work, the avatar
- * in the header already leads to both, and a destination listed in two places is
- * a destination you have to choose a route to.
+ * Everything about the person rather than about the work is here too, because
+ * there is no application bar above the window any more: search at the top
+ * where the eye starts, appearance and the account in the footer. The header
+ * that used to hold those three is the document tabs now.
+ *
+ * Settings and Account are still not rows in the navigation list. They are one
+ * menu behind the avatar in the footer, which is where everyone looks first for
+ * anything about themselves, and a destination listed in two places is a
+ * destination you have to choose a route to.
  *
  * Collapsing is a movement, not a swap. The frame is one element whose width is
  * animated between the two sizes; the panel inside keeps whichever width it was
@@ -53,7 +76,21 @@ export interface SidebarProps {
  * read `--noto-duration-*`, which a reduced-motion preference has already set to
  * zero — the sidebar then simply changes size.
  */
-export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps) {
+export function Sidebar({
+  route,
+  onQuickNote,
+  quickNoteShortcut,
+  onSearch,
+  searchShortcut,
+  user,
+  theme,
+  onTheme,
+  onOpenAccount,
+  onOpenSettings,
+  onOpenShortcuts,
+  onOpenPlans,
+  onSignOut,
+}: SidebarProps) {
   const { workspace, documents, activeDocument, updateDocument } = useNotoData();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
@@ -77,8 +114,31 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
   );
 
   /*
-   * The brand bar matches the global header's height, so the rule under the two
-   * of them is a single unbroken line across the window — and the mark holds
+   * The same menu in both states, so the rail and the panel are one control
+   * that changes size rather than two that have to be kept in agreement.
+   */
+  const accountMenu = (compact: boolean) => (
+    <UserMenu
+      compact={compact}
+      /* It sits at the bottom, so it opens upward; and it hangs from the
+         avatar's left edge, so that in the rail it opens out over the content
+         rather than off the left of the window. */
+      side="top"
+      align="left"
+      user={user}
+      onOpenAccount={onOpenAccount}
+      onOpenSettings={onOpenSettings}
+      onOpenShortcuts={onOpenShortcuts}
+      onOpenPlans={onOpenPlans}
+      onSignOut={onSignOut}
+      className={compact ? undefined : 'min-w-0 flex-1'}
+    />
+  );
+
+  /*
+   * The brand bar matches the height of the bar of tabs beside it, so the rule
+   * under the two of them is a single unbroken line across the window — and the
+   * mark holds
    * the same centre line whether the sidebar is open or collapsed, instead of
    * hopping when it is toggled.
    */
@@ -99,12 +159,32 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
   const rail = (
     <>
       <div className={cn(brandBar, 'justify-center')}>
-        {/* A mark, not a control. Collapsing and expanding belong to the
-              handle on the divider, which is in the same place either way. */}
-        <img src={notoIcon} alt="Noto" className="h-8 w-8" draggable={false} />
+        {/* The mark is the way home, which is the one thing a logo is expected
+              to do. Collapsing and expanding still belong to the handle on the
+              divider, which is in the same place either way. */}
+        <button
+          type="button"
+          onClick={() => navigate({ name: 'home' })}
+          aria-label="Noto — go to Home"
+          title="Home"
+          className="focus-visible:outline-brand rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <img src={notoIcon} alt="" className="h-8 w-8" draggable={false} />
+        </button>
       </div>
 
-      <div className="flex flex-col items-center py-3">
+      <div className="flex flex-col items-center gap-2 py-3">
+        {/* Search first, then the thing to write in — the same order the panel
+              puts them in, so collapsing the sidebar does not reshuffle it.
+              Named as the panel names it, because the navigation below has a
+              Search of its own with the same glyph that goes somewhere else. */}
+        <IconButton
+          label="Search everything"
+          icon={<SearchIcon className="h-5 w-5" />}
+          onClick={onSearch}
+          variant="surface"
+        />
+
         <button
           type="button"
           onClick={() => void actions.newDocument()}
@@ -132,8 +212,11 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
         ))}
       </nav>
 
-      <div className="flex flex-col items-center gap-2 pb-3">
+      <div className="border-default flex flex-col items-center gap-2 border-t pt-3 pb-3">
         <SidebarUpdateButton collapsed />
+        {/* Account then appearance, the order the panel's footer reads in. */}
+        {accountMenu(true)}
+        <ThemeToggle value={theme} onChange={onTheme} />
         <SyncStatus status={syncState} variant="rail" />
         {/* The rail has no room for the name, and none is needed: the number
               under the mark can only be one thing's version. */}
@@ -146,16 +229,45 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
     <>
       <header className={cn(brandBar, 'items-center px-5')}>
         <div className="flex min-w-0 flex-col gap-0.5">
-          {/* The wordmark carries the product name, so the alt text is the name
-              itself rather than a description of the picture. */}
-          <img src={notoWordmark} alt="Noto" className="h-6 w-auto self-start" draggable={false} />
+          {/* The wordmark is the way home. It carries the product name and the
+              destination together, so the label is on the button and the image
+              itself is left silent rather than being read out twice. */}
+          <button
+            type="button"
+            onClick={() => navigate({ name: 'home' })}
+            aria-label="Noto — go to Home"
+            title="Home"
+            className="focus-visible:outline-brand self-start rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <img src={notoWordmark} alt="" className="h-6 w-auto" draggable={false} />
+          </button>
           {/* What Noto is for, in three words. It sits under the mark rather
               than being read out as part of it. */}
           <p className="text-tertiary text-caption truncate">Write. Remember. Find.</p>
         </div>
       </header>
 
-      <div className="px-3 pt-4 pb-2">
+      {/*
+       * Search, where the header used to keep it. A button rather than an
+       * input: what it opens is the command palette, which searches documents,
+       * memory and commands together, and a field here would only collect a
+       * query the palette then has to be handed.
+       */}
+      <div className="px-3 pt-3">
+        <button
+          type="button"
+          onClick={onSearch}
+          className="border-default bg-surface hover:border-strong focus-visible:border-brand focus-visible:ring-brand-muted flex h-9 w-full items-center gap-2 rounded-md border px-2.5 text-left transition-colors focus-visible:ring-3 focus-visible:outline-none"
+        >
+          <SearchIcon className="text-tertiary h-4 w-4 shrink-0" />
+          <span className="text-tertiary text-body-sm min-w-0 flex-1 truncate">
+            Search everything
+          </span>
+          <KeyHint keys={searchShortcut} />
+        </button>
+      </div>
+
+      <div className="px-3 pt-2 pb-2">
         <Button
           variant="primary"
           onClick={() => void actions.newDocument()}
@@ -288,9 +400,20 @@ export function Sidebar({ route, onQuickNote, quickNoteShortcut }: SidebarProps)
         </button>
       </div>
 
-      <div className="border-default border-t px-4 py-3">
+      <div className="border-default border-t px-3 py-3">
         <SidebarUpdateButton />
-        <div className="flex items-center justify-between gap-2">
+
+        {/*
+         * Who you are, and how Noto looks. Both lived in the header until the
+         * header became the tabs, and both belong to the session rather than
+         * to the document — which is this end of this panel.
+         */}
+        <div className="flex items-center gap-1">
+          {accountMenu(false)}
+          <ThemeToggle value={theme} onChange={onTheme} className="shrink-0" />
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-between gap-2 px-1">
           <SyncStatus status={syncState} />
           <SidebarVersion />
         </div>

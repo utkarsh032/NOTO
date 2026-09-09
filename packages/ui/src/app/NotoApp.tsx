@@ -8,7 +8,6 @@ import {
   zoomIn,
   zoomOut,
 } from '@noto/core';
-import type { ThemeMode } from '@noto/types';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
@@ -17,7 +16,8 @@ import { LoadingState } from '../components/LoadingState';
 import { Skeleton } from '../components/Skeleton';
 import { ToastViewport } from '../components/Toast';
 import { showToast } from '../components/toast-store';
-import { Header } from './Header';
+import { AppHeader } from './AppHeader';
+import { MobileHeader } from './MobileHeader';
 import { MobileNav } from './MobileNav';
 import { NotoAppShell } from './NotoAppShell';
 import { Sidebar } from './Sidebar';
@@ -31,8 +31,18 @@ import { QuickPaste } from './overlays/QuickPaste';
 import { ShortcutsDialog } from './overlays/ShortcutsDialog';
 import { SmartSidebar } from './overlays/SmartSidebar';
 import { UpdateDialog } from './overlays/UpdateDialog';
-import { subscribeToAppCommands } from './app-commands';
+import { emitAppCommand, subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { parseImportedFile } from './export';
+import {
+  documentForFile,
+  forgetRecentFile,
+  linkFile,
+  openFilesFromDisk,
+  readRecentFile,
+  recentFiles,
+  type OpenedFile,
+} from './local-file';
 import { quickNoteTitle } from './quick-note-draft';
 import { navigate } from './router';
 import { useAccount } from './use-account';
@@ -192,12 +202,128 @@ export function NotoApp() {
   );
 
   /*
-   * Shell-level accelerators. Save is deliberately absent: the editor binds it,
-   * because the editor is what holds the unsaved draft.
+   * Open, the way Notepad means it: files off the disk, each into a document of
+   * its own, and the first of them in front. Each document remembers the file
+   * it came from, so Save writes back there rather than asking where.
+   *
+   * The documents are created through the same import path the Documents
+   * screen uses, so a file opened this way is an ordinary document from the
+   * moment it exists — searchable, synced, in the sidebar — with one extra fact
+   * about it kept on this machine.
+   */
+  /**
+   * Turns files that have been read into documents, and puts the first in front.
+   *
+   * Shared by Open and by Recent, because the two differ only in how the file
+   * was chosen: everything after the bytes arrive is the same, down to what is
+   * said about it.
+   */
+  const adoptFiles = useCallback(
+    async (opened: OpenedFile[]) => {
+      let first: string | null = null;
+
+      for (const { file, text } of opened) {
+        const id = await actions.importDocument(parseImportedFile(file.name, text));
+        if (!id) continue;
+
+        linkFile(id, file);
+        first ??= id;
+      }
+
+      if (!first) {
+        showToast('Noto could not open those files. Nothing was changed.', { tone: 'error' });
+        return;
+      }
+
+      actions.openDocument(first);
+      showToast(
+        opened.length === 1 ? `Opened ${opened[0]!.file.name}` : `Opened ${opened.length} files`,
+        { tone: 'success' },
+      );
+    },
+    [actions],
+  );
+
+  /**
+   * True while the workspace is still opening.
+   *
+   * Nothing can be made of a file until storage is open, and a picker shown
+   * before then ends with the user choosing a file that is quietly dropped. The
+   * window is short — a skeleton is on screen for it — but "I opened it and it
+   * vanished" is the worst way to learn that.
+   */
+  const notReadyYet = useCallback(() => {
+    if (status === 'ready') return false;
+
+    showToast('Noto is still opening your workspace. Try again in a moment.');
+    return true;
+  }, [status]);
+
+  const openFromDisk = useCallback(async () => {
+    if (notReadyYet()) return;
+
+    let opened: OpenedFile[] | null;
+    try {
+      opened = await openFilesFromDisk();
+    } catch (error) {
+      showToast(
+        error instanceof Error && error.message ? error.message : 'Noto could not open that file.',
+        { tone: 'error' },
+      );
+      return;
+    }
+
+    if (!opened || opened.length === 0) return;
+
+    await adoptFiles(opened);
+  }, [adoptFiles, notReadyYet]);
+
+  /*
+   * Recent: a file the user chose once, opened again without finding it twice.
+   *
+   * A file that is already a document here comes back as that document rather
+   * than as a second copy of itself — the tab, the edits and the history are
+   * the reason somebody is reaching for it. Only a file Noto has lost track of
+   * is read afresh, and one it cannot read at all leaves the list, because a
+   * menu entry that can only ever apologise is worse than no entry.
+   */
+  const openRecent = useCallback(
+    async (ref: string) => {
+      if (notReadyYet()) return;
+
+      const existing = documentForFile(ref);
+      if (existing && (documents ?? []).some((document) => document.id === existing)) {
+        actions.openDocument(existing);
+        return;
+      }
+
+      const file = recentFiles().find((entry) => entry.ref === ref);
+      if (!file) return;
+
+      try {
+        await adoptFiles([await readRecentFile(file)]);
+      } catch (error) {
+        forgetRecentFile(ref);
+        showToast(
+          error instanceof Error && error.message
+            ? error.message
+            : `Noto could not open ${file.name}.`,
+          { tone: 'error' },
+        );
+      }
+    },
+    [actions, adoptFiles, documents, notReadyYet],
+  );
+
+  /*
+   * Shell-level accelerators. Save and Save As are deliberately absent: the
+   * editor binds them, because the editor is what holds the unsaved draft.
+   * Open is here because it makes documents, which is the shell's business.
    */
   const commandHandlers = useMemo(
     () => ({
       'document.new': () => void tabs.create().then(() => navigate('workspace')),
+      'document.open': () => void openFromDisk(),
       'document.saveAll': saveAll,
       'document.close': () => {
         if (activeDocumentId) tabs.close(activeDocumentId);
@@ -249,6 +375,7 @@ export function NotoApp() {
     }),
     [
       tabs,
+      openFromDisk,
       saveAll,
       activeDocumentId,
       toggleSidebar,
@@ -290,9 +417,15 @@ export function NotoApp() {
           return;
         }
 
+        /* The other one: which file to reopen, named by the menu that listed it. */
+        if (commandId === 'document.openRecent') {
+          if (argument) void openRecent(argument);
+          return;
+        }
+
         commandHandlers[commandId as keyof typeof commandHandlers]?.();
       }),
-    [commandHandlers, actions],
+    [commandHandlers, actions, openRecent],
   );
 
   const recentForDock = useMemo(
@@ -384,6 +517,24 @@ export function NotoApp() {
 
   const isMobile = viewport === 'mobile';
 
+  /*
+   * Who is signed in, and the four screens behind the avatar. The sidebar
+   * carries the menu on a desktop and the top bar carries it on a phone, so it
+   * is gathered once here rather than written out twice.
+   *
+   * Appearance is not in here. Only the sidebar shows that switch — a phone
+   * changes its theme in Settings — and bundling it would hand the phone bar
+   * two props it does not accept.
+   */
+  const accountProps = {
+    user,
+    onOpenAccount: () => navigate(user ? 'account' : 'login'),
+    onOpenSettings: () => navigate('settings'),
+    onOpenShortcuts: () => show('shortcuts'),
+    onOpenPlans: () => navigate('plans'),
+    onSignOut: handleSignOut,
+  };
+
   return (
     <>
       <NotoAppShell
@@ -393,24 +544,26 @@ export function NotoApp() {
               route={route}
               onQuickNote={() => show('quickNote')}
               quickNoteShortcut={formatShortcut('CmdOrCtrl+Alt+N', platform)}
+              onSearch={() => show('palette')}
+              searchShortcut={formatShortcut('CmdOrCtrl+K', platform)}
+              theme={theme}
+              onTheme={setTheme}
+              {...accountProps}
             />
           )
         }
+        /*
+         * Two different bars, because the two shapes have different problems.
+         * On a desktop the header is the open documents; on a phone there is no
+         * sidebar to have moved search and the account into, so the top bar is
+         * where those two stayed.
+         */
         header={
-          <Header
-            user={user}
-            theme={theme}
-            onTheme={(mode: ThemeMode) => setTheme(mode)}
-            onSearch={() => show('palette')}
-            searchShortcut={formatShortcut('CmdOrCtrl+K', platform)}
-            onOpenAccount={() => navigate(user ? 'account' : 'login')}
-            onOpenSettings={() => navigate('settings')}
-            onOpenShortcuts={() => show('shortcuts')}
-            onOpenPlans={() => navigate('plans')}
-            onSignOut={handleSignOut}
-            compact={isMobile}
-            notificationCount={0}
-          />
+          isMobile ? (
+            <MobileHeader onSearch={() => show('palette')} {...accountProps} />
+          ) : (
+            <AppHeader route={route} onShortcuts={() => show('shortcuts')} />
+          )
         }
         bottomNav={
           isMobile ? <MobileNav route={route} onQuickNote={() => show('quickNote')} /> : null
@@ -482,7 +635,16 @@ export function NotoApp() {
       <CommandPalette
         open={overlays.palette}
         onClose={() => hide('palette')}
-        onRunCommand={(commandId) => commandHandlers[commandId as keyof typeof commandHandlers]?.()}
+        onRunCommand={(commandId) => {
+          /*
+           * What the shell has no handler for belongs to a screen — Save, Print
+           * and Find are the editor's, because the editor holds the draft. They
+           * go out on the command bus, and whichever editor is in front answers.
+           */
+          const handler = commandHandlers[commandId as keyof typeof commandHandlers];
+          if (handler) handler();
+          else emitAppCommand(commandId);
+        }}
         context={commandContext}
       />
 
@@ -560,7 +722,7 @@ function WindowLoading() {
 /**
  * What fills the pane while a screen's chunk is fetched.
  *
- * The shell is already on screen by then — sidebar, header and all — so this is
+ * The shell is already on screen by then — sidebar, tabs and all — so this is
  * only ever the content area, and it holds the page's shape so nothing under
  * the pointer moves when the screen lands.
  */

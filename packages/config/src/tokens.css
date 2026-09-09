@@ -69,7 +69,11 @@
   --spacing-sidebar: 248px;
   --spacing-sidebar-collapsed: 72px;
   --spacing-context-panel: 320px;
-  --spacing-header: 72px;
+  /* The height of a tab, and nothing more. The strip reaches the top of the
+     window rather than floating in a band below it, so this is what a tab
+     needs and not what a title bar would have wanted. The sidebar's brand bar
+     shares it, which is what keeps one unbroken rule across the window. */
+  --spacing-header: 56px;
   --spacing-toolbar: 48px;
   --spacing-title-bar: 38px;
   --spacing-editor: 800px;

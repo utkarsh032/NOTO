@@ -87,7 +87,7 @@ const CATEGORIES: Category[] = [
  * Settings.
  *
  * Every control here changes something the moment it is used, which is why
- * there is no Save button: the theme switch beside it in the header applies
+ * there is no Save button: the theme switch in the sidebar's footer applies
  * instantly, and one half of a settings screen that saves while the other half
  * does not is the kind of inconsistency people learn by losing work to. Reset
  * is the way back, and it asks first.

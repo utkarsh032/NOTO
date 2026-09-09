@@ -16,15 +16,16 @@ export interface SidebarToggleProps {
  * they are the reason for the placement:
  *
  *  - it never leaves. The old arrangement had a button in the sidebar header
- *    that collapsed it and a second one in the global header that brought it
- *    back, so the control the user had just pressed was not the one they had to
- *    press to undo it;
+ *    that collapsed it and a second one in the bar across the top that brought
+ *    it back, so the control the user had just pressed was not the one they had
+ *    to press to undo it;
  *  - it points at what it does. A chevron on the divider means "move this
  *    edge", and it rotates through the change rather than being swapped for a
  *    different glyph;
- *  - it is where the hand already is. Everything a user reaches for at the top
- *    of the window — the wordmark, search, the avatar — sits on that line, and
- *    a handle floating at mid-height was the only control that did not.
+ *  - it is where the hand already is. What sits on that line — the wordmark on
+ *    one side of it, the open documents on the other — is the top of the
+ *    window, and a handle floating at mid-height was the only control that did
+ *    not meet it.
  *
  * It carries the brand fill rather than a hairline outline: this is the one
  * control that changes the shape of the whole window, and half of it overhangs

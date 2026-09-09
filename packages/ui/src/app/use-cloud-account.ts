@@ -91,7 +91,7 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
    * A stored session opens as `restoring`, not as `signed-out`.
    *
    * Bringing it back takes a round trip, and calling that signed out is a lie
-   * that lasts long enough to act on: the header flashes "Sign in", and a route
+   * that lasts long enough to act on: the avatar flashes "Sign in", and a route
    * guard reading the same value throws the person off their own account screen
    * on every restart.
    */
