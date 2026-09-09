@@ -12,6 +12,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
 import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
 import { saveDocumentToFile } from './local-file';
 import { printDocument } from './print';
 import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
@@ -365,10 +366,18 @@ export function DocumentEditor({
    * reads as two objects — chrome and page — rather than one thing being
    * written in.
    *
-   * The measure stays inside the card. The card takes the width of the pane so
-   * the document fills the window it was given, and the text is held to a
-   * comfortable line length within it.
+   * What that card holds is the user's choice. Simple is the default and the
+   * one Noto opens with: the text starts at the left edge of the card and runs
+   * the width of the window, because a note is not a publication and half a
+   * window of empty margin is half a window wasted. Page is the other choice,
+   * asked for: a sheet of a stated size with stated margins, centred on the
+   * surface behind it, so what is on the screen is what comes out of the
+   * printer.
    */
+  const layout = usePageLayout();
+  usePrintPageRule(layout);
+  const onPaper = layout.mode === 'page';
+
   return (
     <div className="flex min-h-full flex-col px-4 pb-4 sm:px-6">
       {/*
@@ -404,8 +413,24 @@ export function DocumentEditor({
 
       {/* `noto-print-document` is what the print rules strip the card back to
           a page with: no border, no shadow, no measure of its own. */}
-      <article className="noto-print-document noto-print-sheet border-default bg-surface flex-1 rounded-b-xl border border-t-0 px-6 py-8 sm:px-10 sm:py-10">
-        <div className="max-w-editor mx-auto w-full">
+      <article
+        className={cn(
+          'noto-print-document noto-print-sheet border-default flex-1 rounded-b-xl border border-t-0',
+          onPaper
+            ? /* A sheet on a desk: the page is the white object, and the card
+                 behind it steps back to being the surface it lies on. */
+              'noto-page-desk px-4 py-6 sm:px-8 sm:py-8'
+            : 'bg-surface px-6 py-8 sm:px-10 sm:py-10',
+        )}
+      >
+        <div
+          className={cn(
+            'w-full',
+            onPaper &&
+              'noto-page border-default bg-surface mx-auto border shadow-[var(--noto-shadow-md)]',
+          )}
+          style={onPaper ? sheetStyle(layout) : undefined}
+        >
           <div className="mb-6">
             {/*
              * An input carries an intrinsic minimum width, so on a narrow

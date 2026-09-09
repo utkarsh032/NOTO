@@ -15,6 +15,12 @@ export interface DropdownItem {
   id: string;
   label: string;
   icon?: ReactNode;
+  /**
+   * A quieter second line under the label, for a choice that has to state what
+   * it is as well as what it is called — "Narrow", and the four numbers that
+   * makes it.
+   */
+  description?: string;
   /** Right-aligned in the row: a shortcut hint, a count, a check. */
   trailing?: ReactNode;
   /** Destructive items are drawn in the danger tone and sit last. */
@@ -235,7 +241,14 @@ export function Dropdown({
                 ) : hasIcons ? (
                   <span className="w-4 shrink-0" aria-hidden="true" />
                 ) : null}
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{item.label}</span>
+                  {item.description ? (
+                    <span className="text-tertiary text-caption mt-0.5 block">
+                      {item.description}
+                    </span>
+                  ) : null}
+                </span>
                 {item.trailing ? (
                   <span className="text-tertiary text-caption shrink-0">{item.trailing}</span>
                 ) : null}

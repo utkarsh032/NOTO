@@ -1,6 +1,12 @@
 import type { Settings } from '@noto/types';
 
 import { AUTOSAVE_DELAY_MS, DEFAULT_ZOOM } from './app.ts';
+import {
+  DEFAULT_CUSTOM_MARGINS,
+  DEFAULT_MARGIN_PRESET,
+  DEFAULT_PAGE_ORIENTATION,
+  DEFAULT_PAGE_SIZE,
+} from './page.ts';
 import { brand, layout } from './tokens.ts';
 
 /**
@@ -26,6 +32,17 @@ export const DEFAULT_SETTINGS: Settings = {
     wordWrap: true,
     zoom: DEFAULT_ZOOM,
     showInvisibles: false,
+    /*
+     * A new document is a text file, not a sheet of paper. Somebody opening
+     * Noto to write something down should get a blank page they can type on,
+     * the width of the window — page size and margins are for the document
+     * that is going to be printed, and that user goes and asks for them.
+     */
+    pageMode: 'simple',
+    pageSize: DEFAULT_PAGE_SIZE,
+    pageOrientation: DEFAULT_PAGE_ORIENTATION,
+    marginPreset: DEFAULT_MARGIN_PRESET,
+    customMargins: DEFAULT_CUSTOM_MARGINS,
   },
   updates: {
     checkAutomatically: true,

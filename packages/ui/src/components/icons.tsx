@@ -199,6 +199,16 @@ export function TableIcon(props: IconProps) {
   );
 }
 
+/** A page with its margins drawn inside it: the page-layout control. */
+export function PageLayoutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <rect x="7.5" y="6.5" width="9" height="11" rx="0.5" strokeDasharray="2 2" />
+    </Icon>
+  );
+}
+
 export function DividerIcon(props: IconProps) {
   return (
     <Icon {...props}>

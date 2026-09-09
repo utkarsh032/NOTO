@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 
-/** The formatting commands that need something from the user before they run. */
-export type FormattingPromptKind = 'link' | 'image' | 'table';
+/**
+ * The controls that need something from the user before they can act.
+ *
+ * `margins` is the odd one out: no command opens it, because it is a page
+ * setting rather than a formatting command. It lives here anyway so that only
+ * one form is ever open under the toolbar — a margins form and a link form
+ * sharing the strip would be two prompts stacked on the document.
+ */
+export type FormattingPromptKind = 'link' | 'image' | 'table' | 'margins';
 
 const PROMPT_FOR_COMMAND: Readonly<Record<string, FormattingPromptKind>> = {
   'format.link': 'link',
