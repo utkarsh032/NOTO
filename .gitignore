@@ -36,6 +36,9 @@ web-build/
 android/
 ios/
 
+# Wrangler's local state from `wrangler dev`
+.wrangler/
+
 # Electron
 .vite/
 release/
