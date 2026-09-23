@@ -15,14 +15,14 @@
     "directory": "./dist",
     // The website routes on the client, so any unmatched path must be served
     // the application shell. Without this, refreshing /download returns a 404.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
 
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
 
   "vars": {
-    "NOTO_ENV": "production"
-  }
+    "NOTO_ENV": "production",
+  },
 }
