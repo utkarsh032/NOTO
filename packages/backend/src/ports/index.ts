@@ -76,7 +76,12 @@ export interface ProfilePort {
 /** The `devices` table. */
 export interface DevicePort {
   list(userId: string): Promise<Result<DeviceDto[]>>;
-  /** Insert-or-update on the client-supplied id. */
+  /**
+   * Insert-or-update on the client-supplied id, scoped to its owner.
+   *
+   * Updates only a row that already belongs to `userId`. An id that belongs to
+   * a different user is refused with `conflict` and never reassigned.
+   */
   upsert(userId: string, device: DeviceRegistrationDto): Promise<Result<DeviceDto>>;
   touch(deviceId: string): Promise<Result<void>>;
   revoke(userId: string, deviceId: string): Promise<Result<void>>;

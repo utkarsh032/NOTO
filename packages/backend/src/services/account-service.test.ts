@@ -65,6 +65,46 @@ describe('AccountService.listDevices', () => {
   });
 });
 
+describe('AccountService.registerDevice', () => {
+  it('refuses a device id that belongs to another account', async () => {
+    const devices = new FakeDevicePort();
+    const { service } = makeService({ devices });
+    const registration = {
+      id: OTHER_DEVICE,
+      name: 'Phone',
+      platform: 'android',
+      osName: 'Android 15',
+      appVersion: '1.3.0',
+    };
+
+    await service.registerDevice('user-1', registration);
+    const result = await service.registerDevice('user-2', { ...registration, name: 'Mine now' });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('conflict');
+    expect(devices.devices.get(OTHER_DEVICE)?.userId).toBe('user-1');
+    expect(devices.devices.get(OTHER_DEVICE)?.name).toBe('Phone');
+  });
+
+  it('updates a device its owner registers again', async () => {
+    const devices = new FakeDevicePort();
+    const { service } = makeService({ devices });
+    const registration = {
+      id: OTHER_DEVICE,
+      name: 'Phone',
+      platform: 'android',
+      osName: 'Android 15',
+      appVersion: '1.3.0',
+    };
+
+    await service.registerDevice('user-1', registration);
+    const result = await service.registerDevice('user-1', { ...registration, appVersion: '1.4.0' });
+
+    expect(result.ok).toBe(true);
+    expect(devices.devices.get(OTHER_DEVICE)?.appVersion).toBe('1.4.0');
+  });
+});
+
 describe('AccountService.revokeDevice', () => {
   it('refuses to revoke the device making the request', async () => {
     const { service } = makeService();

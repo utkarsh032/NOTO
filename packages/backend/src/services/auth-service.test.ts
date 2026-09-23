@@ -202,6 +202,40 @@ describe('AuthService.signIn', () => {
     expect(devices.devices.get(device.id)?.name).toBe('Test ThinkPad');
   });
 
+  it("never moves another account's device onto the caller's account", async () => {
+    /*
+     * The regression this exists for: sign-in registered the device with an
+     * upsert on the client-supplied id alone, run as the service role. Anyone
+     * who sent somebody else's device id took that row over and un-revoked it.
+     */
+    const auth = new FakeAuthPort();
+    const devices = new FakeDevicePort();
+    const { service } = makeService({ auth, devices });
+
+    await auth.signUp({ email: 'owner@example.com', password: 'a-perfectly-fine-passphrase' });
+    await auth.signUp({ email: 'intruder@example.com', password: 'another-fine-passphrase' });
+
+    await service.signIn({
+      email: 'owner@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      device,
+    });
+    await devices.revoke('user-1', device.id);
+
+    const result = await service.signIn({
+      email: 'intruder@example.com',
+      password: 'another-fine-passphrase',
+      device: { ...device, name: 'Not yours' },
+    });
+
+    // The intruder is still signed in to their own account; the device is not theirs.
+    expect(result.ok).toBe(true);
+    const stored = devices.devices.get(device.id);
+    expect(stored?.userId).toBe('user-1');
+    expect(stored?.name).toBe('Test ThinkPad');
+    expect(stored?.revokedAt).not.toBeNull();
+  });
+
   it('gives the same answer for a wrong password and an unknown address', async () => {
     const auth = new FakeAuthPort();
     const { service } = makeService({ auth });

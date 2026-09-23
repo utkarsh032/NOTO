@@ -145,6 +145,12 @@ export class FakeDevicePort implements DevicePort {
   async upsert(userId: string, device: DeviceRegistrationDto): Promise<Result<DeviceDto>> {
     if (this.options.failUpsert) return err('storage_unavailable', 'No connection.');
 
+    // Mirrors the adapter: an id owned by somebody else is refused, not taken.
+    const existing = this.devices.get(device.id);
+    if (existing && existing.userId !== userId) {
+      return err('conflict', 'That device id is already in use.');
+    }
+
     const stored = {
       ...device,
       userId,
