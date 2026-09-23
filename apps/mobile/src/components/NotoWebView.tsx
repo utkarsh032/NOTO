@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import { printHtml, saveFile, type SaveFileRequest } from '../platform/actions';
+import { useNativeIntake } from '../platform/intake';
 import { executeSql, selectSql } from '../platform/sql-host';
 import { useThemeColors } from '../theme';
 
@@ -121,6 +122,12 @@ export function NotoWebView() {
     [inject],
   );
 
+  const pokeIntake = useCallback(() => {
+    inject(`window.__noto&&window.__noto.event('intake',null);`);
+  }, [inject]);
+
+  const takeIntake = useNativeIntake(pokeIntake);
+
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
       let request: BridgeRequest;
@@ -129,6 +136,13 @@ export function NotoWebView() {
       } catch {
         // Not ours. Nothing else posts on this channel today, but a malformed
         // message must not take the application down.
+        return;
+      }
+
+      // Answered here rather than in `handle`, because what it hands over is
+      // held by this component.
+      if (request.channel === 'intake.take') {
+        reply({ id: request.id, ok: true, result: takeIntake() });
         return;
       }
 
@@ -148,7 +162,7 @@ export function NotoWebView() {
         }
       })();
     },
-    [reply],
+    [reply, takeIntake],
   );
 
   /*

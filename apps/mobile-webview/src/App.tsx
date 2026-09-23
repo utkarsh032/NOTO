@@ -1,6 +1,7 @@
 import { NotoApp, NotoDataContext, useNotoDataSource } from '@noto/ui';
 import { useCallback, useEffect } from 'react';
 
+import { NativeIntake } from './platform/NativeIntake';
 import { openMobileDatabase } from './platform/database';
 import {
   installNativeHandlers,
@@ -28,6 +29,7 @@ export function App() {
 
   return (
     <NotoDataContext.Provider value={data}>
+      <NativeIntake />
       <NotoApp />
     </NotoDataContext.Provider>
   );

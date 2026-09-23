@@ -17,7 +17,7 @@ export interface BridgeReply {
   error?: string;
 }
 
-export type BridgeEventName = 'insets' | 'back';
+export type BridgeEventName = 'insets' | 'back' | 'intake';
 
 export interface BridgeInsets {
   top: number;

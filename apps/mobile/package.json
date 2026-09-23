@@ -20,6 +20,7 @@
     "@noto/types": "workspace:*",
     "expo": "~57.0.12",
     "expo-file-system": "~57.0.6",
+    "expo-linking": "~57.0.5",
     "expo-print": "~57.0.1",
     "expo-router": "~57.0.12",
     "expo-sharing": "~57.0.16",
