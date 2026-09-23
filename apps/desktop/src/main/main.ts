@@ -16,6 +16,7 @@ import {
 } from './dock';
 import { registerFileHandlers } from './files';
 import { registerShellHandlers, registerSqlHandlers, registerUpdateHandlers } from './ipc';
+import { installWindowGuards } from './security';
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts';
 import { closeConnection, openConnection } from './sqlite';
 import { initialiseUpdates } from './updater';
@@ -60,6 +61,12 @@ let tray: Tray | null = null;
  * find the first one instead of starting a rival copy on the same database.
  */
 if (!app.requestSingleInstanceLock()) app.quit();
+
+/*
+ * Before any window exists: no window opens another, and none navigates away
+ * from Noto's own renderer. See `security.ts`.
+ */
+installWindowGuards();
 
 /* -------------------------------------------------------------------------- */
 /* Windows                                                                    */

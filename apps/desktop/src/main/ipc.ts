@@ -1,22 +1,34 @@
 import type { SqlValue } from '@noto/database/sqlite';
-import { BrowserWindow, ipcMain, shell } from 'electron';
+import { BrowserWindow, shell } from 'electron';
 
 import { SHELL_CHANNELS, SQL_CHANNELS, UPDATER_CHANNELS } from '../shared/channels';
+import { handleTrusted } from './security';
+import { checkStatement } from './sql-policy';
 import { execute, select } from './sqlite';
 import { checkForUpdates, installUpdate, setUpdatePublisher } from './updater';
 
 /**
  * The renderer stays sandboxed and never touches the file system; it sends
  * statements, which the main process runs against the single open connection.
+ *
+ * Only Noto's own renderer may send them (`handleTrusted`), and a statement
+ * that could reach beyond the database — `ATTACH`, `VACUUM INTO`, an unknown
+ * pragma — is refused whoever sends it. See `security.ts`.
  */
 export function registerSqlHandlers(): void {
-  ipcMain.handle(SQL_CHANNELS.execute, (_event, sql: string, params: SqlValue[] = []) => {
-    execute(sql, params);
+  handleTrusted(SQL_CHANNELS.execute, (_event, sql: unknown, params: unknown = []) => {
+    const check = checkStatement(sql, params);
+    if (!check.ok) throw new Error(`Refused SQL: ${check.reason}.`);
+
+    execute(sql as string, params as SqlValue[]);
   });
 
-  ipcMain.handle(SQL_CHANNELS.select, (_event, sql: string, params: SqlValue[] = []) =>
-    select(sql, params),
-  );
+  handleTrusted(SQL_CHANNELS.select, (_event, sql: unknown, params: unknown = []) => {
+    const check = checkStatement(sql, params);
+    if (!check.ok) throw new Error(`Refused SQL: ${check.reason}.`);
+
+    return select(sql as string, params as SqlValue[]);
+  });
 }
 
 /**
@@ -33,7 +45,7 @@ export function registerSqlHandlers(): void {
  * that is not there beyond saying so.
  */
 export function registerShellHandlers(): void {
-  ipcMain.handle(
+  handleTrusted(
     SHELL_CHANNELS.print,
     (event) =>
       new Promise<{ printed: boolean; reason?: string }>((resolve) => {
@@ -54,7 +66,7 @@ export function registerShellHandlers(): void {
    * asks for. A renderer is the side an injected script would be speaking
    * from, which is exactly why it does not get to make this decision.
    */
-  ipcMain.handle(SHELL_CHANNELS.openExternal, async (_event, target: unknown) => {
+  handleTrusted(SHELL_CHANNELS.openExternal, async (_event, target: unknown) => {
     if (typeof target !== 'string') return false;
 
     let url: URL;
@@ -91,9 +103,9 @@ export function registerUpdateHandlers(): void {
     }
   });
 
-  ipcMain.handle(UPDATER_CHANNELS.check, () => checkForUpdates());
+  handleTrusted(UPDATER_CHANNELS.check, () => checkForUpdates());
 
-  ipcMain.handle(UPDATER_CHANNELS.install, () => {
+  handleTrusted(UPDATER_CHANNELS.install, () => {
     installUpdate();
   });
 }

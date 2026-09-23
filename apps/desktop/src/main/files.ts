@@ -8,7 +8,6 @@ import {
   type SaveDialogOptions,
   app,
   dialog,
-  ipcMain,
 } from 'electron';
 
 import {
@@ -18,6 +17,7 @@ import {
   type SavedFileReport,
   type WriteReport,
 } from '../shared/channels';
+import { handleTrusted } from './security';
 
 /**
  * Files on the user's disk, for the sandboxed renderer.
@@ -135,7 +135,7 @@ function suggestedFileName(value: unknown): string {
 }
 
 export function registerFileHandlers(): void {
-  ipcMain.handle(FILE_CHANNELS.open, async (event): Promise<OpenedFileReport[] | null> => {
+  handleTrusted(FILE_CHANNELS.open, async (event): Promise<OpenedFileReport[] | null> => {
     const owner = windowFor(event.sender);
     const options: OpenDialogOptions = {
       title: 'Open',
@@ -163,7 +163,7 @@ export function registerFileHandlers(): void {
     return files;
   });
 
-  ipcMain.handle(
+  handleTrusted(
     FILE_CHANNELS.saveAs,
     async (event, suggested: unknown): Promise<SavedFileReport | null> => {
       const owner = windowFor(event.sender);
@@ -195,7 +195,7 @@ export function registerFileHandlers(): void {
    * Reopening from Recent. The same grant list guards it as guards a write:
    * the renderer may ask for a file the user once chose, and for nothing else.
    */
-  ipcMain.handle(FILE_CHANNELS.read, async (_event, target: unknown): Promise<ReadReport> => {
+  handleTrusted(FILE_CHANNELS.read, async (_event, target: unknown): Promise<ReadReport> => {
     if (typeof target !== 'string') {
       return { text: null, reason: 'Noto could not read that file.' };
     }
@@ -225,7 +225,7 @@ export function registerFileHandlers(): void {
     }
   });
 
-  ipcMain.handle(
+  handleTrusted(
     FILE_CHANNELS.write,
     async (_event, target: unknown, contents: unknown): Promise<WriteReport> => {
       if (typeof target !== 'string' || typeof contents !== 'string') {
