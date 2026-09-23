@@ -50,6 +50,8 @@ export {
 export { SyncStatus, type SyncStatusProps } from './components/SyncStatus';
 export { EmptyState, type EmptyStateProps } from './components/EmptyState';
 export { ErrorState, type ErrorStateProps } from './components/ErrorState';
+export { ErrorBoundary, type ErrorBoundaryProps } from './components/ErrorBoundary';
+export { isChunkLoadError } from './components/chunk-error';
 export { LoadingState, type LoadingStateProps } from './components/LoadingState';
 export { ToastViewport } from './components/Toast';
 export {

@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@noto/ui';
+import { Button, ErrorBoundary, ThemeProvider } from '@noto/ui';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -34,6 +34,25 @@ const isDock = window.location.hash.startsWith('#/dock');
 
 createRoot(container).render(
   <StrictMode>
-    <ThemeProvider>{isDock ? <DockApp /> : <App />}</ThemeProvider>
+    <ThemeProvider>
+      {isDock ? (
+        /*
+         * The application window has its own boundaries inside `NotoApp`. The
+         * dock is a transparent window, so a crash there would otherwise leave
+         * an invisible rectangle on the edge of the screen.
+         */
+        <ErrorBoundary
+          fallback={() => (
+            <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+              Reload dock
+            </Button>
+          )}
+        >
+          <DockApp />
+        </ErrorBoundary>
+      ) : (
+        <App />
+      )}
+    </ThemeProvider>
   </StrictMode>,
 );

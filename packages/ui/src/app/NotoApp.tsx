@@ -11,6 +11,7 @@ import {
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../components/Button';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingState } from '../components/LoadingState';
 import { Skeleton } from '../components/Skeleton';
@@ -45,6 +46,7 @@ import {
 } from './local-file';
 import { quickNoteTitle } from './quick-note-draft';
 import { navigate } from './router';
+import { AppCrash, ScreenError } from './ScreenError';
 import { useAccount } from './use-account';
 import { useRouteGuard } from './use-route-guard';
 import { useSignOut } from './use-sign-out';
@@ -125,6 +127,24 @@ const NO_OVERLAYS: Overlays = {
  * than to the document. Each screen owns everything else about itself.
  */
 export function NotoApp() {
+  /*
+   * The outermost boundary: something above every screen failed. Each screen
+   * has its own boundary inside, so reaching this one is rare — and when it
+   * happens the page says so instead of going blank.
+   */
+  return (
+    <ErrorBoundary onError={reportRenderError} fallback={(error) => <AppCrash error={error} />}>
+      <NotoWindow />
+    </ErrorBoundary>
+  );
+}
+
+function reportRenderError(error: Error): void {
+  // The only record of a render crash until error tracking exists.
+  console.error('[noto] render error', error);
+}
+
+function NotoWindow() {
   const { status, error, activeDocument, documents } = useNotoData();
   const route = useRoute();
   const viewport = useViewport();
@@ -508,10 +528,15 @@ export function NotoApp() {
     if (guarded) return <WindowLoading />;
 
     return (
-      <Suspense fallback={<ScreenLoading />}>
-        <LoginScreen />
-        <ToastViewport />
-      </Suspense>
+      <ErrorBoundary
+        onError={reportRenderError}
+        fallback={(failure, reset) => <ScreenError error={failure} onRetry={reset} />}
+      >
+        <Suspense fallback={<ScreenLoading />}>
+          <LoginScreen />
+          <ToastViewport />
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
@@ -580,52 +605,64 @@ export function NotoApp() {
          * One boundary around the lazy screens, keyed by route so that moving
          * between two of them shows the placeholder rather than holding the
          * previous screen on screen while the next one arrives.
+         *
+         * The error boundary is keyed the same way: a screen that failed is
+         * forgotten as soon as you go somewhere else, and the sidebar, tabs
+         * and overlays around it keep working while it is broken.
          */}
-        <Suspense key={route.name} fallback={<ScreenLoading />}>
-          {/*
-           * A guarded route gets the placeholder instead of its screen. `wait`
-           * is a session still coming back and `redirecting` is the frame
-           * before the hash changes; painting the screen through either one is
-           * how a private page ends up on screen for somebody without it.
-           */}
-          {guarded ? <ScreenLoading /> : null}
-
-          {guarded ? null : (
-            <>
-              {route.name === 'workspace' ? (
-                <WorkspaceScreen
-                  documentId={route.param}
-                  onRegisterFlush={registerFlush}
-                  onShortcuts={() => show('shortcuts')}
-                />
-              ) : null}
-
-              {route.name === 'documents' ? <DocumentsScreen /> : null}
-              {route.name === 'quick-note' ? (
-                <QuickNoteScreen
-                  onQuickNote={() => show('quickNote')}
-                  onShowDock={() => {
-                    setDockEnabled(true);
-                    showToast('Quick Note dock is on the edge of the window.');
-                  }}
-                />
-              ) : null}
-              {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
-              {route.name === 'search' ? (
-                <SearchScreen
-                  query={route.param}
-                  onAskAI={() => {
-                    navigate('workspace');
-                    showToast('Noto AI is in the panel beside the document.');
-                  }}
-                />
-              ) : null}
-              {route.name === 'settings' ? <SettingsScreen /> : null}
-              {route.name === 'account' ? <AccountScreen /> : null}
-              {route.name === 'plans' ? <PlansScreen /> : null}
-            </>
+        <ErrorBoundary
+          key={route.name}
+          onError={reportRenderError}
+          fallback={(failure, reset) => (
+            <ScreenError error={failure} onRetry={reset} onHome={() => navigate('home')} />
           )}
-        </Suspense>
+        >
+          <Suspense fallback={<ScreenLoading />}>
+            {/*
+             * A guarded route gets the placeholder instead of its screen. `wait`
+             * is a session still coming back and `redirecting` is the frame
+             * before the hash changes; painting the screen through either one is
+             * how a private page ends up on screen for somebody without it.
+             */}
+            {guarded ? <ScreenLoading /> : null}
+
+            {guarded ? null : (
+              <>
+                {route.name === 'workspace' ? (
+                  <WorkspaceScreen
+                    documentId={route.param}
+                    onRegisterFlush={registerFlush}
+                    onShortcuts={() => show('shortcuts')}
+                  />
+                ) : null}
+
+                {route.name === 'documents' ? <DocumentsScreen /> : null}
+                {route.name === 'quick-note' ? (
+                  <QuickNoteScreen
+                    onQuickNote={() => show('quickNote')}
+                    onShowDock={() => {
+                      setDockEnabled(true);
+                      showToast('Quick Note dock is on the edge of the window.');
+                    }}
+                  />
+                ) : null}
+                {route.name === 'memory' ? <MemoryScreen kind={route.param} /> : null}
+                {route.name === 'search' ? (
+                  <SearchScreen
+                    query={route.param}
+                    onAskAI={() => {
+                      navigate('workspace');
+                      showToast('Noto AI is in the panel beside the document.');
+                    }}
+                  />
+                ) : null}
+                {route.name === 'settings' ? <SettingsScreen /> : null}
+                {route.name === 'account' ? <AccountScreen /> : null}
+                {route.name === 'plans' ? <PlansScreen /> : null}
+              </>
+            )}
+          </Suspense>
+        </ErrorBoundary>
       </NotoAppShell>
 
       {/*
