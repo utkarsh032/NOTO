@@ -2,13 +2,13 @@ import {
   createDocument as buildDocument,
   deleteDocument as applyDelete,
   restoreDocument as applyRestore,
-  updateDocument as applyUpdate,
 } from '@noto/core';
 import type { NotoDatabase } from '@noto/database';
 import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { NotoDataValue } from './data-context';
+import { writeDocumentUpdate } from './document-writes';
 
 export interface NotoDataSourceOptions {
   /**
@@ -104,10 +104,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
     const database = databaseRef.current;
     if (!database) return;
 
-    const existing = await database.documents.get(id);
-    if (!existing) return;
-
-    await database.documents.put(applyUpdate(existing, patch));
+    await writeDocumentUpdate(database, id, patch);
     setRevision((value) => value + 1);
   }, []);
 

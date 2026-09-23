@@ -171,6 +171,8 @@ export {
   type MemoryValue,
 } from './app/memory/use-memory';
 export { notifyDataChanged, useDataRevision, type DataTopic } from './app/data-events';
+export { writeDocumentUpdate } from './app/document-writes';
+export { useDocumentVersions, type DocumentVersions } from './app/versions/use-document-versions';
 export { Highlight, type HighlightProps } from './app/search/Highlight';
 export { SearchResultRow, type SearchResultRowProps } from './app/search/SearchResultRow';
 export {
@@ -332,5 +334,4 @@ export {
   type PlanId,
   type PlanPrice,
 } from './mock/plans';
-export { buildVersions } from './mock/versions';
 export { MOCK_DEVICES, MOCK_PLAN, MOCK_SECURITY, MOCK_SESSIONS, MOCK_USER } from './mock/account';

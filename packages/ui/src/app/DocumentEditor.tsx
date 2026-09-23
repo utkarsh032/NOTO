@@ -1,4 +1,5 @@
 import { clampZoom, useSettingsStore } from '@noto/core';
+import { recordVersion } from '@noto/database';
 import { setShowInvisibles, toEditorContent } from '@noto/editor';
 import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
@@ -8,10 +9,12 @@ import { Button } from '../components/Button';
 import { AlertIcon } from '../components/icons';
 import { showToast } from '../components/toast-store';
 import { cn } from '../utils/cn';
+import { formatDateTime } from '../utils/format';
 import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
 import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { notifyDataChanged } from './data-events';
 import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
 import { saveDocumentToFile } from './local-file';
 import { printDocument } from './print';
@@ -53,7 +56,7 @@ export function DocumentEditor({
   onRegisterFlush,
   onSaveStateChange,
 }: DocumentEditorProps) {
-  const { updateDocument } = useNotoData();
+  const { database, updateDocument } = useNotoData();
   const { autoSaveDelayMs, showInvisibles, wordWrap, zoom } = useSettingsStore(
     (state) => state.settings.editor,
   );
@@ -265,6 +268,53 @@ export function DocumentEditor({
     setRecovered(null);
   }, [recovered, editor, scheduleSave]);
 
+  /*
+   * Restoring a version, asked for by the Versions panel.
+   *
+   * Done here rather than there because this is where the unsaved keystrokes
+   * are. In order: write them, keep the document as it now is (so the restore
+   * can itself be undone), then put the old text into the live editor and
+   * save it. Nothing between the click and the restore is lost.
+   */
+  const restoreVersion = useCallback(
+    async (versionId: string) => {
+      if (!database || !editor) return;
+
+      const version = await database.versions.get(versionId);
+      if (!version || version.documentId !== documentId) return;
+
+      await flush();
+
+      const current = await database.documents.get(documentId);
+      if (current) {
+        await recordVersion(database, current, 'restore', {
+          summary: 'Before restoring an earlier version',
+        });
+      }
+
+      editor.commands.setContent(toEditorContent(version.content));
+      setTitle(version.title);
+      titleRef.current = version.title;
+      contentRef.current = version.content;
+      scheduleSave({ title: version.title, content: version.content });
+      await flush();
+
+      notifyDataChanged('versions');
+      showToast(`Restored the version from ${formatDateTime(version.createdAt)}`, {
+        tone: 'success',
+      });
+    },
+    [database, editor, documentId, flush, scheduleSave],
+  );
+
+  useEffect(
+    () =>
+      subscribeToAppCommands((commandId, argument) => {
+        if (commandId === 'document.restoreVersion' && argument) void restoreVersion(argument);
+      }),
+    [restoreVersion],
+  );
+
   const discardRecovery = useCallback(() => {
     clearSnapshot(documentId);
     setRecovered(null);
@@ -296,9 +346,22 @@ export function DocumentEditor({
    * failed says so, because somebody who pressed Save and heard nothing is
    * somebody who believes their work is on disk.
    */
+  /*
+   * Pressing Save is also a checkpoint: once the workspace copy is written,
+   * the document as it now stands is kept as a version.
+   */
+  const keepSavedVersion = useCallback(async () => {
+    if (!database) return;
+
+    const saved = await database.documents.get(documentId);
+    if (!saved) return;
+
+    if (await recordVersion(database, saved, 'manual')) notifyDataChanged('versions');
+  }, [database, documentId]);
+
   const saveToFile = useCallback(
     async (chooseLocation: boolean) => {
-      void flush();
+      void flush().then(keepSavedVersion);
 
       try {
         const saved = await saveDocumentToFile(
@@ -319,7 +382,7 @@ export function DocumentEditor({
         );
       }
     },
-    [documentId, flush],
+    [documentId, flush, keepSavedVersion],
   );
 
   /*

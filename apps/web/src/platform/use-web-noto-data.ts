@@ -2,10 +2,9 @@ import {
   createDocument as buildDocument,
   deleteDocument as applyDelete,
   restoreDocument as applyRestore,
-  updateDocument as applyUpdate,
 } from '@noto/core';
 import type { UpdateDocumentInput, Workspace } from '@noto/types';
-import type { NotoDataValue } from '@noto/ui';
+import { type NotoDataValue, writeDocumentUpdate } from '@noto/ui';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -79,10 +78,7 @@ export function useWebNotoData(): NotoDataValue {
   }, [workspaceId]);
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
-    const existing = await db.documents.get(id);
-    if (!existing) return;
-
-    await db.documents.put(applyUpdate(existing, patch));
+    await writeDocumentUpdate(db, id, patch);
   }, []);
 
   const deleteDocument = useCallback(async (id: string) => {
