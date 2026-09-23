@@ -239,6 +239,11 @@ jobs:
             echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
 
+      # As on Android: `with-ios-webapp.cjs` copies the built interface into
+      # the application bundle during prebuild, and fails if it is not there.
+      - name: Build the interface
+        run: pnpm build --filter=@noto/mobile-webview...
+
       # Bounded and run from the package directory for the same reasons as the
       # Android step above.
       - name: Generate native iOS project
