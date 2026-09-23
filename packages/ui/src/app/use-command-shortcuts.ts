@@ -1,6 +1,6 @@
 import { CORE_COMMANDS, type CommandContext, type ShortcutPlatform, scopeOf } from '@noto/core';
 import { findCommandForEvent } from '@noto/core';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 /** Handlers keyed by command id. A command with no handler stays unbound. */
 export type CommandHandlers = Record<string, (() => void) | undefined>;
@@ -45,12 +45,19 @@ export function useCommandShortcuts(handlers: CommandHandlers, context: CommandC
   const handlersRef = useRef(handlers);
   const contextRef = useRef(context);
 
-  useEffect(() => {
+  /*
+   * Layout effects, not passive ones: both run before the browser paints. A
+   * passive effect runs after, which left a moment where the window already
+   * showed the ready workspace while a key still reached the handlers from
+   * the render before it — Ctrl+O answered "still opening" to a window that
+   * visibly was not.
+   */
+  useLayoutEffect(() => {
     handlersRef.current = handlers;
     contextRef.current = context;
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const platform = detectShortcutPlatform();
 
     const onKeyDown = (event: KeyboardEvent) => {
