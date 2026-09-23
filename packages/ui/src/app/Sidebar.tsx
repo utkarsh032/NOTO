@@ -228,23 +228,18 @@ export function Sidebar({
   const full = (
     <>
       <header className={cn(brandBar, 'items-center px-5')}>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          {/* The wordmark is the way home. It carries the product name and the
-              destination together, so the label is on the button and the image
-              itself is left silent rather than being read out twice. */}
-          <button
-            type="button"
-            onClick={() => navigate({ name: 'home' })}
-            aria-label="Noto — go to Home"
-            title="Home"
-            className="focus-visible:outline-brand self-start rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <img src={notoWordmark} alt="" className="h-6 w-auto" draggable={false} />
-          </button>
-          {/* What Noto is for, in three words. It sits under the mark rather
-              than being read out as part of it. */}
-          <p className="text-tertiary text-caption truncate">Write. Remember. Find.</p>
-        </div>
+        {/* The wordmark is the way home. It carries the product name and the
+            destination together, so the label is on the button and the image
+            itself is left silent rather than being read out twice. */}
+        <button
+          type="button"
+          onClick={() => navigate({ name: 'home' })}
+          aria-label="Noto — go to Home"
+          title="Home"
+          className="focus-visible:outline-brand rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <img src={notoWordmark} alt="" className="h-6 w-auto" draggable={false} />
+        </button>
       </header>
 
       {/*

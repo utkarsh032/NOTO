@@ -78,8 +78,23 @@ export function useNotoEditor({
     },
   });
 
+  /*
+   * Editability, without pretending anything was typed.
+   *
+   * `setEditable` emits an update by default, and an update is what the shell
+   * treats as an edit — so the effect that runs when an editor mounts was
+   * announcing a change to a document nobody had touched. That marked the tab
+   * unsaved, wrote the document straight back to storage, and moved it to the
+   * top of every list ordered by when it was last changed, purely for having
+   * been opened. Reading a document is not editing it.
+   *
+   * The guard is the other half: React re-runs this effect whenever the editor
+   * instance changes, and setting a flag to the value it already holds is not
+   * worth a round trip through ProseMirror.
+   */
   useEffect(() => {
-    editor?.setEditable(editable);
+    if (!editor || editor.isDestroyed || editor.isEditable === editable) return;
+    editor.setEditable(editable, false);
   }, [editor, editable]);
 
   /*

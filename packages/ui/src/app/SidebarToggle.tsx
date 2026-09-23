@@ -45,7 +45,11 @@ export function SidebarToggle({ className }: SidebarToggleProps) {
       aria-expanded={!collapsed}
       title={label}
       className={cn(
-        'noto-print-hidden group absolute -right-3.5 z-30',
+        /* Inside the brand bar while the panel is open, at the end of the row
+           the wordmark starts. The collapsed rail is too narrow to hold it
+           beside the mark, so there it rides the divider instead. */
+        'noto-print-hidden group absolute z-30',
+        collapsed ? '-right-3.5' : 'right-3',
         'bg-brand text-on-brand hover:bg-brand-hover flex h-7 w-7 items-center justify-center rounded-lg shadow-md hover:shadow-lg',
         'focus-visible:outline-brand focus-visible:outline-2 focus-visible:outline-offset-2',
         'transition-[background-color,box-shadow,transform] ease-out',
