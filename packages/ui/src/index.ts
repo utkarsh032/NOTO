@@ -272,7 +272,8 @@ export {
   type UpdateState,
   type UpdateStatus,
 } from './app/updates';
-export { clearSnapshot, readSnapshot, writeSnapshot, type RecoverySnapshot } from './app/recovery';
+export { recoveryFor, type RecoverySnapshot, type RecoveryStore } from './app/recovery';
+export { usePersistQuickNoteDraft } from './app/use-persist-quick-note-draft';
 export {
   useFormattingPrompts,
   type FormattingPrompts,

@@ -4,6 +4,7 @@ import {
   DockPanel,
   NotoDataContext,
   notifyDataChanged,
+  usePersistQuickNoteDraft,
   useNotoDataSource,
   type DockSide,
 } from '@noto/ui';
@@ -32,6 +33,7 @@ import { openDesktopDatabase } from './platform/database';
 export function DockApp() {
   const open = useCallback(() => openDesktopDatabase(), []);
   const data = useNotoDataSource({ open });
+  usePersistQuickNoteDraft(data.database);
 
   const [side, setSide] = useState<DockSide>('right');
   const [expanded, setExpanded] = useState(false);

@@ -1,3 +1,5 @@
+import type { NotoDatabase } from '@noto/database';
+
 /**
  * The Quick Note draft.
  *
@@ -7,13 +9,65 @@
  * gone. A thought started in one of them has to be findable in the others, or
  * "quick" only means "quick to lose".
  *
- * Local storage rather than the database on purpose. A draft is not a document
- * yet; it has no title, no id and nothing to sync, and writing one to the
- * document store on every keystroke would fill the workspace with things
- * nobody chose to keep. Saving is what turns it into a document.
+ * Local storage is the fast path, on purpose: reads are synchronous, which is
+ * what lets every surface render the same string on the same frame, and its
+ * `storage` event is how the desktop dock and the application window — two
+ * renderers — hear each other. A draft is not a document yet, so it is never
+ * written to the document store.
+ *
+ * But local storage is also the first thing a browser clears. So the draft is
+ * mirrored into the database's `local_state` table as well, a moment after
+ * each change, and put back from there when local storage comes up empty.
+ * See `persistQuickNoteDraftTo`.
  */
 
 const DRAFT_KEY = 'noto.quick-note.draft';
+
+/** The draft's key in the database's `local_state` table. */
+const DRAFT_STATE_KEY = 'draft:quick-note';
+
+/** How long after the last keystroke the durable copy is written. */
+const MIRROR_DELAY_MS = 500;
+
+let durable: NotoDatabase | null = null;
+let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
+
+function mirror(text: string): void {
+  if (!durable) return;
+
+  if (mirrorTimer) clearTimeout(mirrorTimer);
+  const database = durable;
+
+  mirrorTimer = setTimeout(() => {
+    mirrorTimer = null;
+    const write =
+      text === ''
+        ? database.localState.delete(DRAFT_STATE_KEY)
+        : database.localState.set(DRAFT_STATE_KEY, text);
+    // Local storage still has it; losing the backup is not worth a message.
+    void write.catch(() => undefined);
+  }, MIRROR_DELAY_MS);
+}
+
+/**
+ * Keeps a durable copy of the draft in `database`, for as long as the returned
+ * function is not called. If local storage has no draft — cleared, or a new
+ * browser profile over the same data — the copy is put back.
+ */
+export function persistQuickNoteDraftTo(database: NotoDatabase): () => void {
+  durable = database;
+
+  void database.localState
+    .get<string>(DRAFT_STATE_KEY)
+    .then((saved) => {
+      if (saved && readQuickNoteDraft() === '') writeQuickNoteDraft(saved);
+    })
+    .catch(() => undefined);
+
+  return () => {
+    if (durable === database) durable = null;
+  };
+}
 
 /** Fires whenever the draft changes in this window. */
 const CHANGE_EVENT = 'noto:quick-note-draft';
@@ -43,6 +97,8 @@ export function writeQuickNoteDraft(text: string): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   }
+
+  mirror(text);
 }
 
 /**

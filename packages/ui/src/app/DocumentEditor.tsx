@@ -18,7 +18,7 @@ import { notifyDataChanged } from './data-events';
 import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
 import { saveDocumentToFile } from './local-file';
 import { printDocument } from './print';
-import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
+import { type RecoverySnapshot, recoveryFor } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
 import { useFormattingPrompts } from './use-formatting-prompts';
 
@@ -70,6 +70,9 @@ export function DocumentEditor({
 
   const documentId = activeDocument.id;
 
+  // Always present by the time an editor mounts: the workspace is open.
+  const recovery = useMemo(() => (database ? recoveryFor(database) : null), [database]);
+
   /**
    * Writes whatever is queued, right now.
    *
@@ -92,14 +95,14 @@ export function DocumentEditor({
     // it has unsaved work.
     return updateDocument(documentId, queued).then(() => {
       // Nothing left for a recovery snapshot to rescue once the write lands.
-      if (Object.keys(pendingRef.current).length === 0) clearSnapshot(documentId);
+      if (Object.keys(pendingRef.current).length === 0) void recovery?.clear(documentId);
       if (!mountedRef.current) return;
 
       // A keystroke landing mid-write queues more work. Reporting "Saved" here
       // would describe a document that is already out of date again.
       if (Object.keys(pendingRef.current).length === 0) setSaveState('saved');
     });
-  }, [documentId, updateDocument]);
+  }, [documentId, updateDocument, recovery]);
 
   const scheduleSave = useCallback(
     (patch: UpdateDocumentInput) => {
@@ -167,24 +170,46 @@ export function DocumentEditor({
 
   /*
    * What was in the editor when the process last stopped, if that is newer than
-   * what reached storage. Read once, on mount, before anything is typed.
+   * what reached storage. Read once, on mount. Snapshots of this session's
+   * typing wait until the read is back, so they cannot be mistaken for the
+   * last session's — and an answer that arrives after typing has started is
+   * dropped for the same reason.
    */
-  const [recovered, setRecovered] = useState<RecoverySnapshot | null>(() =>
-    readSnapshot(activeDocument.id, activeDocument.updatedAt),
-  );
+  const [recovered, setRecovered] = useState<RecoverySnapshot | null>(null);
+  const recoveryReadRef = useRef(false);
+  const editedRef = useRef(false);
+  const openedUpdatedAtRef = useRef(activeDocument.updatedAt);
+
+  useEffect(() => {
+    if (!recovery) return;
+
+    let active = true;
+    void recovery.read(documentId, openedUpdatedAtRef.current).then((found) => {
+      if (!active) return;
+      recoveryReadRef.current = true;
+      if (!editedRef.current) setRecovered(found);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [recovery, documentId]);
 
   const contentRef = useRef<DocumentContent>(activeDocument.content);
   const titleRef = useRef(activeDocument.title);
 
   /** Records the live state, so a crash inside the debounce window survives. */
   const snapshot = useCallback(() => {
-    writeSnapshot({
+    editedRef.current = true;
+    if (!recovery || !recoveryReadRef.current) return;
+
+    recovery.write({
       documentId,
       title: titleRef.current,
       content: contentRef.current,
       savedAt: Date.now(),
     });
-  }, [documentId]);
+  }, [documentId, recovery]);
 
   /*
    * The title lives in local state so typing does not wait for a write. That
@@ -316,9 +341,9 @@ export function DocumentEditor({
   );
 
   const discardRecovery = useCallback(() => {
-    clearSnapshot(documentId);
+    void recovery?.clear(documentId);
     setRecovered(null);
-  }, [documentId]);
+  }, [documentId, recovery]);
 
   /* ---------------------------------------------------------------------- */
   /* Find                                                                   */

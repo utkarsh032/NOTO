@@ -52,6 +52,7 @@ import { useRouteGuard } from './use-route-guard';
 import { useSignOut } from './use-sign-out';
 import { claimFirstLaunch } from './welcome';
 import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
+import { usePersistQuickNoteDraft } from './use-persist-quick-note-draft';
 import { useDocumentTabs } from './use-document-tabs';
 import { useNotoActions } from './use-noto-actions';
 import { useResponsiveSidebar } from './use-responsive-sidebar';
@@ -145,7 +146,7 @@ function reportRenderError(error: Error): void {
 }
 
 function NotoWindow() {
-  const { status, error, activeDocument, documents } = useNotoData();
+  const { status, error, activeDocument, documents, database } = useNotoData();
   const route = useRoute();
   const viewport = useViewport();
   const { user } = useAccount();
@@ -419,6 +420,7 @@ function NotoWindow() {
   );
 
   useCommandShortcuts(commandHandlers, commandContext);
+  usePersistQuickNoteDraft(database);
   useResponsiveSidebar();
   useUpdateWatcher();
 
