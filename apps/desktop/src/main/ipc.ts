@@ -1,5 +1,8 @@
 import type { SqlValue } from '@noto/database/sqlite';
-import { BrowserWindow, shell } from 'electron';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { BrowserWindow, dialog, shell } from 'electron';
 
 import { SHELL_CHANNELS, SQL_CHANNELS, UPDATER_CHANNELS } from '../shared/channels';
 import { handleTrusted } from './security';
@@ -54,6 +57,38 @@ export function registerShellHandlers(): void {
         );
       }),
   );
+
+  /*
+   * PDF export: the page the printer would get, written to a file.
+   *
+   * The same render as printing — the print stylesheet decides what is on the
+   * page — at A4 with the CSS page size honoured, so the page layout setting's
+   * margins come through. The name is the renderer's suggestion, reduced to a
+   * bare file name; where it goes is the user's choice in the save dialog.
+   */
+  handleTrusted(SHELL_CHANNELS.printToPdf, async (event, suggested: unknown) => {
+    const base = path.basename(typeof suggested === 'string' ? suggested : 'document.pdf');
+    const name = base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`;
+
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      defaultPath: name,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    };
+    const choice = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options);
+    if (choice.canceled || !choice.filePath) return 'cancelled';
+
+    const pdf = await event.sender.printToPDF({
+      pageSize: 'A4',
+      printBackground: false,
+      preferCSSPageSize: true,
+    });
+    await writeFile(choice.filePath, pdf);
+
+    return 'saved';
+  });
 
   /*
    * Opening a link outside Noto.

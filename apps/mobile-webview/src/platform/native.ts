@@ -41,7 +41,13 @@ export function installNativeHandlers(): () => void {
   });
 
   setDownloadHandler(async ({ fileName, contents, mimeType }) => {
-    await requestFromNative<void>('file.save', { fileName, contents, mimeType });
+    // The bridge carries JSON, so a binary format (DOCX) travels as base64.
+    const payload =
+      typeof contents === 'string'
+        ? { fileName, contents, mimeType }
+        : { fileName, contents: toBase64(contents), mimeType, encoding: 'base64' as const };
+
+    await requestFromNative<void>('file.save', payload);
   });
 
   return () => {
@@ -68,4 +74,13 @@ export function installSafeAreaInsets(): () => void {
   };
 
   return onNativeEvent<BridgeInsets>('insets', apply);
+}
+
+/** Bytes as base64, in chunks so a large file does not overflow the argument list. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
 }

@@ -33,6 +33,10 @@ const notoShell = {
   print: (): Promise<{ printed: boolean; reason?: string }> =>
     ipcRenderer.invoke(SHELL_CHANNELS.print) as Promise<{ printed: boolean; reason?: string }>,
 
+  /** Asks where to save, then writes the page as a PDF. */
+  printToPdf: (suggestedName: string): Promise<'saved' | 'cancelled'> =>
+    ipcRenderer.invoke(SHELL_CHANNELS.printToPdf, suggestedName) as Promise<'saved' | 'cancelled'>,
+
   /**
    * Commands raised outside the window — a global accelerator, a tray menu.
    *

@@ -1,13 +1,17 @@
 import { plainTextFromContent, slugify } from '@noto/core';
+import { htmlToContent } from '@noto/editor';
 import type { DocumentContent, NotoDocument } from '@noto/types';
+
+import { documentToDocx } from './docx';
 
 /**
  * Getting a document out of Noto.
  *
  * Local-first means the user's work is theirs, so every format here is written
- * from the stored ProseMirror JSON with no service in the middle. The two
- * formats Noto cannot yet write — PDF and DOCX — are declared unsupported
- * rather than quietly missing, and PDF has an honest answer already: print.
+ * from the stored ProseMirror JSON with no service in the middle. PDF goes
+ * through printing — the desktop writes the file itself, a browser offers
+ * "Save as PDF" in its print dialog — because the print stylesheet is already
+ * the page layout a PDF should have.
  */
 
 export type ExportFormat = 'txt' | 'md' | 'html' | 'json' | 'pdf' | 'docx';
@@ -60,7 +64,7 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     label: 'PDF',
     extension: 'pdf',
     mimeType: 'application/pdf',
-    description: 'Use Print, and choose Save as PDF.',
+    description: 'The page as it prints, with its margins.',
     supported: false,
   },
   {
@@ -68,8 +72,8 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     label: 'Word (DOCX)',
     extension: 'docx',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    description: 'Not available yet.',
-    supported: false,
+    description: 'Headings, lists, tables and links, for Word.',
+    supported: true,
   },
 ];
 
@@ -411,8 +415,8 @@ export function serialiseDocument(
 export interface DownloadRequest {
   /** The name Noto would give the file, extension included. */
   fileName: string;
-  /** The serialised document. */
-  contents: string;
+  /** The serialised document: text, or bytes for a binary format. */
+  contents: string | Uint8Array;
   mimeType: string;
   format: ExportFormat;
 }
@@ -455,7 +459,8 @@ export function downloadDocument(
   const info = EXPORT_FORMATS.find((candidate) => candidate.id === format);
   if (!info?.supported) return false;
 
-  const contents = serialiseDocument(document, format);
+  const contents =
+    format === 'docx' ? documentToDocx(document) : serialiseDocument(document, format);
   const fileName = `${slugify(document.title || 'untitled') || 'untitled'}.${info.extension}`;
 
   deliverFile({ fileName, contents, mimeType: info.mimeType, format });
@@ -490,9 +495,10 @@ export function deliverFile(request: DownloadRequest): void {
     return;
   }
 
-  const blob = new Blob([request.contents], {
-    type: `${request.mimeType};charset=utf-8`,
-  });
+  const blob =
+    typeof request.contents === 'string'
+      ? new Blob([request.contents], { type: `${request.mimeType};charset=utf-8` })
+      : new Blob([request.contents as Uint8Array<ArrayBuffer>], { type: request.mimeType });
   const url = URL.createObjectURL(blob);
 
   const anchor = window.document.createElement('a');
@@ -550,7 +556,17 @@ export function parseImportedFile(name: string, text: string): ImportedDocument 
     return { title: stem, content: markdownToContent(text) };
   }
 
+  if ((extension === 'html' || extension === 'htm') && typeof DOMParser !== 'undefined') {
+    return { title: titleFromHtml(text) ?? stem, content: htmlToContent(text) };
+  }
+
   return { title: stem, content: textToContent(stripHtml(text)) };
+}
+
+/** The page's own `<title>`, when it has a real one. */
+function titleFromHtml(html: string): string | null {
+  const title = new DOMParser().parseFromString(html, 'text/html').title.trim();
+  return title === '' ? null : title;
 }
 
 function stripHtml(value: string): string {

@@ -5,6 +5,7 @@ import {
   emitAppCommand,
   setExternalLinkHandler,
   setLocalFileGateway,
+  setPdfExportHandler,
   setPrintHandler,
   setUpdateProvider,
   useNotoDataSource,
@@ -43,7 +44,13 @@ export function App() {
       }
     });
 
-    return () => setPrintHandler(null);
+    // PDF export writes a file directly here, rather than going through print.
+    setPdfExportHandler((suggestedName) => window.notoShell.printToPdf(suggestedName));
+
+    return () => {
+      setPrintHandler(null);
+      setPdfExportHandler(null);
+    };
   }, []);
 
   /*

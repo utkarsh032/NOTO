@@ -23,6 +23,8 @@ export const SQL_CHANNELS = {
  */
 export const SHELL_CHANNELS = {
   print: 'noto:shell:print',
+  /** Renderer → main: render the page to a PDF and save it where the user chooses. */
+  printToPdf: 'noto:shell:print-to-pdf',
   command: 'noto:shell:command',
   /**
    * Renderer → main: open a URL in the user's own browser.

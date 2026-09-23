@@ -255,7 +255,15 @@ export {
 } from './app/use-command-shortcuts';
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
-export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
+export {
+  canExportPdf,
+  exportPdf,
+  printDocument,
+  setPdfExportHandler,
+  setPrintHandler,
+  type PdfExportHandler,
+  type PrintHandler,
+} from './app/print';
 export {
   openExternalLink,
   setExternalLinkHandler,

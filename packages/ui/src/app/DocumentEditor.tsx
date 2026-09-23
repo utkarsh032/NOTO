@@ -17,6 +17,7 @@ import { useNotoData } from './data-context';
 import { notifyDataChanged } from './data-events';
 import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
 import { saveDocumentToFile } from './local-file';
+import { registerPendingWrites } from './pending-writes';
 import { printDocument } from './print';
 import { type RecoverySnapshot, recoveryFor } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
@@ -120,6 +121,9 @@ export function DocumentEditor({
     onRegisterFlush?.(() => void flush());
     return () => onRegisterFlush?.(null);
   }, [onRegisterFlush, flush]);
+
+  /* And export, which must read back what is on screen. */
+  useEffect(() => registerPendingWrites(flush), [flush]);
 
   /* The tab shows a dot for as long as there is unwritten work. */
   const onDirtyChangeRef = useRef(onDirtyChange);
