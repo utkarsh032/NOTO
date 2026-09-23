@@ -22,7 +22,7 @@ export const DATABASE_NAME = 'noto';
  * Schema version of the local database. Bump this whenever a migration is
  * added, on every platform at once, so the stores never drift apart.
  */
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
 
 /** Keys used for lightweight key/value persistence (localStorage, AsyncStorage). */
 export const STORAGE_KEYS = {

@@ -2,6 +2,7 @@ export * from './result.ts';
 export * from './id.ts';
 export * from './clock.ts';
 export * from './text.ts';
+export * from './hash.ts';
 export * from './zoom.ts';
 export * from './version.ts';
 export * from './documents.ts';

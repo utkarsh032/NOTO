@@ -25,6 +25,7 @@
     "@noto/eslint-config": "workspace:*",
     "@noto/tsconfig": "workspace:*",
     "eslint": "^9.39.5",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

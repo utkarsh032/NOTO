@@ -1,9 +1,16 @@
 import type {
   DocumentContent,
   DocumentStatus,
+  DocumentVersionRecord,
   Folder,
+  MemoryItem,
+  MemoryKind,
   NotoDocument,
   NotoFile,
+  OutboxEntry,
+  SyncEntityKind,
+  SyncOperation,
+  VersionOrigin,
   Workspace,
 } from '@noto/types';
 
@@ -25,6 +32,7 @@ export interface WorkspaceRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  version: number;
 }
 
 export interface FolderRow {
@@ -38,6 +46,7 @@ export interface FolderRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  version: number;
 }
 
 export interface DocumentRow {
@@ -54,6 +63,8 @@ export interface DocumentRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  version: number;
+  content_hash: string | null;
 }
 
 export interface FileRow {
@@ -69,6 +80,7 @@ export interface FileRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  version: number;
 }
 
 const EMPTY_CONTENT: DocumentContent = { type: 'doc', content: [] };
@@ -106,6 +118,7 @@ export function toWorkspace(row: WorkspaceRow): Workspace {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    version: row.version,
   };
 }
 
@@ -134,6 +147,7 @@ export function toFolder(row: FolderRow): Folder {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    version: row.version,
   };
 }
 
@@ -167,6 +181,8 @@ export function toDocument(row: DocumentRow): NotoDocument {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    version: row.version,
+    ...(row.content_hash === null ? {} : { contentHash: row.content_hash }),
   };
 }
 
@@ -202,6 +218,7 @@ export function toFile(row: FileRow): NotoFile {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    version: row.version,
   };
 }
 
@@ -220,4 +237,138 @@ export function fromFile(file: NotoFile): SqlValue[] {
     file.updatedAt,
     file.deletedAt,
   ];
+}
+
+export interface MemoryRow {
+  id: string;
+  workspace_id: string;
+  kind: string;
+  title: string;
+  content: string;
+  source: string | null;
+  url: string | null;
+  tags: string;
+  is_pinned: number;
+  size_bytes: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  version: number;
+}
+
+const MEMORY_KINDS: readonly MemoryKind[] = [
+  'note',
+  'clipboard',
+  'screenshot',
+  'image',
+  'link',
+  'file',
+];
+
+export function toMemoryItem(row: MemoryRow): MemoryItem {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    kind: MEMORY_KINDS.includes(row.kind as MemoryKind) ? (row.kind as MemoryKind) : 'note',
+    title: row.title,
+    content: row.content,
+    source: row.source,
+    url: row.url,
+    tags: parseJson<string[]>(row.tags, []),
+    isPinned: toBoolean(row.is_pinned),
+    sizeBytes: row.size_bytes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    version: row.version,
+  };
+}
+
+export function fromMemoryItem(item: MemoryItem): SqlValue[] {
+  return [
+    item.id,
+    item.workspaceId,
+    item.kind,
+    item.title,
+    item.content,
+    item.source,
+    item.url,
+    JSON.stringify(item.tags),
+    fromBoolean(item.isPinned),
+    item.sizeBytes,
+    item.createdAt,
+    item.updatedAt,
+    item.deletedAt,
+  ];
+}
+
+export interface VersionRow {
+  id: string;
+  document_id: string;
+  workspace_id: string;
+  title: string;
+  content: string;
+  word_count: number;
+  content_hash: string;
+  origin: string;
+  summary: string | null;
+  created_at: string;
+}
+
+const VERSION_ORIGINS: readonly VersionOrigin[] = [
+  'manual',
+  'autosave',
+  'restore',
+  'conflict',
+  'import',
+];
+
+export function toVersion(row: VersionRow): DocumentVersionRecord {
+  return {
+    id: row.id,
+    documentId: row.document_id,
+    workspaceId: row.workspace_id,
+    title: row.title,
+    content: parseJson<DocumentContent>(row.content, EMPTY_CONTENT),
+    wordCount: row.word_count,
+    contentHash: row.content_hash,
+    origin: VERSION_ORIGINS.includes(row.origin as VersionOrigin)
+      ? (row.origin as VersionOrigin)
+      : 'autosave',
+    summary: row.summary,
+    createdAt: row.created_at,
+  };
+}
+
+export function fromVersion(version: DocumentVersionRecord): SqlValue[] {
+  return [
+    version.id,
+    version.documentId,
+    version.workspaceId,
+    version.title,
+    JSON.stringify(version.content),
+    version.wordCount,
+    version.contentHash,
+    version.origin,
+    version.summary,
+    version.createdAt,
+  ];
+}
+
+export interface OutboxRow {
+  entity_kind: string;
+  entity_id: string;
+  operation: string;
+  seq: number;
+  queued_at: string;
+}
+
+export function toOutboxEntry(row: OutboxRow): OutboxEntry {
+  return {
+    entityKind: row.entity_kind as SyncEntityKind,
+    entityId: row.entity_id,
+    operation: row.operation as SyncOperation,
+    seq: row.seq,
+    queuedAt: row.queued_at,
+  };
 }

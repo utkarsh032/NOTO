@@ -11,6 +11,13 @@ export interface Entity {
   updatedAt: IsoDateTime;
   /** Set when the entity is soft-deleted; `null` while it is live. */
   deletedAt: IsoDateTime | null;
+  /**
+   * How many times this device has saved the entity. Maintained by storage —
+   * a caller never sets it, and one that does is ignored — and absent on an
+   * entity that has not been saved yet. Sync compares it to decide which of
+   * two edits is newer.
+   */
+  version?: number;
 }
 
 /** A discriminated result type used across core operations instead of throwing. */

@@ -79,6 +79,89 @@ export const MIGRATIONS: Readonly<Record<number, readonly string[]>> = {
     `CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (workspace_id, status)`,
     `CREATE INDEX IF NOT EXISTS idx_files_document ON files (document_id, deleted_at)`,
   ],
+
+  /*
+   * Version 2 — local schema v2 (audit phase 1, step 1).
+   *
+   * Everything Noto Memory, version history and sync need to live on the
+   * device: the two new content tables, an index of document tags, the outbox
+   * a sync engine drains, and a small key-value table for state that used to
+   * sit in localStorage. Every entity gains `version`, which storage bumps on
+   * each save; documents gain `content_hash`.
+   *
+   * `ALTER TABLE … ADD COLUMN` is not idempotent, but this list only ever runs
+   * once — `user_version` records that it has.
+   */
+  2: [
+    `ALTER TABLE workspaces ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE folders ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE documents ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE documents ADD COLUMN content_hash TEXT`,
+    `ALTER TABLE files ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+
+    `CREATE TABLE IF NOT EXISTS memory_items (
+       id           TEXT PRIMARY KEY NOT NULL,
+       workspace_id TEXT NOT NULL,
+       kind         TEXT NOT NULL,
+       title        TEXT NOT NULL,
+       content      TEXT NOT NULL DEFAULT '',
+       source       TEXT,
+       url          TEXT,
+       tags         TEXT NOT NULL DEFAULT '[]',
+       is_pinned    INTEGER NOT NULL DEFAULT 0,
+       size_bytes   INTEGER,
+       created_at   TEXT NOT NULL,
+       updated_at   TEXT NOT NULL,
+       deleted_at   TEXT,
+       version      INTEGER NOT NULL DEFAULT 1,
+       FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_memory_workspace ON memory_items (workspace_id, deleted_at, updated_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_memory_kind ON memory_items (workspace_id, kind)`,
+
+    `CREATE TABLE IF NOT EXISTS document_versions (
+       id           TEXT PRIMARY KEY NOT NULL,
+       document_id  TEXT NOT NULL,
+       workspace_id TEXT NOT NULL,
+       title        TEXT NOT NULL,
+       content      TEXT NOT NULL,
+       word_count   INTEGER NOT NULL DEFAULT 0,
+       content_hash TEXT NOT NULL,
+       origin       TEXT NOT NULL,
+       summary      TEXT,
+       created_at   TEXT NOT NULL,
+       FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_versions_document ON document_versions (document_id, created_at DESC)`,
+
+    `CREATE TABLE IF NOT EXISTS document_tags (
+       document_id TEXT NOT NULL,
+       tag         TEXT NOT NULL,
+       PRIMARY KEY (document_id, tag),
+       FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_document_tags_tag ON document_tags (tag)`,
+    // Existing documents keep their tags as a JSON array; index what is there.
+    `INSERT OR IGNORE INTO document_tags (document_id, tag)
+       SELECT documents.id, json_each.value FROM documents, json_each(documents.tags)
+       WHERE json_valid(documents.tags)`,
+
+    `CREATE TABLE IF NOT EXISTS outbox (
+       entity_kind TEXT NOT NULL,
+       entity_id   TEXT NOT NULL,
+       operation   TEXT NOT NULL,
+       seq         INTEGER NOT NULL,
+       queued_at   TEXT NOT NULL,
+       PRIMARY KEY (entity_kind, entity_id)
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_outbox_seq ON outbox (seq)`,
+
+    `CREATE TABLE IF NOT EXISTS local_state (
+       key        TEXT PRIMARY KEY NOT NULL,
+       value      TEXT NOT NULL,
+       updated_at TEXT NOT NULL
+     )`,
+  ],
 };
 
 /**
@@ -107,4 +190,14 @@ export async function migrate(driver: SqlDriver): Promise<void> {
 }
 
 /** Table names in the order they must be cleared to respect foreign keys. */
-export const TABLES_IN_DELETE_ORDER = ['files', 'documents', 'folders', 'workspaces'] as const;
+export const TABLES_IN_DELETE_ORDER = [
+  'outbox',
+  'local_state',
+  'document_versions',
+  'document_tags',
+  'memory_items',
+  'files',
+  'documents',
+  'folders',
+  'workspaces',
+] as const;

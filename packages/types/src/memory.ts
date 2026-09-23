@@ -1,4 +1,5 @@
 import type { Entity, Id, IsoDateTime } from './common.ts';
+import type { DocumentContent } from './document.ts';
 
 /**
  * What Noto Memory holds.
@@ -25,6 +26,30 @@ export interface MemoryItem extends Entity {
   isPinned: boolean;
   /** Size on disk in bytes, for captured assets. `null` for text. */
   sizeBytes: number | null;
+}
+
+/** What made a version: who saved it, or why Noto kept it. */
+export type VersionOrigin = 'manual' | 'autosave' | 'restore' | 'conflict' | 'import';
+
+/**
+ * A stored snapshot of a document.
+ *
+ * Immutable once written: a version is a record of what was there, so it is
+ * never edited, only pruned. Separate from `DocumentVersion`, which is the
+ * list row version history shows and carries view state like `isCurrent`.
+ */
+export interface DocumentVersionRecord {
+  id: Id;
+  documentId: Id;
+  workspaceId: Id;
+  title: string;
+  content: DocumentContent;
+  wordCount: number;
+  contentHash: string;
+  origin: VersionOrigin;
+  /** A one-line description of what changed, when Noto can tell. */
+  summary: string | null;
+  createdAt: IsoDateTime;
 }
 
 /** A snapshot of a document, as offered by version history. */

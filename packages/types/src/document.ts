@@ -23,6 +23,12 @@ export interface NotoDocument extends Entity {
   wordCount: number;
   isFavorite: boolean;
   tags: string[];
+  /**
+   * A fingerprint of `content`, maintained by storage. Two documents with the
+   * same hash have the same body, which lets sync and version history skip
+   * work when only the title or a tag changed.
+   */
+  contentHash?: string;
 }
 
 /** The fields a caller supplies when creating a document; the rest are derived. */
