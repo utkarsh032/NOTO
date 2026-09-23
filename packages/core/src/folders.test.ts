@@ -1,7 +1,14 @@
 import type { Folder, NotoDocument } from '@noto/types';
 import { describe, expect, it } from 'vitest';
 
-import { buildFolderTree, isDescendantOf, moveFolder } from './folders.ts';
+import {
+  buildFolderTree,
+  createFolder,
+  deleteFolder,
+  folderPath,
+  isDescendantOf,
+  moveFolder,
+} from './folders.ts';
 
 const folder = (id: string, parentId: string | null, name = id, position = 0): Folder => ({
   id,
@@ -119,5 +126,30 @@ describe('buildFolderTree', () => {
 
     const tree = buildFolderTree(withDeletedParent);
     expect(tree.map((node) => node.id)).toEqual(['child']);
+  });
+});
+
+describe('folderPath and deleteFolder', () => {
+  const root = createFolder({ workspaceId: 'w', name: 'Work' }, { generateId: () => 'a' });
+  const child = createFolder(
+    { workspaceId: 'w', name: 'Plans', parentId: 'a' },
+    { generateId: () => 'b' },
+  );
+
+  it('names the path from the root down', () => {
+    expect(folderPath([root, child], 'b')).toEqual(['Work', 'Plans']);
+    expect(folderPath([root, child], null)).toEqual([]);
+  });
+
+  it('stops at a cycle rather than looping', () => {
+    const looped = [
+      { ...root, parentId: 'b' },
+      { ...child, parentId: 'a' },
+    ];
+    expect(folderPath(looped, 'b')).toEqual(['Work', 'Plans']);
+  });
+
+  it('soft-deletes', () => {
+    expect(deleteFolder(root).deletedAt).not.toBeNull();
   });
 });

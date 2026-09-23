@@ -1,6 +1,6 @@
 import { plainTextFromContent } from '@noto/core';
 import type { DocumentVersionRecord, NotoDocument } from '@noto/types';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import { Badge } from '../../components/Badge';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -26,6 +26,8 @@ import {
   useDocumentOperations,
 } from '../documents/use-document-operations';
 import { emitAppCommand } from '../app-commands';
+import { TagEditor } from '../documents/TagEditor';
+import { useFolders } from '../folders/use-folders';
 import { AIAssistantPanel } from '../overlays/AIAssistantPanel';
 import { VersionCompareDialog, VersionPreviewDialog } from '../versions/VersionDialogs';
 import { versionOriginLabel } from '../versions/version-labels';
@@ -474,6 +476,9 @@ function OutlineRow({
 /* -------------------------------------------------------------------------- */
 
 function InfoTab({ document, location }: { document: NotoDocument; location: string }) {
+  const folders = useFolders();
+  const folderFieldId = useId();
+
   const characters = useMemo(
     () => plainTextFromContent(document.content).length,
     [document.content],
@@ -507,16 +512,32 @@ function InfoTab({ document, location }: { document: NotoDocument; location: str
       </dl>
 
       <div className="border-default mt-5 border-t pt-4">
+        <label htmlFor={folderFieldId} className="text-tertiary text-caption mb-2 block">
+          Folder
+        </label>
+        <select
+          id={folderFieldId}
+          value={document.folderId ?? ''}
+          onChange={(event) =>
+            void folders.moveDocument(
+              document.id,
+              event.target.value === '' ? null : event.target.value,
+            )
+          }
+          className="border-default bg-surface text-primary text-body-sm focus-visible:outline-brand w-full rounded-md border px-2 py-1.5 focus-visible:outline-2 focus-visible:-outline-offset-1"
+        >
+          <option value="">No folder</option>
+          {folders.folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folders.pathOf(folder.id).join(' / ')}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="border-default mt-5 border-t pt-4">
         <p className="text-tertiary text-caption mb-2">Tags</p>
-        {document.tags.length === 0 ? (
-          <p className="text-disabled text-body-sm">None yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {document.tags.map((tag) => (
-              <Badge key={tag}>{tag}</Badge>
-            ))}
-          </div>
-        )}
+        <TagEditor document={document} />
       </div>
     </div>
   );

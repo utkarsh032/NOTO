@@ -546,8 +546,7 @@ export function SettingsScreen() {
               />
               <SettingsRow
                 label="Folders"
-                description="Documents sit at the workspace root today. Folders arrive in the next release."
-                control={<Badge>Coming soon</Badge>}
+                description="Made in the sidebar with the + beside the workspace name. Drag a document onto a folder to move it, or pick its folder in the Info tab."
               />
               <SettingsRow
                 label="Import and export"
