@@ -21,8 +21,75 @@ Status key: ✅ Done · 🟡 Partial · 🟠 Mock / UI only · ❌ Missing. Seve
 - [5. Step-wise implementation plan](#5-step-wise-implementation-plan)
 - [6. Release and infrastructure checklist](#6-release-and-infrastructure-checklist)
 - [7. Open decisions](#7-open-decisions)
+- [Implementation status](#implementation-status)
 
 ---
+
+## Implementation status
+
+_Last updated 23 September 2026. Branch `dev`, pushed. Each step was checked with lint, typecheck, unit tests and the web e2e suite before it was committed._
+
+### Overall
+
+| Phase | Theme | Status | Progress |
+| --- | --- | --- | --- |
+| 0 | Stabilise and harden | ✅ Done | 8 of 8 steps |
+| 1 | Finish the local product | 🟡 In progress | 7 of 9 steps |
+| 2 | Backend foundation (`apps/api`) | ❌ Not started | Needs D1 (host) and a Postgres instance |
+| 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
+| 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
+| 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
+| 6 | Desktop power features | ❌ Not started | |
+| 7 | Paid product | ❌ Not started | Needs D5 (payment provider) |
+| 8 | AI | ❌ Not started | Needs D4 (AI provider) |
+| 9 | Collaboration | ❌ Not started | |
+
+In steps: **15 of 17 steps in Phases 0–1 are done**, which is roughly **2 of the 10 phases**. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
+
+Test counts at this point: 233 unit tests (up from 199), 76 web e2e tests (up from 59).
+
+### Phase 0 — Stabilise and harden ✅
+
+| Step | Status | Commit | What was done |
+| --- | --- | --- | --- |
+| 1. Device hijack (S1) | ✅ | `1b55886` | Device registration updates only rows the caller owns; an id owned by someone else is refused. Regression tests. |
+| 2. RLS columns, rate limits (S5, S6) | ✅ | `ba478ab` | Migration protecting device/profile columns; rate limiter fails closed; per-IP sign-in limit; `CF-Connecting-IP`. |
+| 3. Desktop hardening (S2–S4) | ✅ | `00282c3` | Every IPC handler checks its sender; SQL channel refuses `ATTACH`, `VACUUM INTO`, `load_extension` and unknown pragmas; no new windows or navigation; CSP `connect-src` from the build config. |
+| 4. Web CSP, source maps, CORS (S7–S9) | ✅ | `f8d64d1`, `61a566a` | Build-time `_headers` with a hashed strict CSP on both sites; source maps not deployed; localhost CORS only on a local stack; exact OAuth redirect allow-list. |
+| 5. Error boundaries | ✅ | `285eb7c` | Per-screen and top-level boundaries; stale-chunk message after a deploy; desktop dock guarded. |
+| 6. NOT_CONNECTED controls | ✅ | `af3716d` | Dead buttons hidden or disabled; fixture "facts" removed from the Account screen. |
+| 7. Repo hygiene | ✅ | `7cc0551` | `update-electron-app` removed; `wrangler.jsonc` formatting resolved. |
+| 8. R&D documents, `database.md` | ✅ | `eeed60e` | PRD, Build&Release, Backend_Plan and Backend_Node_Plan aligned (Turborepo, React, Node + Postgres, no Docker); `docs/development/database.md` written. |
+
+Not yet done from Phase 0's "done when": a manual check that a packaged desktop build reaches the backend.
+
+### Phase 1 — Finish the local product 🟡
+
+| Step | Status | Commit | What was done |
+| --- | --- | --- | --- |
+| 1. Local schema v2 | ✅ | `27d5c4b` | `memory_items`, `document_versions`, tag index, persisted outbox, `local_state`, `version` and `content_hash`; one contract test suite over in-memory, SQLite and IndexedDB, plus upgrade tests. |
+| 2. Noto Memory | ✅ | `602934b` | Real storage; Quick Note keeps notes in Memory; Smart Sidebar captures the clipboard or a link; `mock/memory.ts` deleted. |
+| 3. Version history | ✅ | `6f2ec28` | Versions kept on rest (10 min), on Save and before restore; preview, compare (line diff), restore; `mock/versions.ts` deleted. |
+| 4. Recovery and drafts in the database | ✅ | `7718ab9` | Recovery snapshots in `local_state` (legacy localStorage snapshots migrated); Quick Note draft mirrored durably. |
+| 5. Folders and tags | ✅ | `d9c6911` | Folder tree with drag and drop, nesting, rename, remove; folder picker and tag editor in the Info tab. |
+| 6. Tab controls | ✅ | `2585664` | Pin, duplicate, move, reopen closed, close others; right-click tab menu; commands with shortcuts. |
+| 7. Search index, long lists | ✅ | `37c22e4` | Incremental full-text index (one JS index on every platform, not FTS5); long lists drawn progressively as they scroll. |
+| 8. PDF/DOCX export, HTML import | 🟡 In progress | — | DOCX writer and ZIP writer drafted, not yet wired in or committed. Still to do: desktop print-to-PDF, HTML import through the editor schema. |
+| 9. Split oversized files | ❌ | — | |
+
+Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are `templates.ts`, `account.ts` and `plans.ts`. The last two belong to Phases 3 and 7.
+
+### Bugs found and fixed along the way
+
+- A keyboard shortcut pressed as the workspace appeared ran a stale handler. This was the long-standing flaky "opens a file from disk" e2e test (`5562963`).
+- Keeping a Quick Note wiped text typed while the save was running (`602934b`).
+- Templates, imports and duplicates could open as an empty document (`2585664`).
+- SQLite saves used `INSERT OR REPLACE`, which with foreign keys on could cascade-delete a document's files (`27d5c4b`).
+
+### Known issues
+
+- Commit `5562963` also contains the deletion of `mock/versions.ts`, so that single commit does not build on its own; the next commit does.
+- Desktop and mobile builds have not been checked by hand since these changes; only web was exercised end to end.
 
 ## 1. Executive summary
 
