@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { SegmentedControl } from '../../components/SegmentedControl';
-import { showToast } from '../../components/toast-store';
 import { CheckIcon, InfoIcon, MinusIcon } from '../../components/icons';
 import {
   CURRENCY_SYMBOL,
@@ -19,9 +18,6 @@ import {
 import { cn } from '../../utils/cn';
 import { PageContainer } from '../PageContainer';
 import { useAccount } from '../use-account';
-
-/** Nothing here can charge anybody yet, and the screen says so rather than pretending. */
-const NOT_CONNECTED = `${APP_NAME} has no billing service yet, so nothing was charged.`;
 
 /** Which plan the account is actually on. Everything above it is an upgrade. */
 const CURRENT_PLAN: PlanId = 'basic';
@@ -87,9 +83,9 @@ export function PlansScreen() {
         <InfoIcon className="mt-px h-4 w-4 shrink-0" />
         <span>
           Prices are shown in US dollars, excluding any tax your country adds. {APP_NAME} has no
-          billing service connected yet, so these buttons describe a plan rather than buy one — and
-          nothing you have written is ever held behind one. Your documents are on this device, in a
-          format you can export at any time, on every plan including the free one.
+          billing service connected yet, so these plans can be compared but not bought — and nothing
+          you have written is ever held behind one. Your documents are on this device, in a format
+          you can export at any time, on every plan including the free one.
         </span>
       </p>
     </PageContainer>
@@ -155,13 +151,17 @@ function PlanCard({ plan, cycle }: PlanCardProps) {
             : `${CURRENCY_SYMBOL}${formatMoney(plan.yearlyPrice)} a year saves ${price.savingPercent}%`}
       </p>
 
+      {/*
+       * Nothing here can charge anybody yet, so no button pretends to: the
+       * current plan says so, and the others say when they open rather than
+       * answering a click with an apology.
+       */}
       <Button
         variant={plan.isRecommended ? 'primary' : 'secondary'}
         className="mt-5 w-full"
-        disabled={isCurrent}
-        onClick={() => showToast(NOT_CONNECTED)}
+        disabled
       >
-        {plan.cta}
+        {isCurrent ? 'Your current plan' : 'Available soon'}
       </Button>
 
       <ul className="mt-6 flex flex-col gap-2.5">

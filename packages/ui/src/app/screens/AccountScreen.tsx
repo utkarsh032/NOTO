@@ -6,10 +6,8 @@ import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Tabs } from '../../components/Tabs';
-import { Toggle } from '../../components/Toggle';
-import { showToast } from '../../components/toast-store';
-import { CheckCircleIcon, InfoIcon, LockIcon, ShieldIcon } from '../../components/icons';
-import { formatBytes, formatDate, relativeTime } from '../../utils/format';
+import { CheckCircleIcon, InfoIcon } from '../../components/icons';
+import { formatBytes, formatDate } from '../../utils/format';
 import { PageContainer } from '../PageContainer';
 import { DeviceCard } from '../account/DeviceCard';
 import { SessionRow } from '../account/SessionRow';
@@ -21,9 +19,6 @@ import { useSignOut } from '../use-sign-out';
 
 type AccountTab = 'account' | 'devices' | 'sessions' | 'security' | 'preferences';
 
-/** Every action here needs an account service that does not exist yet. */
-const NOT_CONNECTED = `${APP_NAME} has no account service yet, so nothing was changed.`;
-
 /**
  * Account & Devices.
  *
@@ -32,12 +27,11 @@ const NOT_CONNECTED = `${APP_NAME} has no account service yet, so nothing was ch
  * letting each button explain itself after the fact.
  */
 export function AccountScreen() {
-  const { status, user, devices, sessions, plan, security } = useAccount();
+  const { status, user, devices, sessions, plan } = useAccount();
   const { documents } = useNotoData();
   const { signOut, available: canSignOut } = useSignOut();
 
   const [tab, setTab] = useState<AccountTab>('account');
-  const [signingOutOthers, setSigningOutOthers] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const usedBytes = useMemo(
@@ -48,9 +42,6 @@ export function AccountScreen() {
       ),
     [documents],
   );
-
-  const otherSessions = sessions.filter((session) => !session.isCurrent);
-  const notConnected = () => showToast(NOT_CONNECTED);
 
   /*
    * Nobody signed in.
@@ -140,28 +131,6 @@ export function AccountScreen() {
               Documents are stored on this device; the allowance applies once sync is on.
             </p>
           </aside>
-
-          <aside className="border-default bg-surface rounded-xl border p-4">
-            <h2 className="text-primary text-body-sm font-semibold">Security</h2>
-            <ul className="mt-2 flex flex-col gap-2">
-              <li className="text-secondary text-caption flex items-center gap-2">
-                <LockIcon className="text-tertiary h-4 w-4 shrink-0" />
-                Password changed {relativeTime(security.passwordChangedAt)}
-              </li>
-              <li className="text-secondary text-caption flex items-center gap-2">
-                <ShieldIcon
-                  className={
-                    security.twoFactorEnabled ? 'text-success h-4 w-4' : 'text-warning h-4 w-4'
-                  }
-                />
-                Two-factor {security.twoFactorEnabled ? 'on' : 'off'}
-              </li>
-              <li className="text-secondary text-caption flex items-center gap-2">
-                <CheckCircleIcon className="text-tertiary h-4 w-4 shrink-0" />
-                Recovery email set
-              </li>
-            </ul>
-          </aside>
         </div>
       }
       tabs={
@@ -183,10 +152,10 @@ export function AccountScreen() {
       <div className="border-default bg-surface-secondary text-secondary text-body-sm mb-5 flex items-start gap-2.5 rounded-xl border px-4 py-3">
         <InfoIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Your profile, your devices and signing out are live. Plans, sessions and the security
-          settings below arrive with sync — until then this is how they will be managed. Documents
-          stay on this device either way: Noto is local-first, and an account adds a copy rather
-          than becoming the original.
+          Your profile, your devices and signing out are live. Editing your profile, ending other
+          sessions and the security settings arrive with sync; until then they are shown, not
+          offered. Documents stay on this device either way: Noto is local-first, and an account
+          adds a copy rather than becoming the original.
         </p>
       </div>
 
@@ -208,30 +177,10 @@ export function AccountScreen() {
                 Joined {formatDate(user.createdAt)}
               </p>
             </div>
-
-            <Button variant="secondary" onClick={notConnected}>
-              Edit Profile
-            </Button>
           </div>
 
-          <SettingsRow
-            label="Display name"
-            description={user.displayName}
-            control={
-              <Button variant="ghost" size="sm" onClick={notConnected}>
-                Change
-              </Button>
-            }
-          />
-          <SettingsRow
-            label="Email"
-            description={user.email}
-            control={
-              <Button variant="ghost" size="sm" onClick={notConnected}>
-                Change
-              </Button>
-            }
-          />
+          <SettingsRow label="Display name" description={user.displayName} />
+          <SettingsRow label="Email" description={user.email} />
 
           {/*
            * Signing out belongs here as well as in the avatar menu. This is the
@@ -257,12 +206,7 @@ export function AccountScreen() {
         <section aria-label="Devices">
           <ul className="flex flex-col gap-3">
             {devices.map((device) => (
-              <DeviceCard
-                key={device.id}
-                device={device}
-                onSignOut={notConnected}
-                onRemove={notConnected}
-              />
+              <DeviceCard key={device.id} device={device} />
             ))}
           </ul>
         </section>
@@ -273,19 +217,9 @@ export function AccountScreen() {
           <div className="border-default bg-surface overflow-hidden rounded-xl border shadow-sm">
             <ul>
               {sessions.map((session) => (
-                <SessionRow key={session.id} session={session} onSignOut={notConnected} />
+                <SessionRow key={session.id} session={session} />
               ))}
             </ul>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              variant="danger"
-              disabled={otherSessions.length === 0}
-              onClick={() => setSigningOutOthers(true)}
-            >
-              Sign out from all other sessions
-            </Button>
           </div>
         </section>
       ) : null}
@@ -294,33 +228,13 @@ export function AccountScreen() {
         <SettingsSection title="Security" description="How this account is protected.">
           <SettingsRow
             label="Password"
-            description={`Last changed ${relativeTime(security.passwordChangedAt)}.`}
-            control={
-              <Button variant="secondary" size="sm" onClick={notConnected}>
-                Change password
-              </Button>
-            }
+            description="Changing and resetting it arrive with the new account service."
+            control={<Badge>Not yet</Badge>}
           />
           <SettingsRow
             label="Two-factor authentication"
             description="A second step when signing in on a new device."
-            control={
-              <Toggle
-                hideLabel
-                label="Two-factor authentication"
-                checked={security.twoFactorEnabled}
-                onChange={notConnected}
-              />
-            }
-          />
-          <SettingsRow
-            label="Recovery email"
-            description={security.recoveryEmail ?? 'Not set'}
-            control={
-              <Button variant="secondary" size="sm" onClick={notConnected}>
-                Update
-              </Button>
-            }
+            control={<Badge>Not yet</Badge>}
           />
         </SettingsSection>
       ) : null}
@@ -361,24 +275,6 @@ export function AccountScreen() {
         }
         onConfirm={signOut}
         onClose={() => setSigningOut(false)}
-      />
-
-      <ConfirmDialog
-        open={signingOutOthers}
-        title="Sign out everywhere else?"
-        destructive
-        confirmLabel="Sign out other sessions"
-        description={
-          <>
-            <p>
-              {otherSessions.length} other {otherSessions.length === 1 ? 'session' : 'sessions'}{' '}
-              will be ended. This session stays signed in.
-            </p>
-            <p className="mt-2">Documents on those devices are not deleted.</p>
-          </>
-        }
-        onConfirm={notConnected}
-        onClose={() => setSigningOutOthers(false)}
       />
     </PageContainer>
   );
