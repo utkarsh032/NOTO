@@ -73,7 +73,7 @@
      window rather than floating in a band below it, so this is what a tab
      needs and not what a title bar would have wanted. The sidebar's brand bar
      shares it, which is what keeps one unbroken rule across the window. */
-  --spacing-header: 56px;
+  --spacing-header: 40px;
   --spacing-toolbar: 48px;
   --spacing-title-bar: 38px;
   --spacing-editor: 800px;

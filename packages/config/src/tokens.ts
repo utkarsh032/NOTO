@@ -221,7 +221,7 @@ export const layout = {
   sidebarMaxWidth: 480,
   contextPanelWidth: 320,
   /** Kept in step with `--spacing-header` in tokens.css. */
-  headerHeight: 56,
+  headerHeight: 40,
   toolbarHeight: 48,
   titleBarHeight: 38,
   /** Comfortable measure for the editing canvas. */
