@@ -10,6 +10,7 @@ import { PinIcon } from '../../components/icons';
 import { SearchIllustration } from '../../components/illustrations';
 import { cn } from '../../utils/cn';
 import { formatBytes, isWithinDays } from '../../utils/format';
+import { useProgressiveList } from '../../components/use-progressive-list';
 import { PageContainer } from '../PageContainer';
 import { MemoryCard } from '../memory/MemoryCard';
 import { MEMORY_KINDS, MEMORY_KIND_ORDER } from '../memory/memory-kinds';
@@ -59,6 +60,7 @@ export function MemoryScreen({ kind }: MemoryScreenProps) {
   }, [routeKind, setQuery]);
 
   const active = memory.query.kind;
+  const shown = useProgressiveList(memory.results);
 
   const title =
     active === 'note'
@@ -241,7 +243,7 @@ export function MemoryScreen({ kind }: MemoryScreenProps) {
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-              {memory.results.map((item) => (
+              {shown.visible.map((item) => (
                 <MemoryCard
                   key={item.id}
                   item={item}
@@ -260,6 +262,7 @@ export function MemoryScreen({ kind }: MemoryScreenProps) {
                   }}
                 />
               ))}
+              {shown.sentinel}
             </div>
           </>
         )}

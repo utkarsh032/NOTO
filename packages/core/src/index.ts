@@ -4,6 +4,7 @@ export * from './clock.ts';
 export * from './text.ts';
 export * from './hash.ts';
 export * from './diff.ts';
+export * from './search-index.ts';
 export * from './zoom.ts';
 export * from './version.ts';
 export * from './documents.ts';

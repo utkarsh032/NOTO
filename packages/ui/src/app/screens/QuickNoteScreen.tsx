@@ -16,6 +16,7 @@ import {
   TrashIcon,
 } from '../../components/icons';
 import { QuickNoteIllustration } from '../../components/illustrations';
+import { useProgressiveList } from '../../components/use-progressive-list';
 import { PageContainer } from '../PageContainer';
 import { MemoryCard } from '../memory/MemoryCard';
 import { useMemory } from '../memory/use-memory';
@@ -76,6 +77,8 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
         item.title.toLowerCase().includes(needle) || item.content.toLowerCase().includes(needle),
     );
   }, [memory.results, search]);
+
+  const shown = useProgressiveList(notes);
 
   const save = () => {
     void keep(draft);
@@ -251,7 +254,7 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
           />
         ) : (
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {notes.map((item) => (
+            {shown.visible.map((item) => (
               <li key={item.id}>
                 <MemoryCard
                   item={item}
@@ -278,6 +281,7 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
                 />
               </li>
             ))}
+            {shown.sentinel ? <li aria-hidden="true">{shown.sentinel}</li> : null}
           </ul>
         )}
       </section>

@@ -2,6 +2,7 @@ import type { Id, NotoDocument } from '@noto/types';
 import { useEffect, useRef, useState } from 'react';
 
 import { DocumentIcon, PencilIcon, PinIcon, TrashIcon } from '../components/icons';
+import { useProgressiveList } from '../components/use-progressive-list';
 import { cn } from '../utils/cn';
 import { DOCUMENT_DRAG_TYPE } from './folders/drag-types';
 
@@ -38,10 +39,12 @@ export function SidebarDocumentList({
   showPin = false,
 }: SidebarDocumentListProps) {
   const [renamingId, setRenamingId] = useState<Id | null>(null);
+  // Drawn a batch at a time: a workspace of thousands is not a sidebar of thousands.
+  const { visible, sentinel } = useProgressiveList(documents, { batch: 100 });
 
   return (
     <ul className="flex flex-col gap-0.5" aria-label={label}>
-      {documents.map((document) => {
+      {visible.map((document) => {
         const isActive = document.id === activeId;
 
         if (renamingId === document.id) {
@@ -129,6 +132,7 @@ export function SidebarDocumentList({
           </li>
         );
       })}
+      {sentinel ? <li aria-hidden="true">{sentinel}</li> : null}
     </ul>
   );
 }
