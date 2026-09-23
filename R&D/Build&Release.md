@@ -3,6 +3,13 @@
 **Project:** NOTO
 **Purpose:** Define the complete development, build, packaging, release, hosting, download, update, and distribution architecture for NOTO across Web, Windows, macOS, Linux, Android, and iOS.
 
+> **Updated 23 September 2026.** This plan first specified Angular and
+> Expo (RN). Noto is built with **React + Vite** (web, website and the desktop
+> renderer), **Electron Forge** (desktop) and **Expo / React Native** rendering
+> the shared UI in a WebView (mobile). The sections below now say so; the
+> release architecture is otherwise unchanged. Web and website are deployed as
+> Cloudflare Workers static-assets projects rather than Cloudflare Pages.
+
 ---
 
 # 1. Release Architecture
@@ -29,7 +36,7 @@ NOTO will use a GitHub-centered CI/CD architecture.
        Website   Desktop    Mobile    Installers
           │         │         │
           ▼         ▼         ▼
-      Cloudflare  Electron  Capacitor
+      Cloudflare  Electron  Expo (RN)
         Pages        │         │
                      │         │
           ┌──────────┼───┐     ├── Android
@@ -140,7 +147,7 @@ Browser
    ↓
 NOTO Web
    ↓
-Angular Application
+React Application (Vite)
    ↓
 Local Storage
 ```
@@ -483,9 +490,9 @@ A pull request should not be merged if the required CI checks fail.
 
 ---
 
-# 12. Angular Build
+# 12. Web Build (React + Vite)
 
-Angular applications will be built through the monorepo/Turbo pipeline.
+The React applications are built with Vite through the pnpm/Turbo pipeline.
 
 Development:
 
@@ -527,9 +534,9 @@ GitHub
    ↓
 GitHub Actions
    ↓
-Angular production build
+Vite production build
    ↓
-Cloudflare Pages
+Cloudflare Workers (static assets)
    ↓
 Public Website
 ```
@@ -565,15 +572,15 @@ A staging branch can deploy to a staging URL.
 Desktop NOTO will use:
 
 ```text
-Angular
+React + Vite
    +
-Electron
+Electron (packaged with Electron Forge)
 ```
 
 Architecture:
 
 ```text
-Angular Renderer
+React Renderer 
        │
        ▼
     Electron
@@ -598,7 +605,7 @@ Windows 11+
 Initial architecture:
 
 ```text
-Angular
+React
    ↓
 Electron
    ↓
@@ -692,14 +699,14 @@ Linux automatic updating should not initially be treated the same way as Windows
 
 # 18. Mobile Build
 
-Mobile will use:
+Mobile uses:
 
 ```text
-Angular
+Shared React UI (apps/mobile-webview, built with Vite)
    ↓
-Capacitor
+Expo / React Native shell (apps/mobile) — WebView + native SQLite bridge
    ↓
-Native Android/iOS project
+Native Android/iOS project (Expo prebuild)
 ```
 
 ## Android
@@ -1367,7 +1374,7 @@ For the first serious NOTO release:
          Website           Desktop           Mobile
             │                 │                 │
             ▼                 ▼                 ▼
-       Cloudflare          Electron         Capacitor
+       Cloudflare          Electron         Expo (RN)
          Pages                │                 │
                               │          ┌──────┴──────┐
                               │          ▼             ▼
@@ -1475,7 +1482,7 @@ NOTO runs in browser
 
 The build/release architecture should be implemented in phases.
 
-> **Implementation note.** This document specifies Angular and Capacitor. The
+> **Implementation note.** This document first specified Angular and Capacitor. The
 > repository is built with React + Vite, Electron Forge and Expo / React Native.
 > The release architecture below is implemented as written; only the UI
 > framework differs. Items that need an external account, a paid certificate or
@@ -1575,19 +1582,19 @@ The initial NOTO infrastructure is therefore:
 
 ```text
 Frontend
-    Angular
+    React + Vite
 
 Monorepo
     pnpm + Turbo
 
 Web
-    Angular + Cloudflare Pages
+    React + Cloudflare Workers (static assets)
 
 Desktop
-    Angular + Electron
+    React + Electron (Electron Forge)
 
 Mobile
-    Angular + Capacitor
+    Expo / React Native + shared React UI in a WebView
 
 Source Control
     GitHub
