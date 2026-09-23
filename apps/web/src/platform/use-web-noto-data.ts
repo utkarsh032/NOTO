@@ -4,7 +4,7 @@ import {
   restoreDocument as applyRestore,
 } from '@noto/core';
 import type { UpdateDocumentInput, Workspace } from '@noto/types';
-import { type NotoDataValue, writeDocumentUpdate } from '@noto/ui';
+import { type DocumentInitial, type NotoDataValue, writeDocumentUpdate } from '@noto/ui';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -67,15 +67,18 @@ export function useWebNotoData(): NotoDataValue {
     return rows.filter((row) => row.deletedAt !== null);
   }, [workspaceId]);
 
-  const createDocument = useCallback(async () => {
-    if (!workspaceId) return null;
+  const createDocument = useCallback(
+    async (initial: DocumentInitial = {}) => {
+      if (!workspaceId) return null;
 
-    const document = buildDocument({ workspaceId });
-    await db.documents.put(document);
-    setSelectedId(document.id);
+      const document = buildDocument({ ...initial, workspaceId });
+      await db.documents.put(document);
+      setSelectedId(document.id);
 
-    return document.id;
-  }, [workspaceId]);
+      return document.id;
+    },
+    [workspaceId],
+  );
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
     await writeDocumentUpdate(db, id, patch);

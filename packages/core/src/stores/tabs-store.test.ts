@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_TABS_STATE, toPersistedTabs, useTabsStore } from './tabs-store.ts';
+import {
+  EMPTY_TABS_STATE,
+  parsePersistedTabs,
+  toPersistedTabs,
+  useTabsStore,
+} from './tabs-store.ts';
 
 const state = () => useTabsStore.getState();
 const openIds = () => state().openIds;
@@ -192,6 +197,92 @@ describe('toPersistedTabs', () => {
       openIds: ['a'],
       activeId: 'a',
       recentIds: ['a'],
+      pinnedIds: [],
+      closedIds: [],
     });
+  });
+});
+
+describe('pinning, moving and reopening', () => {
+  it('keeps pinned tabs at the front, in the order they were pinned', () => {
+    state().open('a');
+    state().open('b');
+    state().open('c');
+
+    state().togglePin('c');
+    state().togglePin('b');
+    expect(state().openIds).toEqual(['c', 'b', 'a']);
+
+    // A tab opened later still lands after the pinned ones.
+    state().open('d');
+    expect(state().openIds).toEqual(['c', 'b', 'a', 'd']);
+
+    state().togglePin('c');
+    expect(state().openIds).toEqual(['b', 'c', 'a', 'd']);
+  });
+
+  it('keeps pinned tabs when everything is closed', () => {
+    state().open('a');
+    state().open('b');
+    state().togglePin('a');
+
+    state().closeAll();
+    expect(state().openIds).toEqual(['a']);
+    expect(state().activeId).toBe('a');
+  });
+
+  it('moves a tab within its group, never across the pin line', () => {
+    state().open('a');
+    state().open('b');
+    state().open('c');
+    state().togglePin('a');
+
+    state().moveBy('c', -1);
+    expect(state().openIds).toEqual(['a', 'c', 'b']);
+
+    state().moveBy('c', -1);
+    expect(state().openIds).toEqual(['a', 'c', 'b']);
+  });
+
+  it('reopens the most recently closed tab first', () => {
+    state().open('a');
+    state().open('b');
+    state().close('a');
+    state().close('b');
+
+    expect(state().reopenClosed()).toBe('b');
+    expect(state().reopenClosed()).toBe('a');
+    expect(state().reopenClosed()).toBeNull();
+    expect(state().openIds).toEqual(['b', 'a']);
+  });
+
+  it('opens a new tab right after another when asked', () => {
+    state().open('a');
+    state().open('b');
+    state().open('copy', { after: 'a' });
+
+    expect(state().openIds).toEqual(['a', 'copy', 'b']);
+  });
+
+  it('forgets closed tabs whose documents are gone', () => {
+    state().open('a');
+    state().close('a');
+    state().prune([]);
+
+    expect(state().reopenClosed()).toBeNull();
+  });
+});
+
+describe('parsePersistedTabs', () => {
+  it('reads what an older release wrote, and refuses nonsense', () => {
+    expect(parsePersistedTabs({ openIds: ['a'], activeId: 'a', recentIds: [] })).toEqual({
+      openIds: ['a'],
+      activeId: 'a',
+      recentIds: [],
+      pinnedIds: [],
+      closedIds: [],
+    });
+    expect(parsePersistedTabs({ openIds: 'a', pinnedIds: [1] }).openIds).toEqual([]);
+    expect(parsePersistedTabs(null).openIds).toEqual([]);
   });
 });

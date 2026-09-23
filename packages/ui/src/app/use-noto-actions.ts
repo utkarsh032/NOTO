@@ -33,7 +33,7 @@ export interface NotoActions {
  * palette from each having their own idea of what "open" means.
  */
 export function useNotoActions(): NotoActions {
-  const { createDocument, updateDocument } = useNotoData();
+  const { createDocument } = useNotoData();
   const tabs = useDocumentTabs();
 
   const openDocument = useCallback(
@@ -51,31 +51,21 @@ export function useNotoActions(): NotoActions {
 
   const newFromTemplate = useCallback(
     async (template: WritingTemplate) => {
-      const id = await createDocument();
-      if (!id) return;
-
-      /*
-       * The template is written through the same update path a keystroke takes,
-       * so a templated document is an ordinary document from the moment it
-       * exists — there is no second kind of record to migrate later.
-       */
+      // Created whole: an editor that mounts on it must see the template.
       const { title, content } = template.build();
-      await updateDocument(id, { title, content });
+      const id = await createDocument({ title, content });
+      if (!id) return;
 
       openDocument(id);
     },
-    [createDocument, updateDocument, openDocument],
+    [createDocument, openDocument],
   );
 
   const importDocument = useCallback(
     async (imported: ImportedDocument) => {
-      const id = await createDocument();
-      if (!id) return null;
-
-      await updateDocument(id, { title: imported.title, content: imported.content });
-      return id;
+      return createDocument({ title: imported.title, content: imported.content });
     },
-    [createDocument, updateDocument],
+    [createDocument],
   );
 
   return useMemo(

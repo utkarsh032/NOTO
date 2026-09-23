@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '@noto/config';
-import { EMPTY_TABS_STATE, toPersistedTabs, useTabsStore } from '@noto/core';
+import { EMPTY_TABS_STATE, parsePersistedTabs, toPersistedTabs, useTabsStore } from '@noto/core';
 import type { TabsState } from '@noto/types';
 
 /**
@@ -10,24 +10,10 @@ import type { TabsState } from '@noto/types';
  * and a tab whose document has since gone is dropped when the list loads.
  */
 
-function isIdArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
-}
-
 function readTabs(): TabsState {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.tabs);
-    if (!raw) return EMPTY_TABS_STATE;
-
-    const parsed = JSON.parse(raw) as Partial<TabsState>;
-
-    // Validated rather than trusted: a malformed tab list would otherwise take
-    // the whole workspace down on launch.
-    return {
-      openIds: isIdArray(parsed.openIds) ? parsed.openIds : [],
-      activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
-      recentIds: isIdArray(parsed.recentIds) ? parsed.recentIds : [],
-    };
+    return raw ? parsePersistedTabs(JSON.parse(raw)) : EMPTY_TABS_STATE;
   } catch {
     return EMPTY_TABS_STATE;
   }

@@ -236,7 +236,12 @@ export {
 
 /* ── Data and platform seam ────────────────────────────────────────────── */
 
-export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
+export {
+  NotoDataContext,
+  useNotoData,
+  type DocumentInitial,
+  type NotoDataValue,
+} from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
 export {
   emitAppCommand,

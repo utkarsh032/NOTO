@@ -351,6 +351,26 @@ function NotoWindow() {
       },
       'document.closeAll': tabs.closeAll,
 
+      'tab.togglePin': () => {
+        if (activeDocumentId) tabs.togglePin(activeDocumentId);
+      },
+      'tab.duplicate': () => {
+        if (!activeDocumentId) return;
+        void tabs.duplicate(activeDocumentId).then((copy) => {
+          if (copy) showToast('Duplicated. The copy is open beside the original.');
+        });
+      },
+      'tab.moveLeft': () => {
+        if (activeDocumentId) tabs.moveBy(activeDocumentId, -1);
+      },
+      'tab.moveRight': () => {
+        if (activeDocumentId) tabs.moveBy(activeDocumentId, 1);
+      },
+      'tab.reopenClosed': () => {
+        if (tabs.reopenClosed()) navigate('workspace');
+        else showToast('No closed tabs to reopen.');
+      },
+
       'view.toggleSidebar': toggleSidebar,
       'view.zoomIn': () => updateEditor({ zoom: zoomIn(zoom) }),
       'view.zoomOut': () => updateEditor({ zoom: zoomOut(zoom) }),

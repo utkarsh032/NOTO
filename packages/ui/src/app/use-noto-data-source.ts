@@ -7,7 +7,7 @@ import type { NotoDatabase } from '@noto/database';
 import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { NotoDataValue } from './data-context';
+import type { DocumentInitial, NotoDataValue } from './data-context';
 import { writeDocumentUpdate } from './document-writes';
 
 export interface NotoDataSourceOptions {
@@ -87,18 +87,21 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
     };
   }, [workspace, revision]);
 
-  const createDocument = useCallback(async () => {
-    const database = databaseRef.current;
-    if (!database || !workspace) return null;
+  const createDocument = useCallback(
+    async (initial: DocumentInitial = {}) => {
+      const database = databaseRef.current;
+      if (!database || !workspace) return null;
 
-    const document = buildDocument({ workspaceId: workspace.id });
-    await database.documents.put(document);
+      const document = buildDocument({ ...initial, workspaceId: workspace.id });
+      await database.documents.put(document);
 
-    setSelectedId(document.id);
-    setRevision((value) => value + 1);
+      setSelectedId(document.id);
+      setRevision((value) => value + 1);
 
-    return document.id;
-  }, [workspace]);
+      return document.id;
+    },
+    [workspace],
+  );
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
     const database = databaseRef.current;

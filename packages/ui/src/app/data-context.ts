@@ -1,5 +1,10 @@
 import type { NotoDatabase } from '@noto/database';
-import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
+import type {
+  CreateDocumentInput,
+  NotoDocument,
+  UpdateDocumentInput,
+  Workspace,
+} from '@noto/types';
 import { createContext, useContext } from 'react';
 
 /**
@@ -37,8 +42,15 @@ export interface NotoDataValue {
   activeDocument: NotoDocument | null | undefined;
 
   selectDocument(id: string | null): void;
-  /** Creates a document and returns its id, so the caller can open a tab on it. */
-  createDocument(): Promise<string | null>;
+  /**
+   * Creates a document and returns its id, so the caller can open a tab on it.
+   *
+   * What it should start with — a template, an import, a duplicate — is passed
+   * here rather than written afterwards: an editor can mount on the new
+   * document as soon as it exists, and an editor does not adopt a body written
+   * to storage after it mounted.
+   */
+  createDocument(initial?: DocumentInitial): Promise<string | null>;
   updateDocument(id: string, patch: UpdateDocumentInput): Promise<void>;
   /**
    * Soft-deletes a document. The row stays on disk as a tombstone so the sync
@@ -57,6 +69,9 @@ export interface NotoDataValue {
    */
   purgeDocument(id: string): Promise<void>;
 }
+
+/** What a new document may start with. The workspace is always the open one. */
+export type DocumentInitial = Omit<CreateDocumentInput, 'workspaceId'>;
 
 export const NotoDataContext = createContext<NotoDataValue | null>(null);
 

@@ -200,6 +200,16 @@ export function AppHeader({ route, onShortcuts }: AppHeaderProps) {
             onSelect={actions.openDocument}
             onClose={tabs.close}
             onNew={() => void actions.newDocument()}
+            onTogglePin={tabs.togglePin}
+            onDuplicate={(id) => void tabs.duplicate(id)}
+            onMove={tabs.moveBy}
+            onCloseOthers={(id) => {
+              for (const other of tabs.tabs) {
+                if (other.id !== id && !other.isPinned) tabs.close(other.id);
+              }
+            }}
+            onReopenClosed={() => void tabs.reopenClosed()}
+            canReopen={tabs.canReopen}
             className="min-w-0 flex-1"
           />
         ) : (
