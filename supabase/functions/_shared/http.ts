@@ -178,11 +178,16 @@ export function deviceId(request: Request): string | null {
 /**
  * The caller's address, as the edge saw it.
  *
- * `x-forwarded-for` is a list; the first entry is the client and the rest are
- * proxies. Taken from the header the platform sets, never from the body — a
- * rate limit a client can rename itself out of is not a rate limit.
+ * `CF-Connecting-IP` first: Supabase's edge sits behind Cloudflare, which sets
+ * that header itself and overwrites any value a client sends. `x-forwarded-for`
+ * is the fallback; it is a list whose first entry is the client. Taken from
+ * headers the platform sets, never from the body — a rate limit a client can
+ * rename itself out of is not a rate limit.
  */
 export function clientIp(request: Request): string | undefined {
+  const connecting = request.headers.get('cf-connecting-ip')?.trim();
+  if (connecting) return connecting;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const first = forwarded?.split(',')[0]?.trim();
 

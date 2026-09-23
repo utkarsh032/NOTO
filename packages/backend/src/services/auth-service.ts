@@ -28,6 +28,12 @@ import { signInSchema, signUpSchema } from '../schemas/index.ts';
 /** How many failures inside the window before attempts are refused. */
 export interface RateLimitPolicy {
   signInPerEmail: number;
+  /**
+   * Failed sign-ins from one address, across every account. The per-email
+   * limit stops guessing one password; this one stops trying one password
+   * against many addresses.
+   */
+  signInPerIp: number;
   signInWindowSeconds: number;
   signUpPerIp: number;
   signUpWindowSeconds: number;
@@ -37,12 +43,16 @@ export interface RateLimitPolicy {
 
 export const DEFAULT_RATE_LIMITS: RateLimitPolicy = {
   signInPerEmail: 5,
+  signInPerIp: 20,
   signInWindowSeconds: 15 * 60,
   signUpPerIp: 5,
   signUpWindowSeconds: 60 * 60,
   resetPerEmail: 3,
   resetWindowSeconds: 60 * 60,
 };
+
+/** The bucket for requests whose address the platform did not report. */
+const UNKNOWN_IP = 'unknown';
 
 export interface AuthServiceOptions {
   rateLimits?: RateLimitPolicy;
@@ -87,15 +97,18 @@ export class AuthService {
 
     const request: SignUpRequest = parsed.value;
 
-    if (context.ip) {
-      const allowed = await this.underLimit(
-        await rateLimitKey('ip', context.ip),
-        'sign_up',
-        this.rateLimits.signUpPerIp,
-        this.rateLimits.signUpWindowSeconds,
-      );
-      if (!allowed.ok) return allowed;
-    }
+    // A request without an address shares one bucket with every other such
+    // request, rather than skipping the limit: "the proxy did not say" must
+    // not be a way around it.
+    const ipKey = await rateLimitKey('ip', context.ip ?? UNKNOWN_IP);
+
+    const allowed = await this.underLimit(
+      ipKey,
+      'sign_up',
+      this.rateLimits.signUpPerIp,
+      this.rateLimits.signUpWindowSeconds,
+    );
+    if (!allowed.ok) return allowed;
 
     /*
      * The bot check runs before the password rules, and before the provider is
@@ -129,9 +142,7 @@ export class AuthService {
       ...(request.locale === undefined ? {} : { locale: request.locale }),
     });
 
-    if (context.ip) {
-      await this.ports.rateLimit.record(await rateLimitKey('ip', context.ip), 'sign_up');
-    }
+    await this.ports.rateLimit.record(ipKey, 'sign_up');
 
     return created;
   }
@@ -144,7 +155,7 @@ export class AuthService {
    * There is no code for "no such account", because that is a free list of
    * targets for anyone who asks for it politely enough.
    */
-  async signIn(input: unknown): Promise<Result<AuthSessionDto>> {
+  async signIn(input: unknown, context: { ip?: string } = {}): Promise<Result<AuthSessionDto>> {
     const startedAt = Date.now();
 
     const parsed = validate(signInSchema, input);
@@ -152,13 +163,22 @@ export class AuthService {
 
     const request: SignInRequest = parsed.value;
     const key = await rateLimitKey('email', request.email);
+    const ipKey = await rateLimitKey('ip', context.ip ?? UNKNOWN_IP);
 
-    const allowed = await this.underLimit(
+    const allowedForEmail = await this.underLimit(
       key,
       'sign_in',
       this.rateLimits.signInPerEmail,
       this.rateLimits.signInWindowSeconds,
     );
+    const allowed = allowedForEmail.ok
+      ? await this.underLimit(
+          ipKey,
+          'sign_in',
+          this.rateLimits.signInPerIp,
+          this.rateLimits.signInWindowSeconds,
+        )
+      : allowedForEmail;
     if (!allowed.ok) {
       await this.padTo(startedAt);
       return allowed;
@@ -183,6 +203,7 @@ export class AuthService {
       const unconfirmed = isEmailUnconfirmed(session.error);
 
       await this.ports.rateLimit.record(key, 'sign_in');
+      await this.ports.rateLimit.record(ipKey, 'sign_in');
       await this.ports.audit.record({
         userId: null,
         kind: 'sign_in',
@@ -304,9 +325,18 @@ export class AuthService {
   ): Promise<Result<void>> {
     const count = await this.ports.rateLimit.countRecent(key, kind, windowSeconds);
 
-    // A rate limiter that cannot be reached must not lock everybody out. The
-    // request proceeds; the provider has its own limits behind this one.
-    if (!count.ok) return ok(undefined);
+    /*
+     * Fails closed. An unreachable counter used to wave every attempt through,
+     * which made "break the counter" the first step of any password-guessing
+     * run. An outage in the counter is now an outage in sign-in, which is the
+     * right way round for an account system: local notes stay available.
+     */
+    if (!count.ok) {
+      return err(
+        'storage_unavailable',
+        'This is unavailable right now. Try again in a few minutes.',
+      );
+    }
 
     if (count.value >= limit) {
       return err('permission_denied', 'Too many attempts. Wait a few minutes before trying again.');

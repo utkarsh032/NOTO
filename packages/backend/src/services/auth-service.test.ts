@@ -125,6 +125,29 @@ describe('AuthService.signUp', () => {
     expect(auth.users.size).toBe(0);
   });
 
+  it('still rate-limits sign-ups whose address is unknown', async () => {
+    const { service } = makeService();
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await service.signUp({
+        email: `writer-${attempt}@example.com`,
+        password: 'a-perfectly-fine-passphrase',
+        turnstileToken: 'token',
+        marketingOptIn: false,
+      });
+    }
+
+    const result = await service.signUp({
+      email: 'one-more@example.com',
+      password: 'a-perfectly-fine-passphrase',
+      turnstileToken: 'token',
+      marketingOptIn: false,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('Too many attempts');
+  });
+
   it('rejects a request that is missing its bot-check token', async () => {
     const { service } = makeService();
 
@@ -297,9 +320,9 @@ describe('AuthService.signIn', () => {
     expect(rateLimit.attempts).toHaveLength(0);
   });
 
-  it('still signs in when the rate limiter itself is unreachable', async () => {
-    // Failing open is deliberate: an unreachable counter must not lock every
-    // user out of their own notes. The provider has its own limits behind ours.
+  it('refuses to sign in when the rate limiter itself is unreachable', async () => {
+    // Fails closed: "break the counter" must not be the first step of a
+    // password-guessing run. Local notes stay available while signed out.
     const auth = new FakeAuthPort();
     const { service } = makeService({
       auth,
@@ -314,7 +337,33 @@ describe('AuthService.signIn', () => {
       device,
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('storage_unavailable');
+  });
+
+  it('limits failures from one address across many accounts', async () => {
+    const { service } = makeService();
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await service.signIn(
+        { email: `target-${attempt}@example.com`, password: 'wrong', device },
+        { ip: '203.0.113.9' },
+      );
+    }
+
+    const fromSameAddress = await service.signIn(
+      { email: 'fresh@example.com', password: 'wrong', device },
+      { ip: '203.0.113.9' },
+    );
+    const fromElsewhere = await service.signIn(
+      { email: 'fresh@example.com', password: 'wrong', device },
+      { ip: '198.51.100.4' },
+    );
+
+    expect(fromSameAddress.ok).toBe(false);
+    if (!fromSameAddress.ok) expect(fromSameAddress.error.message).toContain('Too many attempts');
+    expect(fromElsewhere.ok).toBe(false);
+    if (!fromElsewhere.ok) expect(fromElsewhere.error.message).not.toContain('Too many attempts');
   });
 
   it('still signs in when device registration fails', async () => {
