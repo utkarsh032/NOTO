@@ -43,19 +43,38 @@ const turnstileToken = z.string().min(1, { message: 'Bot check failed. Try again
  * Where a provider is allowed to send someone back to.
  *
  * An open redirect in an OAuth flow hands an attacker the authorization code,
- * so this is an allow-list of schemes rather than a URL check. `noto://` is the
- * desktop and mobile deep link; `http://localhost` is development only.
+ * so this is an allow-list of exact origins, compared after parsing. Any
+ * `https://` URL used to pass, which is an open redirect with extra steps, and
+ * a prefix test on `http://localhost` also passed `http://localhost.evil.test`.
+ *
+ * `noto://` is the desktop and mobile deep link. Localhost is the developer's
+ * own machine, on any port, by exact host name.
  */
+export const REDIRECT_ORIGINS: readonly string[] = [
+  'https://noto.app',
+  'https://www.noto.app',
+  'https://noto-web.utkarshraj525.workers.dev',
+];
+
+export function isAllowedRedirect(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol === 'noto:') return true;
+  if (url.protocol === 'https:') return REDIRECT_ORIGINS.includes(url.origin);
+  if (url.protocol === 'http:') return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+  return false;
+}
+
 export const redirectUrl = z
   .string()
   .url()
-  .refine(
-    (value) =>
-      value.startsWith('noto://') ||
-      value.startsWith('https://') ||
-      value.startsWith('http://localhost'),
-    { message: 'That redirect target is not allowed.' },
-  );
+  .refine(isAllowedRedirect, { message: 'That redirect target is not allowed.' });
 
 export const deviceRegistrationSchema = z.object({
   id: z.uuid(),

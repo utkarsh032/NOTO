@@ -62,8 +62,29 @@ const ALLOWED_ORIGINS = [
  */
 const LOCAL_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/;
 
+/**
+ * Whether this is a local stack, where a localhost page is the developer.
+ *
+ * In production a localhost origin is not the developer: it is whatever else is
+ * listening on the visitor's machine, and it has no business calling an
+ * account API with their session. So the grant follows the deployment — the
+ * local stack's own URL, or an explicit opt-in for a preview project.
+ */
+function isLocalStack(): boolean {
+  if (Deno.env.get('NOTO_ALLOW_LOCALHOST_ORIGINS') === 'true') return true;
+
+  try {
+    const host = new URL(Deno.env.get('SUPABASE_URL') ?? '').hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === 'kong';
+  } catch {
+    return false;
+  }
+}
+
+const ALLOW_LOCAL_ORIGINS = isLocalStack();
+
 function isAllowed(origin: string): boolean {
-  return ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin);
+  return ALLOWED_ORIGINS.includes(origin) || (ALLOW_LOCAL_ORIGINS && LOCAL_ORIGIN.test(origin));
 }
 
 export function corsHeaders(origin: string | null): Record<string, string> {
