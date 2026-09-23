@@ -5,9 +5,16 @@ import { Button } from '../../components/Button';
 import { IconButton } from '../../components/IconButton';
 import { StatusIndicator } from '../../components/StatusIndicator';
 import { showToast } from '../../components/toast-store';
-import { CloseIcon, DocumentIcon, ExternalLinkIcon, QuickNoteIcon } from '../../components/icons';
+import {
+  CheckIcon,
+  CloseIcon,
+  DocumentIcon,
+  ExternalLinkIcon,
+  QuickNoteIcon,
+} from '../../components/icons';
 import { quickNoteTitle, readQuickNoteDraft, writeQuickNoteDraft } from '../quick-note-draft';
 import { navigate } from '../router';
+import { useKeepQuickNote } from '../use-keep-quick-note';
 import { useNotoActions } from '../use-noto-actions';
 
 export interface QuickNoteProps {
@@ -28,8 +35,9 @@ export interface QuickNoteProps {
  * places, so a thought started here is already on that page when you get there.
  *
  * The draft is written to local storage on every keystroke. Closing without
- * saving is a normal thing to do — the note is still there next time — and only
- * Save turns it into a document the workspace lists.
+ * saving is a normal thing to do — the note is still there next time. Save
+ * keeps it in Memory, where the Quick Notes page lists it; "Save as document"
+ * is for the note that has already become one.
  *
  * Closed, it is not mounted at all, which is what makes the draft simply the
  * field's initial state: no effect has to notice the window opening and put
@@ -42,6 +50,7 @@ export function QuickNote({ open, onClose }: QuickNoteProps) {
 
 function QuickNoteWindow({ onClose }: { onClose(): void }) {
   const actions = useNotoActions();
+  const keep = useKeepQuickNote();
   const [text, setText] = useState(readQuickNoteDraft);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -56,6 +65,12 @@ function QuickNoteWindow({ onClose }: { onClose(): void }) {
   }, [text]);
 
   const save = () => {
+    void keep(text).then((kept) => {
+      if (kept) onClose();
+    });
+  };
+
+  const saveAsDocument = () => {
     const value = text.trim();
     if (value === '') return;
 
@@ -126,15 +141,24 @@ function QuickNoteWindow({ onClose }: { onClose(): void }) {
       <footer className="border-default flex items-center justify-between gap-3 border-t px-4 py-2.5">
         <StatusIndicator status={text === '' ? 'pending' : 'saved'} label="Saved locally" />
 
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={save}
-          disabled={text.trim() === ''}
-          leading={<DocumentIcon className="h-4 w-4" />}
-        >
-          Save
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <IconButton
+            label="Save as document"
+            size="sm"
+            icon={<DocumentIcon className="h-4 w-4" />}
+            onClick={saveAsDocument}
+            disabled={text.trim() === ''}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={save}
+            disabled={text.trim() === ''}
+            leading={<CheckIcon className="h-4 w-4" />}
+          >
+            Save
+          </Button>
+        </div>
       </footer>
     </div>
   );

@@ -163,7 +163,14 @@ export { TabBar, type TabBarProps } from './app/TabBar';
 
 export { MemoryCard, type MemoryCardProps } from './app/memory/MemoryCard';
 export { MEMORY_KINDS, MEMORY_KIND_ORDER, type MemoryKindInfo } from './app/memory/memory-kinds';
-export { useMemory, type MemoryQuery, type MemoryValue } from './app/memory/use-memory';
+export {
+  useMemory,
+  useMemoryCapture,
+  type MemoryCapture,
+  type MemoryQuery,
+  type MemoryValue,
+} from './app/memory/use-memory';
+export { notifyDataChanged, useDataRevision, type DataTopic } from './app/data-events';
 export { Highlight, type HighlightProps } from './app/search/Highlight';
 export { SearchResultRow, type SearchResultRowProps } from './app/search/SearchResultRow';
 export {
@@ -312,7 +319,6 @@ export {
 /* ── Mock data, until the services behind it exist ─────────────────────── */
 
 export { WRITING_TEMPLATES, type TemplateId, type WritingTemplate } from './mock/templates';
-export { buildMemoryItems, memoryStorageBytes } from './mock/memory';
 export {
   CURRENCY_SYMBOL,
   PLANS,

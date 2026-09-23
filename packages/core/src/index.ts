@@ -7,6 +7,7 @@ export * from './zoom.ts';
 export * from './version.ts';
 export * from './documents.ts';
 export * from './folders.ts';
+export * from './memory.ts';
 export * from './commands.ts';
 export * from './workspaces.ts';
 export * from './stores/index.ts';

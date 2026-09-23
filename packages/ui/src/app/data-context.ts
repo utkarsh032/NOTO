@@ -1,3 +1,4 @@
+import type { NotoDatabase } from '@noto/database';
 import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
 import { createContext, useContext } from 'react';
 
@@ -14,6 +15,12 @@ export interface NotoDataValue {
   error: string | null;
 
   workspace: Workspace | null;
+  /**
+   * The storage behind it, for the features that are not documents — Memory,
+   * versions, tags. `null` until `status` is `'ready'`. Writes through it
+   * should be followed by `notifyDataChanged`, so other views re-read.
+   */
+  database: NotoDatabase | null;
   /** `undefined` while the first query is in flight. */
   documents: NotoDocument[] | undefined;
   /**

@@ -30,6 +30,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
   const [status, setStatus] = useState<NotoDataValue['status']>('loading');
   const [error, setError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [database, setDatabase] = useState<NotoDatabase | null>(null);
   const [documents, setDocuments] = useState<NotoDocument[] | undefined>(undefined);
   const [trashedDocuments, setTrashed] = useState<NotoDocument[] | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       .then(({ database, workspace: opened }) => {
         if (cancelled) return;
         databaseRef.current = database;
+        setDatabase(database);
         setWorkspace(opened);
         setStatus('ready');
       })
@@ -165,6 +167,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       status,
       error,
       workspace,
+      database,
       documents,
       trashedDocuments,
       activeDocument,
@@ -179,6 +182,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       status,
       error,
       workspace,
+      database,
       documents,
       trashedDocuments,
       activeDocument,

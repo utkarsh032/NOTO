@@ -8,6 +8,7 @@ import { KeyHint } from '../../components/KeyHint';
 import { SearchInput } from '../../components/SearchInput';
 import { showToast } from '../../components/toast-store';
 import {
+  CheckIcon,
   ClipboardIcon,
   DocumentIcon,
   PanelRightIcon,
@@ -26,6 +27,7 @@ import {
 } from '../quick-note-draft';
 import { navigate } from '../router';
 import { detectShortcutPlatform } from '../use-command-shortcuts';
+import { useKeepQuickNote } from '../use-keep-quick-note';
 import { useNotoActions } from '../use-noto-actions';
 
 export interface QuickNoteScreenProps {
@@ -52,6 +54,7 @@ export interface QuickNoteScreenProps {
 export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProps) {
   const actions = useNotoActions();
   const memory = useMemory('note');
+  const keep = useKeepQuickNote();
   const platform = useMemo(() => detectShortcutPlatform(), []);
 
   /*
@@ -75,6 +78,10 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
   }, [memory.results, search]);
 
   const save = () => {
+    void keep(draft);
+  };
+
+  const saveAsDocument = () => {
     const value = draft.trim();
     if (value === '') return;
 
@@ -117,7 +124,7 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
             <ul className="text-secondary text-caption mt-2 flex flex-col gap-3">
               <li>
                 <span className="text-primary block font-medium">This page</span>
-                Write, then save it as a document when it turns into one.
+                Write, keep it here, and make it a document when it turns into one.
               </li>
               <li>
                 <span className="text-primary block font-medium">The floating window</span>
@@ -185,13 +192,22 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
                 Discard
               </Button>
               <Button
+                variant="secondary"
+                size="sm"
+                disabled={draft.trim() === ''}
+                onClick={saveAsDocument}
+                leading={<DocumentIcon className="h-4 w-4" />}
+              >
+                Save as document
+              </Button>
+              <Button
                 variant="primary"
                 size="sm"
                 disabled={draft.trim() === ''}
                 onClick={save}
-                leading={<DocumentIcon className="h-4 w-4" />}
+                leading={<CheckIcon className="h-4 w-4" />}
               >
-                Save as document
+                Keep note
               </Button>
             </div>
           </footer>
@@ -244,7 +260,7 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
                       ?.writeText(item.content)
                       .then(() => showToast('Copied to clipboard', { tone: 'success' }));
                   }}
-                  onTogglePin={() => memory.togglePin(item)}
+                  onTogglePin={() => void memory.togglePin(item)}
                   onOpenInDocument={() => {
                     void actions
                       .importDocument({
@@ -256,7 +272,9 @@ export function QuickNoteScreen({ onQuickNote, onShowDock }: QuickNoteScreenProp
                         navigate('documents');
                       });
                   }}
-                  onDelete={() => memory.remove(item.id)}
+                  onDelete={() =>
+                    void memory.remove(item.id).then(() => showToast('Removed from Memory'))
+                  }
                 />
               </li>
             ))}

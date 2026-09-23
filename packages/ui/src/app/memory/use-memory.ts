@@ -1,8 +1,14 @@
+import {
+  createMemoryItem,
+  deleteMemoryItem,
+  updateMemoryItem,
+  type CreateMemoryInput,
+} from '@noto/core';
 import type { MemoryItem, MemoryKind } from '@noto/types';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { buildMemoryItems } from '../../mock/memory';
 import { isWithinDays } from '../../utils/format';
+import { notifyDataChanged, useDataRevision } from '../data-events';
 import { useNotoData } from '../data-context';
 
 export interface MemoryQuery {
@@ -20,7 +26,12 @@ export interface MemoryQuery {
   sinceDays?: number | null;
 }
 
+/** What a capture supplies; the workspace is filled in by the hook. */
+export type MemoryCapture = Omit<CreateMemoryInput, 'workspaceId'>;
+
 export interface MemoryValue {
+  /** `true` until the first read from storage has come back. */
+  loading: boolean;
   /** Everything captured, newest first. */
   items: MemoryItem[];
   /** What survives the current query. */
@@ -28,8 +39,12 @@ export interface MemoryValue {
   query: MemoryQuery;
   setQuery(next: Partial<MemoryQuery>): void;
   countsByKind: Record<MemoryKind | 'all', number>;
-  togglePin(item: MemoryItem): void;
-  remove(id: string): void;
+  /** Resolves once the change is on disk. */
+  togglePin(item: MemoryItem): Promise<void>;
+  /** Soft-deletes. Resolves once the tombstone is on disk. */
+  remove(id: string): Promise<void>;
+  /** Saves something new into Memory. Resolves with it, or `null` before storage is open. */
+  capture(input: MemoryCapture): Promise<MemoryItem | null>;
 }
 
 const EMPTY_COUNTS: Record<MemoryKind | 'all', number> = {
@@ -43,23 +58,42 @@ const EMPTY_COUNTS: Record<MemoryKind | 'all', number> = {
 };
 
 /**
+ * Saves into Memory from anywhere — Quick Note, the Smart Sidebar, the dock —
+ * without subscribing to the list. Every Memory view re-reads afterwards.
+ */
+export function useMemoryCapture(): MemoryValue['capture'] {
+  const { database, workspace } = useNotoData();
+
+  return useCallback(
+    async (input: MemoryCapture) => {
+      if (!database || !workspace) return null;
+
+      const item = createMemoryItem({ ...input, workspaceId: workspace.id });
+      await database.memory.put(item);
+      notifyDataChanged('memory');
+
+      return item;
+    },
+    [database, workspace],
+  );
+}
+
+/**
  * Noto Memory.
  *
- * The capture services — clipboard watching, screenshots, link saving — are not
- * built yet, so the items come from the fixture and the mutations live in React
- * state: pinning and removing work for the session, and nothing pretends to
- * have been written to disk. When a memory repository exists, this hook is the
- * one thing that changes.
- *
- * Filtering is a pass over an array here, which is honest at fixture size. The
- * screen does not rely on it staying that way: it renders through a virtual
- * list, so the row count is what grows, not the number of DOM nodes.
+ * Read from the device's own storage, newest first, and re-read whenever any
+ * window writes to it. Filtering is a pass over the list in memory: the query
+ * changes on every keystroke, and a list of a few thousand captured items
+ * filters faster than a round trip to SQLite over IPC. The screen renders
+ * through a virtual list, so what grows with the list is the row count, not
+ * the number of DOM nodes.
  */
 export function useMemory(initialKind: MemoryKind | 'all' = 'all'): MemoryValue {
-  const { workspace } = useNotoData();
+  const { database, workspace } = useNotoData();
+  const revision = useDataRevision('memory');
+  const capture = useMemoryCapture();
 
-  const [overrides, setOverrides] = useState<Record<string, Partial<MemoryItem>>>({});
-  const [removed, setRemoved] = useState<string[]>([]);
+  const [items, setItems] = useState<MemoryItem[] | null>(null);
   const [query, setQueryState] = useState<MemoryQuery>({
     kind: initialKind,
     text: '',
@@ -67,19 +101,25 @@ export function useMemory(initialKind: MemoryKind | 'all' = 'all'): MemoryValue 
     sinceDays: null,
   });
 
-  const items = useMemo(() => {
-    const base = buildMemoryItems(workspace?.id ?? 'local');
+  useEffect(() => {
+    if (!database || !workspace) return;
 
-    return base
-      .filter((item) => !removed.includes(item.id))
-      .map((item) => ({ ...item, ...overrides[item.id] }))
-      .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
-  }, [workspace?.id, overrides, removed]);
+    let cancelled = false;
+    void database.memory.listByWorkspace(workspace.id).then((rows) => {
+      if (!cancelled) setItems(rows);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [database, workspace, revision]);
+
+  const loaded = useMemo(() => items ?? [], [items]);
 
   const results = useMemo(() => {
     const needle = query.text.trim().toLowerCase();
 
-    return items.filter((item) => {
+    return loaded.filter((item) => {
       if (query.kind !== 'all' && item.kind !== query.kind) return false;
       if (query.pinnedOnly && !item.isPinned) return false;
       if (query.sinceDays && !isWithinDays(item.updatedAt, query.sinceDays)) return false;
@@ -89,38 +129,67 @@ export function useMemory(initialKind: MemoryKind | 'all' = 'all'): MemoryValue 
         item.title.toLowerCase().includes(needle) ||
         item.content.toLowerCase().includes(needle) ||
         (item.source ?? '').toLowerCase().includes(needle) ||
-        item.tags.some((tag) => tag.includes(needle))
+        item.tags.some((tag) => tag.toLowerCase().includes(needle))
       );
     });
-  }, [items, query]);
+  }, [loaded, query]);
 
   const countsByKind = useMemo(() => {
-    const counts = { ...EMPTY_COUNTS, all: items.length };
-    for (const item of items) counts[item.kind] += 1;
+    const counts = { ...EMPTY_COUNTS, all: loaded.length };
+    for (const item of loaded) counts[item.kind] += 1;
     return counts;
-  }, [items]);
+  }, [loaded]);
 
   const setQuery = useCallback((next: Partial<MemoryQuery>) => {
     setQueryState((current) => ({ ...current, ...next }));
   }, []);
 
-  /* The item, not its id: `items` has already merged the overrides in, so the
-     value on the item is the effective one to invert. */
-  const togglePin = useCallback((item: MemoryItem) => {
-    setOverrides((current) => ({
-      ...current,
-      [item.id]: { ...current[item.id], isPinned: !item.isPinned },
-    }));
-  }, []);
+  /*
+   * Written through and then re-read. The list is updated optimistically first
+   * so a pin does not wait on a disk write to show.
+   */
+  const togglePin = useCallback(
+    async (item: MemoryItem) => {
+      if (!database) return;
 
-  const remove = useCallback((id: string) => {
-    setRemoved((current) => [...current, id]);
-  }, []);
+      const next = updateMemoryItem(item, { isPinned: !item.isPinned });
+      setItems((current) => current?.map((row) => (row.id === item.id ? next : row)) ?? null);
+      await database.memory.put(next);
+      notifyDataChanged('memory');
+    },
+    [database],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      if (!database) return;
+
+      // Started from the list on screen, so the tombstone is one write, not a
+      // read and then a write.
+      const existing = loaded.find((row) => row.id === id) ?? (await database.memory.get(id));
+      if (!existing) return;
+
+      setItems((current) => current?.filter((row) => row.id !== id) ?? null);
+      await database.memory.put(deleteMemoryItem(existing));
+      notifyDataChanged('memory');
+    },
+    [database, loaded],
+  );
 
   /* Memoised: screens keep this in effect dependencies, and a fresh object on
      every render would re-run them forever. */
   return useMemo(
-    () => ({ items, results, query, setQuery, countsByKind, togglePin, remove }),
-    [items, results, query, setQuery, countsByKind, togglePin, remove],
+    () => ({
+      loading: items === null,
+      items: loaded,
+      results,
+      query,
+      setQuery,
+      countsByKind,
+      togglePin,
+      remove,
+      capture,
+    }),
+    [items, loaded, results, query, setQuery, countsByKind, togglePin, remove, capture],
   );
 }

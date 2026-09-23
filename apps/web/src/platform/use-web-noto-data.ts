@@ -129,6 +129,8 @@ export function useWebNotoData(): NotoDataValue {
       status,
       error,
       workspace,
+      // The one connection every live query observes; `null` until it is open.
+      database: status === 'ready' ? db : null,
       documents,
       trashedDocuments,
       activeDocument,
