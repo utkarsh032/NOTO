@@ -56,6 +56,17 @@ export function recordOf(change: RemoteChange): SyncRecord {
   return toWire({ kind: change.kind, entity: change.entity } as SyncRecord);
 }
 
+/**
+ * A server copy with what only this device knows put back: where a file sits
+ * on this device. The server never has it, so it arrives as `null`.
+ */
+export function keepLocalOnly(remote: SyncRecord, local: SyncRecord | null): SyncRecord {
+  if (remote.kind === 'file' && local?.kind === 'file' && remote.entity.localPath === null) {
+    return { kind: 'file', entity: { ...remote.entity, localPath: local.entity.localPath } };
+  }
+  return remote;
+}
+
 const KIND_ORDER: Record<SyncEntityKind, number> = {
   workspace: 0,
   folder: 1,

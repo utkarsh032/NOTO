@@ -34,7 +34,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@noto/database": "workspace:*",
     "@noto/eslint-config": "workspace:*",
+    "@noto/sync": "workspace:*",
     "@noto/tsconfig": "workspace:*",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.15.6",

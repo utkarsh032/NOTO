@@ -11,7 +11,15 @@ import type {
 
 import { resolveConflict } from './conflict';
 import { type Connectivity, alwaysOnline } from './connectivity';
-import { entityKey, inApplyOrder, loadRecord, recordOf, toWire, workspaceOf } from './records';
+import {
+  entityKey,
+  inApplyOrder,
+  keepLocalOnly,
+  loadRecord,
+  recordOf,
+  toWire,
+  workspaceOf,
+} from './records';
 import { type SyncTransport, SyncTransportError } from './transport';
 import type { SyncEngine, SyncStateListener } from './types';
 
@@ -44,6 +52,11 @@ export interface CloudSyncOptions {
   maxBackoffMs?: number;
   /** Changes per push; the server's cap is 200. */
   pushBatchSize?: number;
+  /**
+   * Bytes per push, as JSON. The server takes up to 8 MB; aiming at half
+   * leaves room for encoding. A single larger change still goes, alone.
+   */
+  pushBatchBytes?: number;
   /** Changes per pull; the server's cap is 500. */
   pullBatchSize?: number;
   now?: () => Date;
@@ -222,12 +235,10 @@ export class CloudSyncEngine implements SyncEngine {
   }
 
   private async push(): Promise<void> {
-    const batchSize = this.options.pushBatchSize ?? 200;
-
     let conflictRounds = 0;
 
     for (;;) {
-      const batch = await this.collectPushBatch(batchSize);
+      const { batch, full } = await this.collectPushBatch();
       if (batch.length === 0) return;
 
       const result = await this.transport.push({
@@ -257,18 +268,24 @@ export class CloudSyncEngine implements SyncEngine {
       if (result.conflicts.length > 0) {
         conflictRounds += 1;
         if (conflictRounds >= MAX_CONFLICT_ROUNDS) return;
-      } else if (batch.length < batchSize) {
+      } else if (!full) {
         return;
       }
     }
   }
 
-  /** The oldest queued changes in this workspace, ready to send. */
-  private async collectPushBatch(limit: number): Promise<PushItem[]> {
+  /**
+   * The oldest queued changes in this workspace, ready to send. `full` says
+   * the batch stopped at a limit, so more may be waiting behind it.
+   */
+  private async collectPushBatch(): Promise<{ batch: PushItem[]; full: boolean }> {
+    const maxCount = this.options.pushBatchSize ?? 200;
+    const maxBytes = this.options.pushBatchBytes ?? 4 * 1024 * 1024;
     const batch: PushItem[] = [];
+    let bytes = 0;
 
     for (const entry of await this.database.outbox.list()) {
-      if (batch.length >= limit) break;
+      if (batch.length >= maxCount) return { batch, full: true };
 
       const record = await loadRecord(this.database, entry.entityKind, entry.entityId);
       if (!record) {
@@ -278,17 +295,19 @@ export class CloudSyncEngine implements SyncEngine {
       }
       if (workspaceOf(record) !== this.workspaceId) continue;
 
-      batch.push({
-        entry,
-        change: {
-          ...toWire(record),
-          operation: entry.operation,
-          baseVersion: await this.database.sync.baseVersion(entry.entityKind, entry.entityId),
-        } as SyncPushChange,
-      });
+      const change = {
+        ...toWire(record),
+        operation: entry.operation,
+        baseVersion: await this.database.sync.baseVersion(entry.entityKind, entry.entityId),
+      } as SyncPushChange;
+
+      const size = JSON.stringify(change).length;
+      if (batch.length > 0 && bytes + size > maxBytes) return { batch, full: true };
+      bytes += size;
+      batch.push({ entry, change });
     }
 
-    return batch;
+    return { batch, full: false };
   }
 
   private async pull(): Promise<void> {
@@ -352,7 +371,7 @@ export class CloudSyncEngine implements SyncEngine {
       const pending = local !== null && (await this.isQueued(kind, id));
 
       if (!pending) {
-        const remote = recordOf(change);
+        const remote = keepLocalOnly(recordOf(change), local);
         const written = await this.database.sync.applyRemote(remote, {
           baseVersion: change.version,
           expectedVersion,
@@ -364,7 +383,7 @@ export class CloudSyncEngine implements SyncEngine {
       const resolution = resolveConflict(local, change);
 
       if (resolution.winner === 'remote') {
-        const remote = recordOf(change);
+        const remote = keepLocalOnly(recordOf(change), local);
         const written = await this.database.sync.applyRemote(remote, {
           baseVersion: change.version,
           expectedVersion,

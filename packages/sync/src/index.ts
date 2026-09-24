@@ -4,4 +4,5 @@ export * from './engine';
 export * from './conflict';
 export * from './connectivity';
 export * from './transport';
-export { entityKey, inApplyOrder, loadRecord, toWire, workspaceOf } from './records';
+export * from './workspaces';
+export { entityKey, inApplyOrder, keepLocalOnly, loadRecord, toWire, workspaceOf } from './records';

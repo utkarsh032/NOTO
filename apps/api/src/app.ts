@@ -3,10 +3,15 @@ import { bodyLimit } from 'hono/body-limit';
 
 import { accountRoutes } from './controllers/account.ts';
 import { authRoutes } from './controllers/auth.ts';
+import { syncRoutes } from './controllers/sync.ts';
+import { workspaceRoutes } from './controllers/workspaces.ts';
 import type { Env } from './env.ts';
 import { type AppContext, type AppEnv, fail } from './http.ts';
 import { clientIp, cors, rateLimit, requestId, responseHeaders } from './middleware/index.ts';
 import type { ApiDependencies } from './services.ts';
+
+/** The largest sync push accepted. Devices aim for half of it (`@noto/sync`). */
+export const SYNC_PUSH_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
  * The Hono app and its middleware chain (plan §7).
@@ -33,21 +38,15 @@ export function createApp(
   app.use('*', requestId());
   app.use('*', cors(options.env));
   app.use('*', responseHeaders());
-  // Documents travel through sync, never through here, and attachments go
-  // straight to object storage: 1 MB is generous for anything this API takes.
-  app.use(
-    '*',
-    bodyLimit({
-      maxSize: 1024 * 1024,
-      onError: (c) =>
-        fail(
-          c as never,
-          { code: 'invalid_input', message: 'That request is too large.' },
-          {
-            status: 413,
-          },
-        ),
-    }),
+  // Attachments go straight to object storage, so 1 MB is generous for
+  // anything this API takes — except a sync push, which carries whole
+  // documents, up to 200 at a time. Devices split pushes well below its limit.
+  const tooLarge = (c: AppContext) =>
+    fail(c, { code: 'invalid_input', message: 'That request is too large.' }, { status: 413 });
+  const syncPushLimit = bodyLimit({ maxSize: SYNC_PUSH_MAX_BYTES, onError: tooLarge as never });
+  const defaultLimit = bodyLimit({ maxSize: 1024 * 1024, onError: tooLarge as never });
+  app.use('*', (c, next) =>
+    c.req.path === '/v1/sync/push' ? syncPushLimit(c, next) : defaultLimit(c, next),
   );
   app.use(
     '*',
@@ -66,6 +65,8 @@ export function createApp(
 
   app.route('/v1/auth', authRoutes(deps));
   app.route('/v1/account', accountRoutes(deps));
+  app.route('/v1/workspaces', workspaceRoutes(deps));
+  app.route('/v1/sync', syncRoutes(deps));
 
   app.notFound((c) => fail(c, { code: 'not_found', message: 'There is nothing here.' }));
 
