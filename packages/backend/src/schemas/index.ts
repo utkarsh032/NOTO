@@ -132,3 +132,40 @@ export const settingsPatchSchema = z.object({
   updates: z.record(z.string(), z.unknown()).optional(),
   syncEnabled: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// The Noto API's own identity routes (apps/api). GoTrue handled these before.
+// ---------------------------------------------------------------------------
+
+/** A mailed or refresh token: opaque, bounded, never parsed. */
+const opaqueToken = z.string().trim().min(16).max(512);
+
+export const refreshSchema = z.object({ refreshToken: opaqueToken });
+
+export const emailTokenSchema = z.object({ token: opaqueToken });
+
+export const emailOnlySchema = z.object({ email });
+
+export const passwordResetConfirmSchema = z.object({
+  token: opaqueToken,
+  newPassword: password,
+});
+
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(512),
+  newPassword: password,
+  signOutOtherDevices: z.boolean().default(true),
+});
+
+export const emailChangeSchema = z.object({
+  newEmail: email,
+  password: z.string().min(1).max(512),
+});
+
+export const profilePatchSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(80).optional(),
+    locale: z.string().trim().min(2).max(12).optional(),
+    marketingOptIn: z.boolean().optional(),
+  })
+  .strict();

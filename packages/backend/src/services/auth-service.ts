@@ -140,6 +140,7 @@ export class AuthService {
       password: request.password,
       ...(request.displayName === undefined ? {} : { displayName: request.displayName }),
       ...(request.locale === undefined ? {} : { locale: request.locale }),
+      marketingOptIn: request.marketingOptIn,
     });
 
     await this.ports.rateLimit.record(ipKey, 'sign_up');
@@ -155,7 +156,10 @@ export class AuthService {
    * There is no code for "no such account", because that is a free list of
    * targets for anyone who asks for it politely enough.
    */
-  async signIn(input: unknown, context: { ip?: string } = {}): Promise<Result<AuthSessionDto>> {
+  async signIn(
+    input: unknown,
+    context: { ip?: string; userAgent?: string } = {},
+  ): Promise<Result<AuthSessionDto>> {
     const startedAt = Date.now();
 
     const parsed = validate(signInSchema, input);
@@ -187,6 +191,11 @@ export class AuthService {
     const session = await this.ports.auth.signIn({
       email: request.email,
       password: request.password,
+      deviceId: request.device.id,
+      client: {
+        ...(context.ip === undefined ? {} : { ip: context.ip }),
+        ...(context.userAgent === undefined ? {} : { userAgent: context.userAgent }),
+      },
     });
 
     if (!session.ok) {

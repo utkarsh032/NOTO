@@ -1,0 +1,4 @@
+{
+  "extends": "@noto/tsconfig/node.json",
+  "include": ["src", "db", "test", "scripts", "eslint.config.mjs", "vitest.config.ts"]
+}

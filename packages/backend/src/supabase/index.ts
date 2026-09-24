@@ -12,10 +12,10 @@ import {
   SupabaseRateLimitAdapter,
   SupabaseSettingsAdapter,
 } from './adapters.ts';
-import { NoTurnstile } from './turnstile.ts';
+import { NoTurnstile } from '../shared/turnstile.ts';
 
 export * from './adapters.ts';
-export * from './turnstile.ts';
+export * from '../shared/turnstile.ts';
 export * from './rows.ts';
 
 /**

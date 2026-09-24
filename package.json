@@ -16,6 +16,7 @@
     "dev:website": "turbo run dev --filter=@noto/website",
     "dev:desktop": "turbo run dev --filter=@noto/desktop",
     "dev:mobile": "turbo run start --filter=@noto/mobile",
+    "dev:api": "turbo run dev --filter=@noto/api",
     "build:web": "turbo run build --filter=@noto/web...",
     "build:website": "turbo run build --filter=@noto/website...",
     "deploy:web": "pnpm build:web && wrangler deploy --config apps/web/wrangler.jsonc",
@@ -38,7 +39,11 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "db:bootstrap": "pnpm --filter @noto/api run db:bootstrap",
+    "db:migrate": "pnpm --filter @noto/api run db:migrate",
+    "db:status": "pnpm --filter @noto/api run db:status",
+    "db:psql": "pnpm --filter @noto/api run db:psql"
   },
   "devDependencies": {
     "@noto/eslint-config": "workspace:*",

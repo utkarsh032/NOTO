@@ -40,40 +40,50 @@ found.
 
 The API never connects as a superuser. It uses two roles (plan §3):
 
-| Role           | Used by                                                                                         | Row-level security                                                       |
-| -------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `noto_api`     | every request, through `DATABASE_URL`                                                           | **Applies.** Not the owner of any table, not `bypassrls`.                |
-| `noto_service` | six server-only paths (audit log, rate limits, billing webhook), through `DATABASE_SERVICE_URL` | Bypassed, deliberately. Never used by a route that takes a workspace id. |
+| Role           | Used by                                                                                                                   | Row-level security                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `noto_api`     | every request, through `DATABASE_URL`                                                                                     | **Applies.** Not the owner of any table, not `bypassrls`.                   |
+| `noto_service` | the server's own identity tables (sessions, mailed tokens, the security log, rate limits), through `DATABASE_SERVICE_URL` | Bypassed, deliberately. Never given a row filter taken from a request body. |
 
-As the `postgres` superuser:
+Copy `apps/api/.env.example` to `apps/api/.env` (ignored by git), fill in the
+`postgres` password and a `JWT_SECRET`, then:
+
+```bash
+pnpm db:bootstrap   # creates the `noto` database and both login roles. Once per machine.
+```
+
+`db:bootstrap` connects as `DATABASE_MIGRATE_URL`, creates the database if it
+is missing, and creates or updates `noto_api` and `noto_service` with the
+passwords in `DATABASE_URL` and `DATABASE_SERVICE_URL`. It is safe to run again.
+
+If you prefer to do it by hand, as the `postgres` superuser:
 
 ```sql
 create database noto;
-
 create role noto_api login password 'change-me-locally';
 create role noto_service login password 'change-me-locally' bypassrls;
-
-\c noto
-grant usage on schema public to noto_api, noto_service;
 ```
 
-The migrations grant table privileges as they create tables, so there is
-nothing more to do by hand. Use real passwords on anything that is not your own
-laptop.
+The migrations grant table and column privileges as they create tables, so
+there is nothing more to do. Use real passwords on anything that is not your
+own laptop.
 
 ## 3. Point the API at it
 
-`apps/api/.env` (ignored by git):
+`apps/api/.env`:
 
 ```dotenv
 DATABASE_URL=postgres://noto_api:change-me-locally@localhost:5432/noto
 DATABASE_SERVICE_URL=postgres://noto_service:change-me-locally@localhost:5432/noto
 # Migrations only: the database owner, because they create tables and grants.
 DATABASE_MIGRATE_URL=postgres://postgres:your-postgres-password@localhost:5432/noto
+JWT_SECRET=at-least-32-characters
 ```
 
 `apps/api/src/env.ts` validates these at startup. A missing value stops the
-process at boot rather than on the first sign-in.
+process at boot rather than on the first sign-in. `pnpm dev:api` then serves
+on `http://localhost:8787`; without `RESEND_API_KEY`, verification and reset
+links are printed in that terminal instead of mailed.
 
 ## 4. Migrations
 
@@ -84,23 +94,32 @@ transaction, and a `schema_migrations` table records what has run.
 ```bash
 pnpm db:migrate     # apply everything not yet applied
 pnpm db:status      # list what would run; change nothing
-pnpm db:psql        # a psql shell on DATABASE_URL
+pnpm db:psql        # a psql shell on DATABASE_URL, as noto_api (--owner for the owner)
 ```
 
-Never edit a migration that has run anywhere but your own machine. Add a new one.
+Never edit a migration that has run anywhere but your own machine. Add a new
+one. The runner records each file's checksum and refuses to continue if an
+applied file has changed.
 
 ## 5. Tests
 
-Integration tests in `apps/api/test/` create a throwaway database per run
-(`noto_test_<random>`), migrate it, and drop it afterwards, so they never touch
-your development data. They need a role allowed to create databases:
+Integration tests in `apps/api/test/` create a throwaway database per test
+file (`noto_test_<random>`), migrate it, and drop it afterwards, so they never
+touch your development data. They read one variable, a URL for a role allowed
+to create databases:
 
-```sql
-alter role postgres createdb;  -- already true for the installer's superuser
+```bash
+NOTO_TEST_DATABASE_URL=postgres://postgres:your-postgres-password@localhost:5432/postgres pnpm --filter @noto/api test
 ```
 
+The tests reach `noto_api` and `noto_service` through that one URL with
+`SET ROLE`, so row-level security and the column grants apply exactly as they
+do for the server, and no role passwords are needed. Without the variable the
+Postgres suites are skipped and only the unit tests run.
+
 In CI, `ci.yml` starts the GitHub-hosted runner's PostgreSQL service
-(`sudo systemctl start postgresql` on Ubuntu) rather than a container.
+(`sudo systemctl start postgresql` on Ubuntu) rather than a container, and sets
+the variable for the test step.
 
 ## Troubleshooting
 
