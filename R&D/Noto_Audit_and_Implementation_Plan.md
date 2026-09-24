@@ -27,14 +27,14 @@ Status key: ✅ Done · 🟡 Partial · 🟠 Mock / UI only · ❌ Missing. Seve
 
 ## Implementation status
 
-_Last updated 23 September 2026. Branch `dev`, pushed. Each step was checked with lint, typecheck, unit tests and the web e2e suite before it was committed._
+_Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked with lint, typecheck, unit tests and the web e2e suite before it was committed._
 
 ### Overall
 
 | Phase | Theme | Status | Progress |
 | --- | --- | --- | --- |
 | 0 | Stabilise and harden | ✅ Done | 8 of 8 steps |
-| 1 | Finish the local product | 🟡 In progress | 7 of 9 steps |
+| 1 | Finish the local product | ✅ Done | 9 of 9 steps |
 | 2 | Backend foundation (`apps/api`) | ❌ Not started | Needs D1 (host) and a Postgres instance |
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
 | 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
@@ -44,9 +44,9 @@ _Last updated 23 September 2026. Branch `dev`, pushed. Each step was checked wit
 | 8 | AI | ❌ Not started | Needs D4 (AI provider) |
 | 9 | Collaboration | ❌ Not started | |
 
-In steps: **15 of 17 steps in Phases 0–1 are done**, which is roughly **2 of the 10 phases**. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
+In steps: **all 17 steps in Phases 0–1 are done**, which is **2 of the 10 phases**. Phases 2–5 are being worked on in separate sessions and git worktrees (`Noto-phase2` … `Noto-phase5`); they will record their own status here as they merge. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
 
-Test counts at this point: 233 unit tests (up from 199), 76 web e2e tests (up from 59).
+Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config).
 
 ### Phase 0 — Stabilise and harden ✅
 
@@ -63,7 +63,7 @@ Test counts at this point: 233 unit tests (up from 199), 76 web e2e tests (up fr
 
 Not yet done from Phase 0's "done when": a manual check that a packaged desktop build reaches the backend.
 
-### Phase 1 — Finish the local product 🟡
+### Phase 1 — Finish the local product ✅
 
 | Step | Status | Commit | What was done |
 | --- | --- | --- | --- |
@@ -74,10 +74,10 @@ Not yet done from Phase 0's "done when": a manual check that a packaged desktop 
 | 5. Folders and tags | ✅ | `d9c6911` | Folder tree with drag and drop, nesting, rename, remove; folder picker and tag editor in the Info tab. |
 | 6. Tab controls | ✅ | `2585664` | Pin, duplicate, move, reopen closed, close others; right-click tab menu; commands with shortcuts. |
 | 7. Search index, long lists | ✅ | `37c22e4` | Incremental full-text index (one JS index on every platform, not FTS5); long lists drawn progressively as they scroll. |
-| 8. PDF/DOCX export, HTML import | 🟡 In progress | — | DOCX writer and ZIP writer drafted, not yet wired in or committed. Still to do: desktop print-to-PDF, HTML import through the editor schema. |
-| 9. Split oversized files | ❌ | — | |
+| 8. PDF/DOCX export, HTML import | ✅ | `1146c8a` | DOCX export (own WordprocessingML + ZIP writer); PDF written to a file on desktop, print dialog elsewhere; HTML import through the editor schema (scripts and unsafe links dropped); export now flushes pending edits first. |
+| 9. Split oversized files | ✅ | `3a8dcc7` | SettingsScreen, ContextPanel, export, icons, core commands, local-file, EditorToolbar and NotoApp split into folders; no public API or behaviour change. |
 
-Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are `templates.ts`, `account.ts` and `plans.ts`. The last two belong to Phases 3 and 7.
+Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are `templates.ts`, `account.ts` and `plans.ts`. The last two belong to Phases 3 and 7. e2e covers Memory, versions, folders, tags, search, tabs, export and import.
 
 ### Bugs found and fixed along the way
 
@@ -89,6 +89,7 @@ Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are
 ### Known issues
 
 - Commit `5562963` also contains the deletion of `mock/versions.ts`, so that single commit does not build on its own; the next commit does.
+- Export used the stored copy, so the last second of typing was missing from exported files (fixed in `1146c8a`).
 - Desktop and mobile builds have not been checked by hand since these changes; only web was exercised end to end.
 
 ## 1. Executive summary
