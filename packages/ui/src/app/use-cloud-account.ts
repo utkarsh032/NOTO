@@ -1,9 +1,15 @@
-import type { Device, User } from '@noto/types';
+import type { Device, Session, User } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { showToast } from '../components/toast-store';
-import { MOCK_PLAN, MOCK_SECURITY } from '../mock/account';
-import type { AccountSignInResult, AccountSignUpInput, AccountValue } from './account-context';
+import { MOCK_PLAN } from '../mock/account';
+import type {
+  AccountSignInResult,
+  AccountSignUpInput,
+  AccountValue,
+  SecurityEvent,
+  SecurityState,
+} from './account-context';
 
 /**
  * The account, for any platform with a cloud behind it.
@@ -51,6 +57,22 @@ export interface CloudGateway {
   watchSession(listener: (event: CloudSessionEvent) => void): (() => void) | null;
   /** Absent where this build cannot create an account. */
   signUp?(input: AccountSignUpInput): Promise<AccountSignInResult>;
+
+  /*
+   * What `apps/api` offers and the Supabase functions never did. Each is
+   * optional, so a gateway without one simply shows less — never a fixture.
+   */
+
+  /** The Security tab's facts. Read after `fetchUser`, so it may reuse that request. */
+  fetchSecurity?(): Promise<SecurityState | null>;
+  /** `null` when the service does not list sessions at all. */
+  fetchSessions?(): Promise<Session[] | null>;
+  fetchEvents?(): Promise<SecurityEvent[]>;
+  revokeDevice?(deviceId: string): Promise<boolean>;
+  revokeSession?(sessionId: string): Promise<boolean>;
+  verifyEmail?(token: string): Promise<AccountSignInResult>;
+  requestPasswordReset?(email: string): Promise<AccountSignInResult>;
+  resetPassword?(token: string, newPassword: string): Promise<AccountSignInResult>;
 }
 
 export interface CloudAccountOptions {
@@ -64,7 +86,20 @@ export interface CloudAccountOptions {
   turnstileSiteKey: string | null;
   /** Where to create an account when this build cannot. `null` where it can. */
   signUpUrl: string | null;
+  /**
+   * What the gateway can do beyond signing in and out, known before it is
+   * loaded — the screens decide whether to offer a control on first render,
+   * and loading the cloud to find out would defeat the lazy load.
+   */
+  features?: {
+    /** Revoking devices and sessions. */
+    manageDevices?: boolean;
+    /** Email verification links, "forgot password" and reset links. */
+    recovery?: boolean;
+  };
 }
+
+const UNSUPPORTED: AccountSignInResult = { ok: false, message: 'This build cannot do that.' };
 
 export function useCloudAccount(options: CloudAccountOptions): AccountValue {
   const { configured, turnstileSiteKey, signUpUrl } = options;
@@ -103,6 +138,11 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
 
   const [user, setUser] = useState<User | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  /** Whether the service lists sessions at all; ending one is offered only if so. */
+  const [sessionsOffered, setSessionsOffered] = useState(false);
+  const [security, setSecurity] = useState<SecurityState | null>(null);
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
 
   /*
    * Whether to listen for the client's own view of the session.
@@ -128,7 +168,35 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
     wasSignedIn.current = false;
     setUser(null);
     setDevices([]);
+    setSessions([]);
+    setSessionsOffered(false);
+    setSecurity(null);
+    setEvents([]);
     setStatus('signed-out');
+  }, []);
+
+  /**
+   * The lists around the profile: devices, sessions, the security log.
+   *
+   * Each is read on its own and a failure empties only that one. A device list
+   * that could not load is no reason to call somebody signed out.
+   */
+  const loadDetails = useCallback(async (cloud: CloudGateway): Promise<void> => {
+    const quietly = <T>(read: (() => Promise<T>) | undefined, fallback: T): Promise<T> =>
+      read ? read().catch(() => fallback) : Promise.resolve(fallback);
+
+    const [nextDevices, nextSessions, nextSecurity, nextEvents] = await Promise.all([
+      quietly(() => cloud.fetchDevices(), [] as Device[]),
+      quietly(cloud.fetchSessions && (() => cloud.fetchSessions!()), null as Session[] | null),
+      quietly(cloud.fetchSecurity && (() => cloud.fetchSecurity!()), null as SecurityState | null),
+      quietly(cloud.fetchEvents && (() => cloud.fetchEvents!()), [] as SecurityEvent[]),
+    ]);
+
+    setDevices(nextDevices);
+    setSessions(nextSessions ?? []);
+    setSessionsOffered(nextSessions !== null);
+    setSecurity(nextSecurity);
+    setEvents(nextEvents);
   }, []);
 
   /** Reads the profile behind the current session. False when there is none. */
@@ -145,7 +213,7 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
 
       wasSignedIn.current = true;
       setUser(profile);
-      setDevices(await cloud.fetchDevices());
+      await loadDetails(cloud);
       setStatus('signed-in');
 
       return true;
@@ -159,7 +227,7 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
 
       return false;
     }
-  }, [reset]);
+  }, [reset, loadDetails]);
 
   useEffect(() => {
     // No credentials, or nobody has ever signed in here. Either way there is
@@ -312,6 +380,54 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
     }
   }, [reset]);
 
+  /*
+   * Ending another device or session, then reading the lists again. The
+   * server is the one that knows what else went with it — revoking a device
+   * ends its sessions too.
+   */
+  const revokeDevice = useCallback(
+    async (deviceId: string) => {
+      const cloud = await gateway.current.load();
+      const done = (await cloud.revokeDevice?.(deviceId).catch(() => false)) ?? false;
+      if (done) await loadDetails(cloud);
+
+      return done;
+    },
+    [loadDetails],
+  );
+
+  const revokeSession = useCallback(
+    async (sessionId: string) => {
+      const cloud = await gateway.current.load();
+      const done = (await cloud.revokeSession?.(sessionId).catch(() => false)) ?? false;
+      if (done) await loadDetails(cloud);
+
+      return done;
+    },
+    [loadDetails],
+  );
+
+  const verifyEmail = useCallback(async (token: string) => {
+    const cloud = await gateway.current.load();
+
+    return (await cloud.verifyEmail?.(token)) ?? UNSUPPORTED;
+  }, []);
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const cloud = await gateway.current.load();
+
+    return (await cloud.requestPasswordReset?.(email)) ?? UNSUPPORTED;
+  }, []);
+
+  const resetPassword = useCallback(async (token: string, newPassword: string) => {
+    const cloud = await gateway.current.load();
+
+    return (await cloud.resetPassword?.(token, newPassword)) ?? UNSUPPORTED;
+  }, []);
+
+  const manageDevices = configured && options.features?.manageDevices === true;
+  const recovery = configured && options.features?.recovery === true;
+
   /** True only where the build can actually complete a sign-up. */
   const canSignUp = configured && turnstileSiteKey !== null;
 
@@ -320,17 +436,22 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
       status,
       user,
       devices,
-      sessions: [],
-      // Plan and security remain fixtures: nothing behind a subscription or a
-      // second factor exists yet to read.
+      sessions,
+      // The plan remains a fixture until billing exists (Phase 7).
       plan: MOCK_PLAN,
-      security: MOCK_SECURITY,
+      security,
+      events,
       signIn: configured ? signIn : null,
       // Sign-up needs a bot check. Without a sitekey the server would refuse
       // every attempt, so the form is not offered at all.
       signUp: canSignUp ? signUp : null,
       signOut: configured ? signOut : null,
       resendConfirmation: configured ? resendConfirmation : null,
+      revokeDevice: manageDevices ? revokeDevice : null,
+      revokeSession: manageDevices && sessionsOffered ? revokeSession : null,
+      verifyEmail: recovery ? verifyEmail : null,
+      requestPasswordReset: recovery ? requestPasswordReset : null,
+      resetPassword: recovery ? resetPassword : null,
       turnstileSiteKey,
       signUpUrl,
     }),
@@ -338,6 +459,17 @@ export function useCloudAccount(options: CloudAccountOptions): AccountValue {
       status,
       user,
       devices,
+      sessions,
+      sessionsOffered,
+      security,
+      events,
+      manageDevices,
+      recovery,
+      revokeDevice,
+      revokeSession,
+      verifyEmail,
+      requestPasswordReset,
+      resetPassword,
       configured,
       canSignUp,
       signIn,

@@ -118,6 +118,7 @@ export {
   type AccountSignInResult,
   type AccountSignUpInput,
   type AccountValue,
+  type SecurityEvent,
   type SecurityState,
 } from './app/account-context';
 

@@ -20,6 +20,7 @@ import { queueCommandLine, queueFiles, queueLink, registerLaunchHandlers } from 
 import { installApplicationMenu } from './menu';
 import { claimLinkScheme, handleSquirrelEvent } from './os-integration';
 import { installWindowGuards } from './security';
+import { registerSessionHandlers } from './session-store';
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts';
 import { closeConnection, openConnection } from './sqlite';
 import { initialiseUpdates } from './updater';
@@ -329,6 +330,7 @@ void app.whenReady().then(() => {
   // Whatever this launch was asked to open. The window takes it once it is up.
   queueCommandLine(process.argv, process.cwd());
   claimLinkScheme();
+  registerSessionHandlers();
 
   initialiseDock({
     load: loadDockWindow,

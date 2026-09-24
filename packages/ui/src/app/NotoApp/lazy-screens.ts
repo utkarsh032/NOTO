@@ -36,5 +36,8 @@ export const PlansScreen = lazy(() =>
 export const LoginScreen = lazy(() =>
   import('../screens/LoginScreen').then((module) => ({ default: module.LoginScreen })),
 );
+export const AuthLinkScreen = lazy(() =>
+  import('../screens/AuthLinkScreen').then((module) => ({ default: module.AuthLinkScreen })),
+);
 
 /** Which overlay is up. Only one of the modal ones can be at a time. */

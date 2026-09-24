@@ -310,7 +310,8 @@ function CredentialsForm({
 }) {
   const passwordId = useId();
   const route = useRoute();
-  const { signIn, signUp, resendConfirmation, turnstileSiteKey } = useAccount();
+  const { signIn, signUp, resendConfirmation, requestPasswordReset, turnstileSiteKey } =
+    useAccount();
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   // Set when a sign-in failed only because the address is unconfirmed, which
@@ -414,7 +415,10 @@ function CredentialsForm({
       return;
     }
 
-    setUnconfirmed(result.message?.startsWith('Confirm your email address') === true);
+    setUnconfirmed(
+      result.unconfirmed === true ||
+        result.message?.startsWith('Confirm your email address') === true,
+    );
 
     /*
      * The message comes from the server and is shown as it arrives. It says the
@@ -455,7 +459,31 @@ function CredentialsForm({
           <label htmlFor={passwordId} className="text-primary text-body-sm font-medium">
             Password
           </label>
-          {/* "Forgot password?" returns with password reset in the new account service. */}
+          {mode === 'sign-in' && requestPasswordReset ? (
+            <button
+              type="button"
+              onClick={() => {
+                const address = email.trim();
+                if (!/^\S+@\S+\.\S+$/.test(address)) {
+                  setErrors({ email: 'Enter your email address first, then ask again.' });
+
+                  return;
+                }
+
+                setErrors({});
+                void requestPasswordReset(address).then((sent) =>
+                  showToast(
+                    sent.ok
+                      ? 'If an account uses that address, a reset link is on its way.'
+                      : (sent.message ?? 'That did not work. Try again.'),
+                  ),
+                );
+              }}
+              className="text-brand-strong text-caption focus-visible:outline-brand rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Forgot password?
+            </button>
+          ) : null}
         </div>
 
         <div className="relative mt-1.5">

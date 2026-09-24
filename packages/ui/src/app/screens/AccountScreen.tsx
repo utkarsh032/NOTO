@@ -7,7 +7,8 @@ import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Tabs } from '../../components/Tabs';
 import { CheckCircleIcon, InfoIcon } from '../../components/icons';
-import { formatBytes, formatDate } from '../../utils/format';
+import { showToast } from '../../components/toast-store';
+import { formatBytes, formatDate, relativeTime } from '../../utils/format';
 import { PageContainer } from '../PageContainer';
 import { DeviceCard } from '../account/DeviceCard';
 import { SessionRow } from '../account/SessionRow';
@@ -19,6 +20,24 @@ import { useSignOut } from '../use-sign-out';
 
 type AccountTab = 'account' | 'devices' | 'sessions' | 'security' | 'preferences';
 
+/** The security log's event kinds, as a person would say them. */
+const EVENT_LABELS: Record<string, string> = {
+  sign_in: 'Signed in',
+  sign_out: 'Signed out',
+  sign_up: 'Account created',
+  refresh: 'Session renewed',
+  password_reset: 'Password reset',
+  password_change: 'Password changed',
+  email_verified: 'Email address confirmed',
+  email_change: 'Email address changed',
+  device_revoked: 'Device signed out',
+  session_revoked: 'Session ended',
+};
+
+function describeEvent(kind: string): string {
+  return EVENT_LABELS[kind] ?? kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+}
+
 /**
  * Account & Devices.
  *
@@ -27,7 +46,8 @@ type AccountTab = 'account' | 'devices' | 'sessions' | 'security' | 'preferences
  * letting each button explain itself after the fact.
  */
 export function AccountScreen() {
-  const { status, user, devices, sessions, plan } = useAccount();
+  const { status, user, devices, sessions, plan, security, events, revokeDevice, revokeSession } =
+    useAccount();
   const { documents } = useNotoData();
   const { signOut, available: canSignOut } = useSignOut();
 
@@ -152,10 +172,11 @@ export function AccountScreen() {
       <div className="border-default bg-surface-secondary text-secondary text-body-sm mb-5 flex items-start gap-2.5 rounded-xl border px-4 py-3">
         <InfoIcon className="text-tertiary mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Your profile, your devices and signing out are live. Editing your profile, ending other
-          sessions and the security settings arrive with sync; until then they are shown, not
-          offered. Documents stay on this device either way: Noto is local-first, and an account
-          adds a copy rather than becoming the original.
+          {revokeDevice
+            ? 'Your profile, your devices, your sessions and signing out are live, and you can sign other devices out from here. Editing your profile and two-step sign-in come later; until then they are shown, not offered.'
+            : 'Your profile, your devices and signing out are live. Editing your profile, ending other sessions and the security settings come later; until then they are shown, not offered.'}{' '}
+          Documents stay on this device either way: Noto is local-first, and an account adds a copy
+          rather than becoming the original.
         </p>
       </div>
 
@@ -206,7 +227,23 @@ export function AccountScreen() {
         <section aria-label="Devices">
           <ul className="flex flex-col gap-3">
             {devices.map((device) => (
-              <DeviceCard key={device.id} device={device} />
+              <DeviceCard
+                key={device.id}
+                device={device}
+                {...(revokeDevice
+                  ? {
+                      onSignOut: () => {
+                        void revokeDevice(device.id).then((done) =>
+                          showToast(
+                            done
+                              ? `${device.name} is signed out.`
+                              : `${device.name} could not be signed out. Try again.`,
+                          ),
+                        );
+                      },
+                    }
+                  : {})}
+              />
             ))}
           </ul>
         </section>
@@ -214,29 +251,74 @@ export function AccountScreen() {
 
       {tab === 'sessions' ? (
         <section aria-label="Sessions" className="flex flex-col gap-4">
-          <div className="border-default bg-surface overflow-hidden rounded-xl border shadow-sm">
-            <ul>
-              {sessions.map((session) => (
-                <SessionRow key={session.id} session={session} />
-              ))}
-            </ul>
-          </div>
+          {sessions.length === 0 ? (
+            <p className="text-tertiary text-body-sm">
+              The account service does not list sessions yet. Each device above holds one.
+            </p>
+          ) : (
+            <div className="border-default bg-surface overflow-hidden rounded-xl border shadow-sm">
+              <ul>
+                {sessions.map((session) => (
+                  <SessionRow
+                    key={session.id}
+                    session={session}
+                    {...(revokeSession
+                      ? {
+                          onSignOut: () => {
+                            void revokeSession(session.id).then((done) =>
+                              showToast(
+                                done
+                                  ? 'That session has ended.'
+                                  : 'The session could not be ended. Try again.',
+                              ),
+                            );
+                          },
+                        }
+                      : {})}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       ) : null}
 
       {tab === 'security' ? (
-        <SettingsSection title="Security" description="How this account is protected.">
-          <SettingsRow
-            label="Password"
-            description="Changing and resetting it arrive with the new account service."
-            control={<Badge>Not yet</Badge>}
-          />
-          <SettingsRow
-            label="Two-factor authentication"
-            description="A second step when signing in on a new device."
-            control={<Badge>Not yet</Badge>}
-          />
-        </SettingsSection>
+        <div className="flex flex-col gap-5">
+          <SettingsSection title="Security" description="How this account is protected.">
+            <SettingsRow
+              label="Password"
+              description={
+                security?.passwordChangedAt
+                  ? `Last changed ${formatDate(security.passwordChangedAt)}. To change it, sign out and use “Forgot password?”.`
+                  : 'Changing it from here comes later. “Forgot password?” on the sign-in screen resets it.'
+              }
+            />
+            <SettingsRow
+              label="Two-factor authentication"
+              description="A second step when signing in on a new device."
+              control={<Badge>{security?.twoFactorEnabled ? 'On' : 'Not yet'}</Badge>}
+            />
+          </SettingsSection>
+
+          {events.length > 0 ? (
+            <SettingsSection
+              title="Recent activity"
+              description="Sign-ins and changes to this account, newest first."
+            >
+              {events.map((event) => (
+                <SettingsRow
+                  key={event.id}
+                  label={describeEvent(event.kind)}
+                  description={[event.deviceName, event.location, relativeTime(event.createdAt)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  control={event.outcome === 'failure' ? <Badge tone="danger">Failed</Badge> : null}
+                />
+              ))}
+            </SettingsSection>
+          ) : null}
+        </div>
       ) : null}
 
       {tab === 'preferences' ? (

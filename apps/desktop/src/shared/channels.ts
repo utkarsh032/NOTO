@@ -132,6 +132,19 @@ export interface DockPlacementReport {
 }
 
 /**
+ * The signed-in session, encrypted by the operating system's keychain.
+ *
+ * The renderer hands over an opaque string and gets it back; it never sees
+ * where it is kept or how. See `main/session-store.ts`.
+ */
+export const SESSION_CHANNELS = {
+  load: 'noto:session:load',
+  /** Answers whether it was kept — false where there is no keychain. */
+  save: 'noto:session:save',
+  clear: 'noto:session:clear',
+} as const;
+
+/**
  * Updating.
  *
  * `check` and `install` are asked for by the renderer; `status` goes the other

@@ -50,6 +50,7 @@ import { useUpdateWatcher, checkForUpdates } from '../updates';
 import { useViewport } from '../use-viewport';
 import {
   AccountScreen,
+  AuthLinkScreen,
   DocumentsScreen,
   LoginScreen,
   MemoryScreen,
@@ -407,6 +408,22 @@ function NotoWindow() {
       >
         <Suspense fallback={<ScreenLoading />}>
           <LoginScreen />
+          <ToastViewport />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  /* Email links: confirming an address, or setting a new password. Full-window
+     for the same reason sign-in is. */
+  if (route.name === 'auth') {
+    return (
+      <ErrorBoundary
+        onError={reportRenderError}
+        fallback={(failure, reset) => <ScreenError error={failure} onRetry={reset} />}
+      >
+        <Suspense fallback={<ScreenLoading />}>
+          <AuthLinkScreen />
           <ToastViewport />
         </Suspense>
       </ErrorBoundary>

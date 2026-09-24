@@ -1,12 +1,15 @@
-import { APP_VERSION } from '@noto/config';
 import { createSupabaseClient } from '@noto/sync/supabase';
 import * as account from '@noto/sync/supabase/account';
-import type { Device, DevicePlatform, User } from '@noto/types';
+import type { Device, User } from '@noto/types';
 
 import { clearStoredSession, cloudConfig } from './cloud-config';
+import { device, deviceId } from './device';
 
 /**
- * The cloud, for the desktop application.
+ * The cloud, for the desktop application, on Supabase.
+ *
+ * Retired by `./cloud-api.ts`: loaded only in a build with no
+ * `VITE_NOTO_API_URL`, and deleted once the cutover is verified in production.
  *
  * The operations are `@noto/sync/supabase/account`, the same ones the web
  * application calls against the same Edge Functions. What differs is only what
@@ -28,62 +31,6 @@ export const supabase = createSupabaseClient({
 });
 
 export type { SignInOutcome } from '@noto/sync/supabase/account';
-
-const DEVICE_ID_KEY = 'noto.device.id';
-
-/**
- * This installation's id.
- *
- * In the renderer's localStorage, which Electron keeps in the application's
- * user-data directory — so it survives signing out, and a reinstall that clears
- * that directory is honestly a new device.
- */
-function deviceId(): string {
-  const stored = localStorage.getItem(DEVICE_ID_KEY);
-  if (stored) return stored;
-
-  const created = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_KEY, created);
-
-  return created;
-}
-
-/**
- * Which desktop this is.
- *
- * Read from the user agent rather than asked of the main process: Electron's
- * renderer reports the real platform there, and one synchronous string beats an
- * IPC round trip for something that cannot change while the window is open.
- */
-function platform(): DevicePlatform {
-  const agent = navigator.userAgent;
-  if (agent.includes('Windows')) return 'windows';
-  if (agent.includes('Mac OS X')) return 'macos';
-
-  return 'linux';
-}
-
-function osName(): string {
-  switch (platform()) {
-    case 'windows':
-      return 'Windows';
-    case 'macos':
-      return 'macOS';
-    default:
-      return 'Linux';
-  }
-}
-
-/** This computer, as the account screen will list it. */
-function device(): account.DeviceDescriptor {
-  return {
-    id: deviceId(),
-    name: `${osName()} desktop`,
-    platform: platform(),
-    osName: osName(),
-    appVersion: APP_VERSION,
-  };
-}
 
 function endpoint(): account.CloudEndpoint {
   return { url: cloudConfig.url ?? '', anonKey: cloudConfig.anonKey ?? '' };

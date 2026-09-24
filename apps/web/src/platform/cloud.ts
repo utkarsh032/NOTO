@@ -1,12 +1,16 @@
-import { APP_VERSION } from '@noto/config';
 import { createSupabaseClient } from '@noto/sync/supabase';
 import * as account from '@noto/sync/supabase/account';
 import type { Device, User } from '@noto/types';
 
 import { clearStoredSession, cloudConfig } from './cloud-config.ts';
+import { device, deviceId } from './device.ts';
 
 /**
- * The cloud, for the web application.
+ * The cloud, for the web application, on Supabase.
+ *
+ * Retired by `./cloud-api.ts`: this module is loaded only in a build with no
+ * `VITE_NOTO_API_URL`, and is deleted once the cutover is verified in
+ * production (Backend_Node_Plan, appendix).
  *
  * The operations themselves live in `@noto/sync/supabase/account`, because the
  * desktop performs the same ones against the same functions. What is left here
@@ -24,57 +28,6 @@ export const supabase = createSupabaseClient({
 });
 
 export type { SignInOutcome, SignUpInput, SignUpOutcome } from '@noto/sync/supabase/account';
-
-const DEVICE_ID_KEY = 'noto.device.id';
-
-/**
- * This installation's id.
- *
- * Generated here and kept in local storage, so signing out and back in is the
- * same device while a reinstall is a new one. That is what makes the device
- * list on the account screen a list of installations rather than of sessions.
- */
-function deviceId(): string {
-  const stored = localStorage.getItem(DEVICE_ID_KEY);
-  if (stored) return stored;
-
-  const created = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_KEY, created);
-
-  return created;
-}
-
-/** A readable name for this browser. Coarse on purpose; it is a label, not a fingerprint. */
-function browserName(): string {
-  const agent = navigator.userAgent;
-  if (agent.includes('Edg/')) return 'Edge';
-  if (agent.includes('Chrome/') && !agent.includes('Chromium')) return 'Chrome';
-  if (agent.includes('Firefox/')) return 'Firefox';
-  if (agent.includes('Safari/')) return 'Safari';
-
-  return 'Browser';
-}
-
-function osName(): string {
-  const agent = navigator.userAgent;
-  if (agent.includes('Windows')) return 'Windows';
-  if (agent.includes('Mac OS X')) return 'macOS';
-  if (agent.includes('Android')) return 'Android';
-  if (agent.includes('Linux')) return 'Linux';
-
-  return 'Unknown';
-}
-
-/** This browser, as the account screen will list it. */
-function device(): account.DeviceDescriptor {
-  return {
-    id: deviceId(),
-    name: browserName(),
-    platform: 'web',
-    osName: osName(),
-    appVersion: APP_VERSION,
-  };
-}
 
 /** The endpoint, once the credentials are known to be present. */
 function endpoint(): account.CloudEndpoint {
