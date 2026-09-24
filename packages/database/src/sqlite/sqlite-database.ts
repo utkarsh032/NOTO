@@ -1,8 +1,9 @@
 import { hashContent } from '@noto/core';
-import type { Id, SyncEntityKind, SyncOperation } from '@noto/types';
+import type { Id, NotoDocument, SyncEntityKind, SyncOperation, SyncRecord } from '@noto/types';
 
 import { nextOutboxOperation, normalizeSearchQuery } from '../query';
 import type {
+  ApplyRemoteOptions,
   DocumentRepository,
   FileRepository,
   FolderRepository,
@@ -13,6 +14,7 @@ import type {
   MemoryRepository,
   NotoDatabase,
   OutboxRepository,
+  SyncRepository,
   VersionRepository,
   WorkspaceRepository,
 } from '../types';
@@ -131,6 +133,9 @@ const FILE_COLUMNS = [...FILE_FIELDS, 'version'].join(', ');
 const MEMORY_COLUMNS = [...MEMORY_FIELDS, 'version'].join(', ');
 const VERSION_COLUMNS = VERSION_FIELDS.join(', ');
 
+/** A save made on this device, as opposed to one that came from the server. */
+const LOCAL = null;
+
 type EntityTable = 'workspaces' | 'folders' | 'documents' | 'files' | 'memory_items';
 
 function placeholders(count: number): string {
@@ -215,8 +220,9 @@ export class SqliteDatabase implements NotoDatabase {
   constructor(private readonly driver: SqlDriver) {}
 
   /**
-   * Every local save of a syncable entity: the row, its version, and its
-   * outbox entry, in one transaction so they cannot disagree.
+   * Every save of a syncable entity: the row, its version, and either its
+   * outbox entry (a local save) or its base version (a save from the server),
+   * in one transaction so they cannot disagree.
    */
   private async saveEntity(
     kind: SyncEntityKind,
@@ -224,11 +230,12 @@ export class SqliteDatabase implements NotoDatabase {
     fields: readonly string[],
     values: SqlValue[],
     deleted: boolean,
+    remote: ApplyRemoteOptions | null,
     extra: { columns: readonly string[]; values: SqlValue[] } = { columns: [], values: [] },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const id = values[0] as string;
 
-    await this.driver.transaction(async () => {
+    return this.driver.transaction(async () => {
       const [state] = await this.driver.select<{
         version: number | null;
         operation: SyncOperation | null;
@@ -240,11 +247,26 @@ export class SqliteDatabase implements NotoDatabase {
 
       const previousVersion = state?.version ?? null;
 
+      if (remote?.expectedVersion !== undefined && previousVersion !== remote.expectedVersion) {
+        return false;
+      }
+
       await this.driver.execute(upsertSql(table, [...fields, 'version', ...extra.columns]), [
         ...values,
         (previousVersion ?? 0) + 1,
         ...extra.values,
       ]);
+
+      if (remote) {
+        await this.setBase(kind, id, remote.baseVersion);
+        if (remote.dequeue) {
+          await this.driver.execute('DELETE FROM outbox WHERE entity_kind = ? AND entity_id = ?', [
+            kind,
+            id,
+          ]);
+        }
+        return true;
+      }
 
       await this.driver.execute(
         `INSERT INTO outbox (entity_kind, entity_id, operation, seq, queued_at)` +
@@ -258,6 +280,87 @@ export class SqliteDatabase implements NotoDatabase {
           new Date().toISOString(),
         ],
       );
+      return true;
+    });
+  }
+
+  private async setBase(kind: SyncEntityKind, id: Id, version: number): Promise<void> {
+    await this.driver.execute(
+      'INSERT INTO sync_base (entity_kind, entity_id, base_version) VALUES (?, ?, ?)' +
+        ' ON CONFLICT(entity_kind, entity_id) DO UPDATE SET base_version = excluded.base_version',
+      [kind, id, version],
+    );
+  }
+
+  private write(record: SyncRecord, remote: ApplyRemoteOptions | null = LOCAL): Promise<boolean> {
+    switch (record.kind) {
+      case 'workspace':
+        return this.saveEntity(
+          'workspace',
+          'workspaces',
+          WORKSPACE_FIELDS,
+          fromWorkspace(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'folder':
+        return this.saveEntity(
+          'folder',
+          'folders',
+          FOLDER_FIELDS,
+          fromFolder(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'document':
+        return this.writeDocument(record.entity, remote);
+      case 'file':
+        return this.saveEntity(
+          'file',
+          'files',
+          FILE_FIELDS,
+          fromFile(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'memory':
+        return this.saveEntity(
+          'memory',
+          'memory_items',
+          MEMORY_FIELDS,
+          fromMemoryItem(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+    }
+  }
+
+  private writeDocument(
+    document: NotoDocument,
+    remote: ApplyRemoteOptions | null,
+  ): Promise<boolean> {
+    return this.driver.transaction(async () => {
+      const written = await this.saveEntity(
+        'document',
+        'documents',
+        DOCUMENT_FIELDS,
+        fromDocument(document),
+        document.deletedAt !== null,
+        remote,
+        { columns: ['content_hash'], values: [hashContent(document.content)] },
+      );
+      if (!written) return false;
+
+      // The tag index follows the row. Rebuilt rather than diffed: a
+      // document has a handful of tags, and rebuilding cannot drift.
+      await this.driver.execute('DELETE FROM document_tags WHERE document_id = ?', [document.id]);
+      for (const tag of new Set(document.tags)) {
+        await this.driver.execute('INSERT INTO document_tags (document_id, tag) VALUES (?, ?)', [
+          document.id,
+          tag,
+        ]);
+      }
+      return true;
     });
   }
 
@@ -282,13 +385,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (workspace) => {
-      await this.saveEntity(
-        'workspace',
-        'workspaces',
-        WORKSPACE_FIELDS,
-        fromWorkspace(workspace),
-        workspace.deletedAt !== null,
-      );
+      await this.write({ kind: 'workspace', entity: workspace });
     },
 
     purge: async (id) => {
@@ -317,13 +414,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (folder) => {
-      await this.saveEntity(
-        'folder',
-        'folders',
-        FOLDER_FIELDS,
-        fromFolder(folder),
-        folder.deletedAt !== null,
-      );
+      await this.write({ kind: 'folder', entity: folder });
     },
 
     putMany: async (folders) => {
@@ -387,26 +478,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (document) => {
-      await this.driver.transaction(async () => {
-        await this.saveEntity(
-          'document',
-          'documents',
-          DOCUMENT_FIELDS,
-          fromDocument(document),
-          document.deletedAt !== null,
-          { columns: ['content_hash'], values: [hashContent(document.content)] },
-        );
-
-        // The tag index follows the row. Rebuilt rather than diffed: a
-        // document has a handful of tags, and rebuilding cannot drift.
-        await this.driver.execute('DELETE FROM document_tags WHERE document_id = ?', [document.id]);
-        for (const tag of new Set(document.tags)) {
-          await this.driver.execute('INSERT INTO document_tags (document_id, tag) VALUES (?, ?)', [
-            document.id,
-            tag,
-          ]);
-        }
-      });
+      await this.write({ kind: 'document', entity: document });
     },
 
     putMany: async (documents) => {
@@ -480,7 +552,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (file) => {
-      await this.saveEntity('file', 'files', FILE_FIELDS, fromFile(file), file.deletedAt !== null);
+      await this.write({ kind: 'file', entity: file });
     },
 
     purge: async (id) => {
@@ -510,13 +582,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (item) => {
-      await this.saveEntity(
-        'memory',
-        'memory_items',
-        MEMORY_FIELDS,
-        fromMemoryItem(item),
-        item.deletedAt !== null,
-      );
+      await this.write({ kind: 'memory', entity: item });
     },
 
     putMany: async (items) => {
@@ -622,6 +688,20 @@ export class SqliteDatabase implements NotoDatabase {
     clear: async () => {
       await this.driver.execute('DELETE FROM outbox');
     },
+  };
+
+  readonly sync: SyncRepository = {
+    baseVersion: async (kind, id) => {
+      const rows = await this.driver.select<{ base_version: number }>(
+        'SELECT base_version FROM sync_base WHERE entity_kind = ? AND entity_id = ?',
+        [kind, id],
+      );
+      return rows[0]?.base_version ?? 0;
+    },
+
+    setBaseVersion: (kind, id, version) => this.setBase(kind, id, version),
+
+    applyRemote: (record, options) => this.write(record, options),
   };
 
   readonly localState: LocalStateRepository = {

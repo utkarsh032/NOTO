@@ -8,6 +8,8 @@ import type {
   NotoDocument,
   NotoFile,
   OutboxEntry,
+  SyncEntityKind,
+  SyncRecord,
   Workspace,
 } from '@noto/types';
 
@@ -123,6 +125,38 @@ export interface OutboxRepository {
   clear(): Promise<void>;
 }
 
+export interface ApplyRemoteOptions {
+  /** The server version the record is at. It becomes the entity's base version. */
+  baseVersion: number;
+  /**
+   * Write only if the local row is still at this version — `null` for "only if
+   * there is no local row". A local edit that landed after the caller looked is
+   * never overwritten; the write is skipped and `applyRemote` resolves `false`.
+   */
+  expectedVersion?: number | null;
+  /** Also drop the entity's outbox entry: the server's copy replaces the local change. */
+  dequeue?: boolean;
+}
+
+/**
+ * What sync needs from storage beyond the outbox.
+ *
+ * Each entity has a base version: the server version this device last saw of
+ * it, and so the version a push of a local change is made on. It is kept apart
+ * from the entity's own `version`, which counts saves on this device.
+ */
+export interface SyncRepository {
+  /** `0` for an entity the server has never been seen to hold. */
+  baseVersion(kind: SyncEntityKind, id: Id): Promise<number>;
+  setBaseVersion(kind: SyncEntityKind, id: Id, version: number): Promise<void>;
+  /**
+   * Writes an entity that came from the server. Unlike `put`, it queues
+   * nothing — the server already has it — and it records the base version.
+   * Resolves `false` when `expectedVersion` did not match and nothing was written.
+   */
+  applyRemote(record: SyncRecord, options: ApplyRemoteOptions): Promise<boolean>;
+}
+
 /**
  * Small values this device keeps for itself: crash-recovery snapshots,
  * unsent drafts. Never synced. A key-value table rather than localStorage,
@@ -149,6 +183,7 @@ export interface NotoDatabase {
   readonly memory: MemoryRepository;
   readonly versions: VersionRepository;
   readonly outbox: OutboxRepository;
+  readonly sync: SyncRepository;
   readonly localState: LocalStateRepository;
 
   /** Opens the connection and applies any pending migrations. */

@@ -10,6 +10,7 @@ import type {
   NotoFile,
   OutboxEntry,
   SyncEntityKind,
+  SyncRecord,
   Workspace,
 } from '@noto/types';
 import Dexie, { type Table } from 'dexie';
@@ -28,6 +29,7 @@ import {
   normalizeSearchQuery,
 } from '../query';
 import type {
+  ApplyRemoteOptions,
   DocumentRepository,
   FileRepository,
   FolderRepository,
@@ -35,9 +37,20 @@ import type {
   MemoryRepository,
   NotoDatabase,
   OutboxRepository,
+  SyncRepository,
   VersionRepository,
   WorkspaceRepository,
 } from '../types';
+
+/** A save made on this device, as opposed to one that came from the server. */
+const LOCAL = null;
+
+/** The server version an entity was last seen at. */
+interface SyncBaseRow {
+  entityKind: SyncEntityKind;
+  entityId: Id;
+  baseVersion: number;
+}
 
 /** A row in the key-value table. */
 interface LocalStateRow {
@@ -65,6 +78,7 @@ export class NotoDexie extends Dexie {
   declare documentVersions: Table<DocumentVersionRecord, Id>;
   declare outbox: Table<OutboxEntry, [SyncEntityKind, Id]>;
   declare localState: Table<LocalStateRow, string>;
+  declare syncBase: Table<SyncBaseRow, [SyncEntityKind, Id]>;
 
   constructor(name: string = DATABASE_NAME) {
     super(name);
@@ -91,6 +105,11 @@ export class NotoDexie extends Dexie {
       outbox: '[entityKind+entityId], seq',
       localState: 'key',
     });
+
+    /* Version 3 — sync: the server version each entity was last seen at. */
+    this.version(3).stores({
+      syncBase: '[entityKind+entityId]',
+    });
   }
 }
 
@@ -103,20 +122,39 @@ export class DexieDatabase implements NotoDatabase {
   }
 
   /**
-   * Every local save: the row with its version moved on by one, and its
-   * outbox entry, in one transaction so they cannot disagree.
+   * Every save: the row with its version moved on by one, and either its
+   * outbox entry (a local save) or its base version (a save from the server),
+   * in one transaction so they cannot disagree.
    */
   private async save<T extends Entity>(
     kind: SyncEntityKind,
     table: Table<T, Id>,
     entity: T,
-  ): Promise<void> {
-    await this.db.transaction('rw', [table, this.db.outbox], async () => {
+    remote: ApplyRemoteOptions | null = LOCAL,
+  ): Promise<boolean> {
+    return this.db.transaction('rw', [table, this.db.outbox, this.db.syncBase], async () => {
       const existing = await table.get(entity.id);
+
+      if (remote?.expectedVersion !== undefined) {
+        const current = existing === undefined ? null : (existing.version ?? 0);
+        if (current !== remote.expectedVersion) return false;
+      }
+
+      await table.put({ ...entity, version: (existing?.version ?? 0) + 1 });
+
+      if (remote) {
+        await this.db.syncBase.put({
+          entityKind: kind,
+          entityId: entity.id,
+          baseVersion: remote.baseVersion,
+        });
+        if (remote.dequeue) await this.db.outbox.delete([kind, entity.id]);
+        return true;
+      }
+
       const queued = await this.db.outbox.get([kind, entity.id]);
       const last = await this.db.outbox.orderBy('seq').last();
 
-      await table.put({ ...entity, version: (existing?.version ?? 0) + 1 });
       await this.db.outbox.put({
         entityKind: kind,
         entityId: entity.id,
@@ -128,7 +166,28 @@ export class DexieDatabase implements NotoDatabase {
         seq: (last?.seq ?? 0) + 1,
         queuedAt: new Date().toISOString(),
       });
+      return true;
     });
+  }
+
+  private write(record: SyncRecord, remote: ApplyRemoteOptions | null = LOCAL): Promise<boolean> {
+    switch (record.kind) {
+      case 'workspace':
+        return this.save('workspace', this.db.workspaces, record.entity, remote);
+      case 'folder':
+        return this.save('folder', this.db.folders, record.entity, remote);
+      case 'document':
+        return this.save(
+          'document',
+          this.db.documents,
+          { ...record.entity, contentHash: hashContent(record.entity.content) },
+          remote,
+        );
+      case 'file':
+        return this.save('file', this.db.files, record.entity, remote);
+      case 'memory':
+        return this.save('memory', this.db.memoryItems, record.entity, remote);
+    }
   }
 
   readonly workspaces: WorkspaceRepository = {
@@ -141,7 +200,7 @@ export class DexieDatabase implements NotoDatabase {
     },
 
     put: async (workspace) => {
-      await this.save('workspace', this.db.workspaces, workspace);
+      await this.write({ kind: 'workspace', entity: workspace });
     },
 
     purge: async (id) => {
@@ -162,13 +221,17 @@ export class DexieDatabase implements NotoDatabase {
     },
 
     put: async (folder) => {
-      await this.save('folder', this.db.folders, folder);
+      await this.write({ kind: 'folder', entity: folder });
     },
 
     putMany: async (folders) => {
-      await this.db.transaction('rw', [this.db.folders, this.db.outbox], async () => {
-        for (const folder of folders) await this.save('folder', this.db.folders, folder);
-      });
+      await this.db.transaction(
+        'rw',
+        [this.db.folders, this.db.outbox, this.db.syncBase],
+        async () => {
+          for (const folder of folders) await this.write({ kind: 'folder', entity: folder });
+        },
+      );
     },
 
     purge: async (id) => {
@@ -188,16 +251,18 @@ export class DexieDatabase implements NotoDatabase {
     },
 
     put: async (document) => {
-      await this.save('document', this.db.documents, {
-        ...document,
-        contentHash: hashContent(document.content),
-      });
+      await this.write({ kind: 'document', entity: document });
     },
 
     putMany: async (documents) => {
-      await this.db.transaction('rw', [this.db.documents, this.db.outbox], async () => {
-        for (const document of documents) await this.documents.put(document);
-      });
+      await this.db.transaction(
+        'rw',
+        [this.db.documents, this.db.outbox, this.db.syncBase],
+        async () => {
+          for (const document of documents)
+            await this.write({ kind: 'document', entity: document });
+        },
+      );
     },
 
     purge: async (id) => {
@@ -235,7 +300,7 @@ export class DexieDatabase implements NotoDatabase {
     },
 
     put: async (file) => {
-      await this.save('file', this.db.files, file);
+      await this.write({ kind: 'file', entity: file });
     },
 
     purge: async (id) => {
@@ -256,13 +321,17 @@ export class DexieDatabase implements NotoDatabase {
     },
 
     put: async (item) => {
-      await this.save('memory', this.db.memoryItems, item);
+      await this.write({ kind: 'memory', entity: item });
     },
 
     putMany: async (items) => {
-      await this.db.transaction('rw', [this.db.memoryItems, this.db.outbox], async () => {
-        for (const item of items) await this.save('memory', this.db.memoryItems, item);
-      });
+      await this.db.transaction(
+        'rw',
+        [this.db.memoryItems, this.db.outbox, this.db.syncBase],
+        async () => {
+          for (const item of items) await this.write({ kind: 'memory', entity: item });
+        },
+      );
     },
 
     purge: async (id) => {
@@ -325,6 +394,16 @@ export class DexieDatabase implements NotoDatabase {
     clear: async () => {
       await this.db.outbox.clear();
     },
+  };
+
+  readonly sync: SyncRepository = {
+    baseVersion: async (kind, id) => (await this.db.syncBase.get([kind, id]))?.baseVersion ?? 0,
+
+    setBaseVersion: async (kind, id, version) => {
+      await this.db.syncBase.put({ entityKind: kind, entityId: id, baseVersion: version });
+    },
+
+    applyRemote: (record, options) => this.write(record, options),
   };
 
   readonly localState: LocalStateRepository = {

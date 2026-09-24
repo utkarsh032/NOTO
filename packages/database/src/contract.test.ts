@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 
 import { DatabaseSync } from 'node:sqlite';
 
+import { DATABASE_VERSION } from '@noto/config';
 import { createDefaultWorkspace, createDocument, fixedClock } from '@noto/core';
 import type { DocumentVersionRecord, MemoryItem, NotoDocument } from '@noto/types';
 import Dexie from 'dexie';
@@ -210,6 +211,89 @@ describe.each(ENGINES)('NotoDatabase contract — %s', (_name, create) => {
     });
   });
 
+  describe('changes from the server', () => {
+    it('writes a remote entity without queuing it, and records its base version', async () => {
+      const document = makeDocument(workspaceId, 'From elsewhere', { tags: ['synced'] });
+
+      expect(await db.sync.baseVersion('document', document.id)).toBe(0);
+      expect(
+        await db.sync.applyRemote({ kind: 'document', entity: document }, { baseVersion: 4 }),
+      ).toBe(true);
+
+      const stored = await db.documents.get(document.id);
+      expect(stored?.title).toBe('From elsewhere');
+      expect(stored?.version).toBe(1);
+      expect(stored?.contentHash).toBeTruthy();
+      expect(await db.documents.listTags(workspaceId)).toEqual([{ tag: 'synced', count: 1 }]);
+      expect(await db.outbox.count()).toBe(0);
+      expect(await db.sync.baseVersion('document', document.id)).toBe(4);
+    });
+
+    it('never overwrites a local edit made after the caller looked', async () => {
+      const document = makeDocument(workspaceId, 'Mine');
+      await db.documents.put(document);
+      const seen = (await db.documents.get(document.id))!.version!;
+
+      await db.documents.put({ ...document, title: 'Typed meanwhile' });
+
+      const written = await db.sync.applyRemote(
+        { kind: 'document', entity: { ...document, title: 'Theirs' } },
+        { baseVersion: 2, expectedVersion: seen },
+      );
+
+      expect(written).toBe(false);
+      expect((await db.documents.get(document.id))?.title).toBe('Typed meanwhile');
+      expect(await db.sync.baseVersion('document', document.id)).toBe(0);
+    });
+
+    it('with an expected version of null, writes only an entity it does not have', async () => {
+      const item = makeMemory(workspaceId);
+      const options = { baseVersion: 1, expectedVersion: null };
+
+      expect(await db.sync.applyRemote({ kind: 'memory', entity: item }, options)).toBe(true);
+      expect(await db.sync.applyRemote({ kind: 'memory', entity: item }, options)).toBe(false);
+    });
+
+    it('drops the outbox entry when the server copy replaces a local change', async () => {
+      const document = makeDocument(workspaceId, 'Mine');
+      await db.documents.put(document);
+      const local = (await db.documents.get(document.id))!;
+
+      await db.sync.applyRemote(
+        { kind: 'document', entity: { ...document, title: 'Theirs' } },
+        { baseVersion: 3, expectedVersion: local.version, dequeue: true },
+      );
+
+      expect(await db.outbox.count()).toBe(0);
+      expect((await db.documents.get(document.id))?.version).toBe(2);
+    });
+
+    it('queues the next local edit of a remote entity as an update', async () => {
+      const folder = {
+        id: nextId(),
+        workspaceId,
+        parentId: null,
+        name: 'Remote',
+        position: 0,
+        color: null,
+        icon: null,
+        createdAt: '2026-09-01T10:00:00.000Z',
+        updatedAt: '2026-09-01T10:00:00.000Z',
+        deletedAt: null,
+      };
+      await db.sync.applyRemote({ kind: 'folder', entity: folder }, { baseVersion: 1 });
+      await db.folders.put({ ...folder, name: 'Renamed here' });
+
+      expect(await db.outbox.list()).toMatchObject([
+        { entityKind: 'folder', entityId: folder.id, operation: 'update' },
+      ]);
+      expect(await db.sync.baseVersion('folder', folder.id)).toBe(1);
+
+      await db.sync.setBaseVersion('folder', folder.id, 2);
+      expect(await db.sync.baseVersion('folder', folder.id)).toBe(2);
+    });
+  });
+
   describe('tags', () => {
     it('counts tags on live documents, most used first', async () => {
       await db.documents.put(makeDocument(workspaceId, 'One', { tags: ['work', 'ideas'] }));
@@ -350,12 +434,14 @@ describe.each(ENGINES)('NotoDatabase contract — %s', (_name, create) => {
     await db.documents.put(makeDocument(workspaceId, 'Hello', { tags: ['x'] }));
     await db.memory.put(makeMemory(workspaceId));
     await db.localState.set('k', 1);
+    await db.sync.setBaseVersion('document', 'd', 3);
 
     await db.clear();
 
     expect(await db.workspaces.list()).toEqual([]);
     expect(await db.outbox.count()).toBe(0);
     expect(await db.localState.get('k')).toBeNull();
+    expect(await db.sync.baseVersion('document', 'd')).toBe(0);
   });
 });
 
@@ -395,7 +481,7 @@ describe('upgrading from schema version 1', () => {
     ]);
 
     const [row] = driver.db.prepare('PRAGMA user_version').all() as { user_version: number }[];
-    expect(row?.user_version).toBe(2);
+    expect(row?.user_version).toBe(DATABASE_VERSION);
 
     // Opening again is a no-op, not a second migration.
     await db.open();
