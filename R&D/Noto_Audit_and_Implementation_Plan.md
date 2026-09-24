@@ -27,7 +27,7 @@ Status key: ✅ Done · 🟡 Partial · 🟠 Mock / UI only · ❌ Missing. Seve
 
 ## Implementation status
 
-_Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked with lint, typecheck, unit tests and the web e2e suite before it was committed._
+_Last updated 24 September 2026. Phases 0–2 are on `dev` and pushed. Phases 3–6 are being built in parallel, each on its own branch and git worktree, and none of them is merged yet; their rows below describe those branches, not `dev`. Each step was checked with lint, typecheck and unit tests before it was committed, and the web e2e suite ran wherever shared UI changed._
 
 ### Overall
 
@@ -36,17 +36,27 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | 0 | Stabilise and harden | ✅ Done | 8 of 8 steps |
 | 1 | Finish the local product | ✅ Done | 9 of 9 steps |
 | 2 | Backend foundation (`apps/api`) | 🟡 Built and tested, not deployed | 7 of 8 steps. Only the host (D1) and a staging deployment remain |
-| 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
-| 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
-| 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
-| 6 | Desktop power features | ❌ Not started | |
+| 3 | Cutover from Supabase | 🟡 Written, not committed | Steps 1–5 are written in worktree `Noto-phase3`. They get committed once Phase 2 is signed off; step 6 (the release, then deleting Supabase) is after that |
+| 4 | Sync | 🟡 In progress | Steps 1–5 and 7 built on `feat/phase-4-sync`. The server tests haven't run against Postgres yet, and step 6 waits for Phase 3 |
+| 5 | Mobile parity | 🟡 In progress | Parts of steps 1, 3, 4 and 6 done on `feat/phase-5-mobile`. The rest waits for Phases 3–4 and for store accounts |
+| 6 | Desktop power features | 🟡 In progress | 1 of 6 steps, on `feat/phase-6-desktop` |
 | 7 | Paid product | ❌ Not started | Needs D5 (payment provider) |
 | 8 | AI | ❌ Not started | Needs D4 (AI provider) |
 | 9 | Collaboration | ❌ Not started | |
 
-In steps: **all 17 steps in Phases 0–1 are done**, which is **2 of the 10 phases**. Phases 2–5 are being worked on in separate sessions and git worktrees (`Noto-phase2` … `Noto-phase5`); they will record their own status here as they merge. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
+In steps: **all 17 steps in Phases 0–1 are done**, which is **2 of the 10 phases**, and Phase 2 is 7 of 8 steps. Phases 3–6 are in progress in separate sessions and git worktrees (`Noto-phase3` … `Noto-phase6`). Phases 3 and 4 depend on each other's pieces (Phase 4's UI needs Phase 3's API client), and Phase 5 needs both. Phases 7–9 haven't started, and each needs a decision or an account first (see §7).
 
-Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config). Phase 2 adds 24 unit tests, plus 50 Postgres tests (RLS, every route, the account import) that run when `NOTO_TEST_DATABASE_URL` is set. All 61 `apps/api` tests pass against PostgreSQL 18, and CI runs them too.
+What is blocking progress right now:
+
+| Blocker | Holds up |
+| --- | --- |
+| Phase 2 sign-off, so Phase 3 can be committed | Phase 3; Phase 4 step 6; Phase 5 steps 1–2 and email links |
+| The local Postgres password in `apps/api/.env.test.local` | Running the Phase 4 server suite locally (CI runs it) |
+| D1: a host, database and secrets for `apps/api` | Phase 2 step 8, and so every staging check after it |
+| Apple Developer team, Play Console, upload keystore | Phase 5 steps 3 and 5 (TestFlight, both stores) |
+| Code-signing certificates | Signed desktop releases (§6) |
+
+Test counts on `dev`: 342 unit tests (199 at audit time) and 78 web e2e tests (59 at audit time; 2 skip in a build without cloud config). Phase 2 has 50 more Postgres tests (RLS, every route, the account import) that run when `NOTO_TEST_DATABASE_URL` is set. All 61 `apps/api` tests pass against PostgreSQL 18, and CI runs them too. The branches add their own: 19 on Phase 5 (mobile) and 12 on Phase 6 (desktop), plus the Phase 4 sync suites.
 
 ### Phase 0 — Stabilise and harden ✅
 
@@ -98,6 +108,61 @@ Also for Phase 3: `db:import-supabase` (keeps ids, sets `password_hash` NULL, id
 
 Phase 2 "done when" (everything working against staging, with tests) is **not met** until step 8 is: the tests pass, but there is no staging deployment yet.
 
+### Phase 3 — Cutover from Supabase 🟡
+
+Written in worktree `Noto-phase3` (branch `feat/phase-3-cutover`) but **not committed**, on purpose: the rule is to commit Phase 3 only once Phase 2 is signed off. When that happens, it gets rebased onto `dev` and tested against a running `apps/api`, then committed.
+
+| Step | Status | What was done / what is left |
+| --- | --- | --- |
+| 1. API client | 🟡 Written | `packages/sync/src/api/`: `createApiClient()`, a `fetch` wrapper that attaches the access token and refreshes on 401, with account calls and a browser session store. Unit tests. |
+| 2. Web and desktop cut over | 🟡 Written | `platform/cloud.ts`, `cloud-config.ts` and `use-*-account.ts` on web and desktop use the API client. Config comes from `VITE_NOTO_API_URL` / `NOTO_API_URL`. The desktop keeps its session in the main process. |
+| 3. Desktop sign-up | 🟡 Written | The web hand-off stays, on purpose. Email verify/reset links open in the app through an `auth` route (`AuthLinkScreen`). |
+| 4. Real account data | 🟡 Written | The Account screen shows real sessions (list and revoke) and when the password was last changed. |
+| 5. One-time user move | 🟡 Written | `docs/deployment/supabase-cutover.md`, built on Phase 2's `db:import-supabase` and `db:send-reset-mails` (D7: forced password reset). |
+| 6. Release, then delete Supabase | ❌ | After steps 1–5 are committed and released. |
+
+### Phase 4 — Sync 🟡
+
+Built on branch `feat/phase-4-sync` (worktree `Noto-phase4`), rebased on Phase 2. Client and server are both built. The server's Postgres suite is written but has **not yet run against a database locally** (CI runs it). The UI wiring (step 6) needs the Phase 3 API client.
+
+| Step | Status | Commit | What was done |
+| --- | --- | --- | --- |
+| 1. Server tables and triggers | 🟡 | `c75b000` | Migrations 0008–0012: `workspaces`, `workspace_members`, `folders`, `documents`, `files` (metadata), `memory_items`, `change_log`, `sync_state`. A trigger bumps the versions, and an AFTER trigger logs every write along with the device that made it. RLS goes through `is_member` / `can_edit`, and `noto_api` can't write versions or the log. Hosted `document_versions` stay with Phase 7. Not yet run against Postgres. |
+| 2. `sync` controller: push, pull, claim | 🟡 | `c75b000` | `POST /v1/sync/push`: each change is one version-checked upsert, a stale change gets the server copy back, and an id held elsewhere is refused. `POST /v1/sync/pull`: by cursor, latest change per entity, the device's own changes skipped, paged, with full resync. Also `GET /v1/sync/state`, `GET /v1/workspaces` and `POST /v1/workspaces/:id/claim`. Callers must be verified accounts on unrevoked devices. Push bodies go up to 8 MB. Not yet run against Postgres. |
+| 3. Client engine | ✅ | `a5a1149` | `CloudSyncEngine` sends the persisted outbox and pulls by cursor. It runs on start, on reconnect, 2 s after an edit and every 30 s, backs off from 1 s to 5 min with jitter, and reports idle / syncing / offline / error. Local schema v3 adds `sync_base` and `db.sync.applyRemote`, which stores server copies without queuing them and never overwrites a newer local edit. |
+| 4. Conflict rule | ✅ | `a5a1149` | A delete beats an edit. When two document bodies differ, the local one stays live and the other goes into version history ("Edited on &lt;device&gt;"). Otherwise the later `updatedAt` wins. |
+| 5. Claim on first sign-in | 🟡 | `c75b000` | `joinAccount`: the first device claims its workspace, keeping the ids. A later device merges its notes into the account's workspace, also keeping ids. Asking the person first belongs to the app, and is done with Phase 3's sign-in. |
+| 6. Settings toggle, sidebar status | ❌ | — | Needs the Phase 3 API client to create a real engine. |
+| 7. Two-device tests | 🟡 | `a5a1149`, `c75b000` | Two simulated devices on in-memory and SQLite databases against the reference server, all passing. A Postgres suite runs two real engines through the HTTP routes; CI runs it, but it hasn't run locally yet. |
+
+### Phase 5 — Mobile parity 🟡
+
+On branch `feat/phase-5-mobile` (worktree `Noto-phase5`), rebased on `dev` at `21c55ba`. Nothing has been run on a real phone or an iOS build yet.
+
+| Step | Status | Commit | What was done / what is left |
+| --- | --- | --- | --- |
+| 1. Account on mobile, tokens in secure storage | 🟡 | `19b752f` | Done: a `SessionStore` backed by `expo-secure-store` (Keychain / Keystore, this device only, excluded from Android backups). Tokens never reach WebView localStorage. Left: providing `AccountContext` with Phase 3's `createApiClient`. |
+| 2. Sync on mobile | ❌ | — | Needs the Phase 4 engine. |
+| 3. iOS build | 🟡 | `209fe51` | Done: the interface is packaged into the iOS app and loaded from the app bundle, and the iOS CI job builds the interface first. Left: signing and TestFlight, which need an Apple Developer team. |
+| 4. Share-in, deep links, shortcut, biometric lock | 🟡 | `677c824`, `3b2a40e` | Done: text and web links shared from other apps go into Memory, `noto://<screen>` links open that screen, and there's an Android launcher shortcut for Quick Note. The app locks with Face ID, fingerprint or passcode, at launch and after 30 s in the background. Left: email verify/reset links (Phase 3), iOS quick actions and a widget (need a Mac). |
+| 5. Google Play and App Store | ❌ | — | Needs a Play Console account, an upload keystore and an Apple Developer team. |
+| 6. Smoke test in `mobile.yml` | ✅ | `d2448e6` | A Maestro flow on an API 34 emulator: a fresh install loads, gets past sign-in, opens screens that read from storage, and follows a `noto://` link. |
+
+### Phase 6 — Desktop power features 🟡
+
+On branch `feat/phase-6-desktop` (worktree `Noto-phase6`), off `dev` at `21c55ba`. It needs only Phase 1, so it isn't waiting on anything.
+
+| Step | Status | Commit | What was done |
+| --- | --- | --- | --- |
+| 1. Menu, file associations, `noto://` | ✅ | `049d5ad` | A native application menu built from the command registry: items send command ids just as the palette does, and the renderer keeps the keys. Editor commands (Bold, headings, link/image/table) now run by id from both the menu and the palette. When the OS opens a `.md`, `.markdown` or `.txt` file (command line, second launch, macOS `open-file`), main reads it, grants it and queues it, and it becomes a document once the workspace is open. Save writes back to the file. `noto://<screen>` opens that screen. Packaging declares macOS document types and the URL scheme, and deb/rpm MIME types. On Windows, the Squirrel installer adds "Open with" entries and `noto://` under HKCU and removes them on uninstall. Smoke-tested with `electron-forge start`. |
+| 2. Clipboard history | ❌ | | Next: an opt-in watcher in main that stores into Memory, with retention, clear-all, a size cap, and skipping content password managers mark as concealed. |
+| 3. Screenshot and region capture | ❌ | | |
+| 4. PIP / Companion, notifications | ❌ | | |
+| 5. Typed repository IPC (final fix for S2) | ❌ | | |
+| 6. Static update feed (R2) | ❌ | | Needs an R2 bucket and `NOTO_UPDATE_FEED_URL`. |
+
+Not yet checked: the menu and file associations in a packaged, installed build on each OS.
+
 ### Bugs found and fixed along the way
 
 - A keyboard shortcut pressed as the workspace appeared ran a stale handler. This was the long-standing flaky "opens a file from disk" e2e test (`5562963`).
@@ -105,13 +170,19 @@ Phase 2 "done when" (everything working against staging, with tests) is **not me
 - Templates, imports and duplicates could open as an empty document (`2585664`).
 - SQLite saves used `INSERT OR REPLACE`, which with foreign keys on could cascade-delete a document's files (`27d5c4b`).
 - Export read the stored copy, so the last second of typing was missing from exported files (`1146c8a`).
+- On desktop in development, a brand-new database never opened. StrictMode opened it twice, and the two migrations interleaved over the one connection (Phase 6, `049d5ad`).
+- Under the Vite dev server (web and desktop), the editor failed to mount with `localsInner` errors. The ProseMirror entry points were pre-bundled separately, each with its own copy of `prosemirror-view` (Phase 6, `049d5ad`).
 
 ### Known issues
 
 - Commit `5562963` also contains the deletion of `mock/versions.ts`, so that single commit does not build on its own; the next commit does.
-- Desktop and mobile builds have not been checked by hand since these changes; only web was exercised end to end.
+- No packaged desktop build has been checked by hand since these changes. The Phase 6 branch has been exercised in `electron-forge start`.
+- Mobile has only run on the emulator in the Maestro smoke test, not on a real phone, and never as an iOS build.
+- The five branches all edit this document. Each merge will conflict here, and the fix is to keep every phase's section.
 
 ## 1. Executive summary
+
+> The sections from here to §4 describe the codebase **as audited** (`6eef533`, 23 September 2026). What has changed since is in [Implementation status](#implementation-status), and the status columns in §1.1 and §3 have been brought up to date.
 
 Noto has a strong, well-engineered **local editor product** on Web and Desktop: tabs, rich formatting, find/replace, page layout, print, autosave, crash recovery, open/save to disk, import/export, command palette and a Quick Note dock that survives the window. The code is clean, typed, linted and tested at the package level, and the release pipeline (versioning, tags, multi-platform desktop builds, Android builds, checksums, auto-update) is further along than most projects at this stage.
 
@@ -123,14 +194,15 @@ What is missing is almost everything **behind** the editor: the cloud backend is
 | --- | --- | --- |
 | Web app (editor & workspace) | ✅ Done | Feature-complete for the Basic tier; needs error boundary, CSP, list virtualisation. |
 | Shared UI / core / editor packages | ✅ Done | Solid; a few very large files; no component tests. |
-| Desktop (Electron) | 🟡 Partial | Dock, tray, shortcuts, files, auto-update work. Missing deep links, app menu, clipboard capture; IPC & CSP need hardening. |
-| Mobile (Expo + WebView) | 🟡 Partial | Android works offline. No account, no sync, no share-in; iOS not functional. |
+| Desktop (Electron) | 🟡 Partial | Dock, tray, shortcuts, files, auto-update work; IPC and CSP hardened (Phase 0). App menu, file associations and `noto://` links are on the Phase 6 branch. Clipboard, screenshots and PIP are still missing. |
+| Mobile (Expo + WebView) | 🟡 Partial | Android works offline. On the Phase 5 branch: iOS bundling, share-in, `noto://` links, secure session storage and a biometric lock. No account or sync yet. |
 | Marketing website | ✅ Done | Live download page; add CSP, sitemap, robots.txt. |
 | Backend / identity | 🟡 Partial | Supabase phase-1 auth in production. `apps/api` (Node + Postgres) is built but not deployed (see Implementation status). |
-| Sync | ❌ Missing | Interfaces and an in-memory queue only. No transport, no persisted queue, no conflict handling. |
-| Memory, Version history, Plans, AI | 🟠 Mock | Screens exist but read fixtures from `packages/ui/src/mock/`. |
+| Sync | 🟡 Partial | Persisted outbox on `dev` (Phase 1). Engine, conflict rule and server routes on the Phase 4 branch; not connected to the apps yet. |
+| Memory, Version history | ✅ Done | Real local storage since Phase 1. |
+| Plans, AI | 🟠 Mock | Screens exist; Plans reads fixtures (Phase 7), AI has no provider (Phase 8). |
 | CI/CD & release | ✅ Done | Strong pipeline. Signing, Play Store, TestFlight and beta update feed not switched on. |
-| Testing | 🟡 Partial | Packages covered; zero tests for desktop/mobile/website shells, backend functions, RLS. |
+| Testing | 🟡 Partial | Packages covered; `apps/api` has RLS and route tests on Postgres; desktop has unit tests and mobile a Maestro smoke test (branches). Website still untested. |
 
 ### 1.2 Top ten priorities
 
@@ -258,16 +330,16 @@ Every feature in `R&D/PRD.md` §5–§7 against what the code does today.
 | 6.1 Floating Noto | 🟡 Partial | In-app overlay; desktop dock covers part of it |
 | 6.2 Smart Sidebar | 🟡 Partial | Overlay UI; capture action is a toast |
 | 6.3 Quick Note | ✅ Done | Overlay, screen, desktop dock + global shortcut |
-| 6.4 Noto Memory | 🟠 Mock | Needs a `memory_items` local table |
-| 6.5 Clipboard history | ❌ Missing | Desktop clipboard watcher not built |
-| 6.6 Quick Paste | 🟡 Partial | UI with virtual list; source is mock memory |
-| 6.7 Screenshot capture | ❌ Missing | Needs `desktopCapturer` |
+| 6.4 Noto Memory | ✅ Done | Local `memory_items` table (Phase 1.2) |
+| 6.5 Clipboard history | ❌ Missing | Phase 6 step 2, next |
+| 6.6 Quick Paste | 🟡 Partial | Reads real Memory; fills up once clipboard history exists |
+| 6.7 Screenshot capture | ❌ Missing | Phase 6 step 3 |
 | 6.8 Image capture | 🟡 Partial | Insert image by URL/base64; no capture |
-| 6.9 Link capture | ❌ Missing |  |
-| 6.10 Pin content | ❌ Missing |  |
-| 6.11–6.15 Tab controls (pin, duplicate, move, restore closed) | ❌ Missing | No such commands in `core/commands.ts` |
-| 6.16 Import / Export | 🟡 Partial | No PDF/DOCX export; HTML import is lossy |
-| 6.17 PDF | 🟡 Partial | Via Print only |
+| 6.9 Link capture | 🟡 Partial | Smart Sidebar captures a link into Memory; mobile share-in on the Phase 5 branch |
+| 6.10 Pin content | 🟡 Partial | Memory items have `isPinned`; pinning in the UI to confirm |
+| 6.11–6.15 Tab controls (pin, duplicate, move, restore closed) | ✅ Done | Commands, shortcuts and a tab context menu (Phase 1.6); also in the desktop menu |
+| 6.16 Import / Export | ✅ Done | DOCX and PDF export; HTML import keeps formatting (Phase 1.8); desktop opens .md/.txt from the OS (Phase 6 branch) |
+| 6.17 PDF | ✅ Done | Written to a file on desktop, print dialog elsewhere |
 | 6.18 Layout | ✅ Done | Page layout, margins, full-width mode |
 | 6.19 Settings | 🟡 Partial | 13 categories; several “Coming soon” |
 
@@ -275,18 +347,18 @@ Every feature in `R&D/PRD.md` §5–§7 against what the code does today.
 
 | PRD feature | Status | Notes |
 | --- | --- | --- |
-| 7.1 Device sync | ❌ Missing | Needs backend phase 3 + client engine |
+| 7.1 Device sync | 🟡 Partial | Engine and server on the Phase 4 branch; not in the apps yet |
 | 7.2 Real-time sync | ❌ Missing | After basic sync; WebSocket/SSE channel |
-| 7.3 Web + Desktop + Mobile | 🟡 Partial | Mobile Android-only, no account |
+| 7.3 Web + Desktop + Mobile | 🟡 Partial | iOS bundling on the Phase 5 branch; mobile has no account yet |
 | 7.4 Noto Companion | ❌ Missing |  |
 | 7.5 PIP mode | ❌ Missing |  |
 | 7.6 Smart Paste | ❌ Missing |  |
 | 7.7 AI Assistant | 🟠 UI only | No provider or proxy |
 | 7.8 AI Search | ❌ Missing | Needs pgvector + embeddings |
 | 7.9 AI Organization | ❌ Missing |  |
-| 7.10 Memory search | ❌ Missing | Depends on real Memory |
-| 7.11 Version history | 🟠 Mock | Local snapshots first, then hosted |
-| 7.12 Advanced recovery | 🟡 Partial | Local recovery snapshots in localStorage |
+| 7.10 Memory search | 🟡 Partial | Keyword search over real Memory; semantic search is Phase 8 |
+| 7.11 Version history | 🟡 Partial | Local history done (Phase 1.3); hosted history is Phase 7 |
+| 7.12 Advanced recovery | 🟡 Partial | Recovery snapshots now in the database (Phase 1.4) |
 
 ### 3.4 Items from Improvements.txt
 
@@ -318,6 +390,8 @@ Severity: **Critical** = fix before more users sign in; **High** = fix this cycl
 | S8 | CORS allows any localhost port in production; `redirectUrl` accepts any https URL. | 🟡 Medium | Localhost only in development; allow-list redirect origins. |
 | S9 | Source maps are deployed publicly with the web app. | 🔵 Low | Upload maps to error tracking; exclude from `dist` assets. |
 | S10 | Audit adapter silently drops failed writes; password policy is length-only. | 🔵 Low | Log audit failures; add a common-password list check. |
+
+**Since the audit:** S1 and S3–S9 were fixed in Phase 0. S2 has its interim fix (sender check and statement policy); the final fix is Phase 6 step 5. S10 is still open.
 
 ### 4.2 Reliability and correctness
 
@@ -543,7 +617,7 @@ Phases are ordered so each one ships on its own and nothing is thrown away. Phas
 | Beta / nightly update feed | ❌ Missing | Static feed on R2, `NOTO_UPDATE_FEED_URL` |
 | Linux updates | 🟡 Partial | AppImage manual; optional apt/rpm repository later |
 | Google Play | ❌ Missing | Play Console account, upload keystore, listing, privacy policy |
-| iOS TestFlight / App Store | ❌ Missing | Apple Developer Program + Phase 5 iOS work |
+| iOS TestFlight / App Store | ❌ Missing | Apple Developer Program. The Phase 5 iOS bundling is done on its branch |
 | Custom domain | ❌ Missing | Move web app and API off `*.workers.dev` |
 | Branch protection | ❌ Missing | Require CI on `main` and `dev` |
 | Organisation accounts | ❌ Missing | GitHub org, shared Cloudflare account — not personal accounts |
