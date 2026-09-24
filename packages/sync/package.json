@@ -7,6 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./session": "./src/session.ts",
+    "./api": "./src/api/index.ts",
+    "./api/account": "./src/api/account.ts",
     "./supabase": "./src/supabase/index.ts",
     "./supabase/account": "./src/supabase/account.ts"
   },

@@ -25,9 +25,20 @@ export interface AccountPlan {
 }
 
 export interface SecurityState {
-  passwordChangedAt: string;
+  /** `null` when the service does not say, or the password was never changed. */
+  passwordChangedAt: string | null;
   twoFactorEnabled: boolean;
   recoveryEmail: string | null;
+}
+
+/** One line of the security log: a sign-in, a failed one, a password change. */
+export interface SecurityEvent {
+  id: string;
+  kind: string;
+  outcome: 'success' | 'failure';
+  deviceName: string | null;
+  location: string | null;
+  createdAt: string;
 }
 
 /**
@@ -50,6 +61,11 @@ export interface AccountSignInResult {
   fields?: Record<string, string>;
   /** Sign-up only: the account exists, but the address must be confirmed. */
   confirmationRequired?: boolean;
+  /**
+   * Sign-in only: the password was right but the address is unconfirmed —
+   * the one failure the person can fix without changing anything they typed.
+   */
+  unconfirmed?: boolean;
 }
 
 export interface AccountSignUpInput {
@@ -84,7 +100,14 @@ export interface AccountValue {
   devices: Device[];
   sessions: Session[];
   plan: AccountPlan;
-  security: SecurityState;
+  /**
+   * `null` when nobody is signed in, or the service does not report it. Never
+   * a fixture: a made-up "password changed 64 days ago" is a claim about
+   * somebody's security that nobody made.
+   */
+  security: SecurityState | null;
+  /** The security log, newest first. Empty where the service has none. */
+  events: SecurityEvent[];
 
   /** `null` when `status` is `unavailable`. */
   signIn: ((email: string, password: string) => Promise<AccountSignInResult>) | null;
@@ -92,8 +115,24 @@ export interface AccountValue {
   signUp: ((input: AccountSignUpInput) => Promise<AccountSignInResult>) | null;
   /** `null` when `status` is `unavailable`. */
   signOut: (() => Promise<void>) | null;
+  /**
+   * Signs another device out and forgets it. Resolves whether it worked.
+   * `null` where the service cannot, so the screen offers no dead menu.
+   */
+  revokeDevice: ((deviceId: string) => Promise<boolean>) | null;
+  /** Ends one other session. `null` where the service cannot. */
+  revokeSession: ((sessionId: string) => Promise<boolean>) | null;
   /** Sends the confirmation email again. `null` when there is no cloud. */
   resendConfirmation: ((email: string) => Promise<void>) | null;
+  /** Confirms an address with the token from the email link. `null` where unsupported. */
+  verifyEmail: ((token: string) => Promise<AccountSignInResult>) | null;
+  /**
+   * Asks for a reset email. Succeeds whether or not the address has an
+   * account; the server will not say, and neither may the screen.
+   */
+  requestPasswordReset: ((email: string) => Promise<AccountSignInResult>) | null;
+  /** Sets a new password with the token from the reset email. */
+  resetPassword: ((token: string, newPassword: string) => Promise<AccountSignInResult>) | null;
 
   /**
    * The public Turnstile sitekey, or `null` when no bot check is configured.

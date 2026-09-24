@@ -92,6 +92,7 @@ const ROUTE_TITLES: Record<RouteName, string> = {
   account: 'Account',
   plans: 'Plans & Pricing',
   login: 'Sign in',
+  auth: 'Account',
 };
 
 /** The name of the screen a route opens. */

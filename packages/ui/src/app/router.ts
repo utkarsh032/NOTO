@@ -15,7 +15,8 @@ import { useSyncExternalStore } from 'react';
  * account rather than about the work, and `login` is the single exception to
  * how Noto renders a route: it fills the window with no shell around it,
  * because a sidebar of documents behind a sign-in form belongs to someone who
- * is, by definition, not signed in.
+ * is, by definition, not signed in. `auth` is where email links land —
+ * `#/auth/verify?token=…` and `#/auth/reset?token=…` — and renders the same way.
  */
 export type RouteName =
   | 'home'
@@ -27,7 +28,8 @@ export type RouteName =
   | 'settings'
   | 'account'
   | 'plans'
-  | 'login';
+  | 'login'
+  | 'auth';
 
 export interface Route {
   name: RouteName;
@@ -49,6 +51,7 @@ const ROUTE_NAMES: readonly RouteName[] = [
   'account',
   'plans',
   'login',
+  'auth',
 ];
 
 const DEFAULT_ROUTE: Route = { name: 'home' };
@@ -146,6 +149,9 @@ const ROUTE_ACCESS: Record<RouteName, RouteAccess> = {
   plans: 'public',
   account: 'private',
   login: 'anonymous',
+  // Email links: confirming an address, setting a new password. Either can
+  // arrive signed in or out, so neither state is turned away.
+  auth: 'public',
 };
 
 export function routeAccess(name: RouteName): RouteAccess {

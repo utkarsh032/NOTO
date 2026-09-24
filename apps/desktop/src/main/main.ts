@@ -17,6 +17,7 @@ import {
 import { registerFileHandlers } from './files';
 import { registerShellHandlers, registerSqlHandlers, registerUpdateHandlers } from './ipc';
 import { installWindowGuards } from './security';
+import { registerSessionHandlers } from './session-store';
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts';
 import { closeConnection, openConnection } from './sqlite';
 import { initialiseUpdates } from './updater';
@@ -293,6 +294,7 @@ void app.whenReady().then(() => {
   registerShellHandlers();
   registerFileHandlers();
   registerUpdateHandlers();
+  registerSessionHandlers();
 
   initialiseDock({
     load: loadDockWindow,

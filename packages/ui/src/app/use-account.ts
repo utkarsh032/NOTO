@@ -1,13 +1,14 @@
 import type { User } from '@noto/types';
 import { useMemo } from 'react';
 
-import { MOCK_PLAN, MOCK_SECURITY } from '../mock/account.ts';
+import { MOCK_PLAN } from '../mock/account.ts';
 import { type AccountValue, useAccountContext } from './account-context.ts';
 
 export type {
   AccountPlan,
   AccountSignInResult,
   AccountValue,
+  SecurityEvent,
   SecurityState,
 } from './account-context.ts';
 
@@ -29,15 +30,21 @@ export function useAccount(): AccountValue {
       user: null,
       devices: [],
       sessions: [],
-      // Plan and security remain fixtures: nothing behind a subscription or a
-      // second factor exists yet to read. They describe the product, not a
-      // person, so they are safe to state before anyone signs in.
+      // The plan remains a fixture until billing exists (Phase 7). It
+      // describes the product, not a person, so it is safe to state before
+      // anyone signs in.
       plan: MOCK_PLAN,
-      security: MOCK_SECURITY,
+      security: null,
+      events: [],
       signIn: null,
       signUp: null,
       signOut: null,
       resendConfirmation: null,
+      revokeDevice: null,
+      revokeSession: null,
+      verifyEmail: null,
+      requestPasswordReset: null,
+      resetPassword: null,
       turnstileSiteKey: null,
       signUpUrl: null,
     }),

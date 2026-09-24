@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   DOCK_CHANNELS,
   FILE_CHANNELS,
+  SESSION_CHANNELS,
   SHELL_CHANNELS,
   SQL_CHANNELS,
   UPDATER_CHANNELS,
@@ -140,13 +141,28 @@ const notoUpdates = {
   },
 };
 
+/**
+ * The signed-in session, kept in the operating system's keychain by the main
+ * process. An opaque string each way; see `main/session-store.ts`.
+ */
+const notoSession = {
+  load: (): Promise<string | null> =>
+    ipcRenderer.invoke(SESSION_CHANNELS.load) as Promise<string | null>,
+  /** Resolves false where there is no keychain and nothing was kept. */
+  save: (value: string): Promise<boolean> =>
+    ipcRenderer.invoke(SESSION_CHANNELS.save, value) as Promise<boolean>,
+  clear: (): Promise<void> => ipcRenderer.invoke(SESSION_CHANNELS.clear) as Promise<void>,
+};
+
 contextBridge.exposeInMainWorld('notoSql', notoSql);
+contextBridge.exposeInMainWorld('notoSession', notoSession);
 contextBridge.exposeInMainWorld('notoShell', notoShell);
 contextBridge.exposeInMainWorld('notoFiles', notoFiles);
 contextBridge.exposeInMainWorld('notoDock', notoDock);
 contextBridge.exposeInMainWorld('notoUpdates', notoUpdates);
 
 export type NotoSqlBridge = typeof notoSql;
+export type NotoSessionBridge = typeof notoSession;
 export type NotoShellBridge = typeof notoShell;
 export type NotoFilesBridge = typeof notoFiles;
 export type NotoDockBridge = typeof notoDock;

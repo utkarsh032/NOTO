@@ -18,6 +18,15 @@
 const SESSION_KEY = /^sb-.+-auth-token$/;
 
 /**
+ * Where the `apps/api` session is kept.
+ *
+ * On the web it holds the tokens themselves. On the desktop it holds only a
+ * marker — the tokens are in the operating system's keychain — so that
+ * "is there a session to restore" can still be answered without an IPC call.
+ */
+export const API_SESSION_KEY = 'noto.auth.session';
+
+/**
  * Every key Supabase keeps a session under. Empty when storage is unreadable.
  *
  * Matching the key rather than reading its contents is deliberate: nothing here
@@ -29,7 +38,7 @@ function storedSessionKeys(): string[] {
   try {
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (key && SESSION_KEY.test(key)) keys.push(key);
+      if (key && (key === API_SESSION_KEY || SESSION_KEY.test(key))) keys.push(key);
     }
   } catch {
     // Private mode, or storage disabled. Nothing is stored, so nothing to clear.
