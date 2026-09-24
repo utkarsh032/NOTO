@@ -7,6 +7,7 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react
 
 import { printHtml, saveFile, type SaveFileRequest } from '../platform/actions';
 import { useNativeIntake } from '../platform/intake';
+import { clearSession, loadSession, saveSession } from '../platform/session-store';
 import { executeSql, selectSql } from '../platform/sql-host';
 import { useThemeColors } from '../theme';
 
@@ -94,6 +95,12 @@ async function handle(channel: string, payload: unknown): Promise<unknown> {
     }
     case 'file.save':
       return saveFile(payload as SaveFileRequest);
+    case 'session.load':
+      return loadSession();
+    case 'session.save':
+      return saveSession(payload);
+    case 'session.clear':
+      return clearSession();
     default:
       throw new Error(`Noto received a request on an unknown channel: ${channel}.`);
   }
