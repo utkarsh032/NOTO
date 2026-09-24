@@ -1,37 +1,14 @@
-import {
-  AUTOSAVE_DELAY_MS,
-  APP_NAME,
-  APP_VERSION,
-  MARGIN_PRESETS,
-  PAGE_SIZES,
-  RELEASES_URL,
-  ZOOM_LEVELS,
-} from '@noto/config';
-import { CORE_COMMANDS, formatShortcut, useSettingsStore } from '@noto/core';
-import type {
-  EditorFontFamily,
-  MarginPresetId,
-  PageLayoutMode,
-  PageSizeId,
-  ThemeMode,
-} from '@noto/types';
-import { useMemo, useState } from 'react';
+import { APP_NAME, APP_VERSION } from '@noto/config';
+import { useSettingsStore } from '@noto/core';
+import { useState } from 'react';
 
-import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Input, Select } from '../../components/Input';
-import { KeyHint } from '../../components/KeyHint';
-import { Toggle } from '../../components/Toggle';
 import { showToast } from '../../components/toast-store';
 import {
-  CameraIcon,
   ClipboardIcon,
   CloudIcon,
-  DatabaseIcon,
-  DocumentsIcon,
   DownloadIcon,
-  ExternalLinkIcon,
   FolderIcon,
   HistoryIcon,
   InfoIcon,
@@ -45,21 +22,25 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
-import { formatBytes, relativeTime } from '../../utils/format';
+import { formatBytes } from '../../utils/format';
 import { PageContainer } from '../PageContainer';
-import { MarginFields } from '../editor/MarginFields';
-import { SettingsRow, SettingsSection } from '../settings/SettingsSection';
-import { detectShortcutPlatform } from '../use-command-shortcuts';
-import {
-  checkForUpdates,
-  installUpdate,
-  isUpdateWaiting,
-  updateCapabilities,
-  useUpdateStatus,
-} from '../updates';
 import { useAccount } from '../use-account';
 import { useNotoData } from '../data-context';
 import { navigate } from '../router';
+import { useDocumentBytes } from '../settings/categories/use-document-bytes';
+import { GeneralSettings } from '../settings/categories/GeneralSettings';
+import { AppearanceSettings } from '../settings/categories/AppearanceSettings';
+import { EditorSettings } from '../settings/categories/EditorSettings';
+import { FilesSettings } from '../settings/categories/FilesSettings';
+import { AutosaveSettings } from '../settings/categories/AutosaveSettings';
+import { MemorySettings } from '../settings/categories/MemorySettings';
+import { ClipboardSettings } from '../settings/categories/ClipboardSettings';
+import { ShortcutsSettings } from '../settings/categories/ShortcutsSettings';
+import { AiSettings } from '../settings/categories/AiSettings';
+import { PrivacySettings } from '../settings/categories/PrivacySettings';
+import { SyncSettings } from '../settings/categories/SyncSettings';
+import { UpdatesSettings } from '../settings/categories/UpdatesSettings';
+import { AboutSettings } from '../settings/categories/AboutSettings';
 
 type CategoryId =
   | 'general'
@@ -111,12 +92,6 @@ const CATEGORIES: Category[] = [
  * will control rather than showing switches that do nothing.
  */
 export function SettingsScreen() {
-  const settings = useSettingsStore((state) => state.settings);
-  const setTheme = useSettingsStore((state) => state.setTheme);
-  const setAccentColor = useSettingsStore((state) => state.setAccentColor);
-  const updateEditor = useSettingsStore((state) => state.updateEditor);
-  const setSyncEnabled = useSettingsStore((state) => state.setSyncEnabled);
-  const updatePreferences = useSettingsStore((state) => state.updateUpdatePreferences);
   const reset = useSettingsStore((state) => state.reset);
 
   const { documents, workspace } = useNotoData();
@@ -125,19 +100,7 @@ export function SettingsScreen() {
   const [category, setCategory] = useState<CategoryId>('general');
   const [resetting, setResetting] = useState(false);
 
-  const platform = useMemo(() => detectShortcutPlatform(), []);
-
-  const update = useUpdateStatus();
-  const { installLabel, appliesOnRestart } = updateCapabilities();
-
-  const usedBytes = useMemo(
-    () =>
-      (documents ?? []).reduce(
-        (total, document) => total + JSON.stringify(document.content).length,
-        0,
-      ),
-    [documents],
-  );
+  const usedBytes = useDocumentBytes();
 
   return (
     <PageContainer
@@ -246,641 +209,31 @@ export function SettingsScreen() {
         </nav>
 
         <div className="flex min-w-0 flex-col gap-5">
-          {category === 'general' ? (
-            <SettingsSection
-              title="General"
-              description="How Noto behaves when it starts and where it sends you."
-            >
-              <SettingsRow
-                label="Startup"
-                description="Noto opens on Home, with your tabs restored underneath."
-                control={<Badge>Home</Badge>}
-              />
-              <SettingsRow
-                label="Default view"
-                description="Documents are listed as a table until you switch to the grid."
-                control={<Badge>Table</Badge>}
-              />
-              <SettingsRow
-                label="Language and formats"
-                description="Dates, times and number formats follow this device."
-                control={
-                  <Badge>{typeof navigator === 'undefined' ? 'System' : navigator.language}</Badge>
-                }
-              />
-              <SettingsRow
-                label="Telemetry"
-                description="Noto collects nothing. There is no analytics service to switch off."
-                control={<Badge tone="brand">Off</Badge>}
-              />
-              <SettingsRow
-                label="Open links in"
-                description="Links in a document open in your browser, never inside the editor."
-                control={<Badge>Browser</Badge>}
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'general' ? <GeneralSettings /> : null}
 
-          {category === 'appearance' ? (
-            <SettingsSection title="Appearance" description="How Noto looks on this device.">
-              <SettingsRow
-                label="Theme"
-                description="Dark mode is a separate palette, not an inversion."
-                htmlFor="noto-theme"
-                control={
-                  <Select
-                    id="noto-theme"
-                    fieldSize="sm"
-                    className="w-40"
-                    value={settings.appearance.theme}
-                    onChange={(event) => setTheme(event.target.value as ThemeMode)}
-                  >
-                    <option value="system">Match system</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </Select>
-                }
-              />
-              <SettingsRow
-                label="Accent colour"
-                description="Used for primary actions and the active row."
-                htmlFor="noto-accent"
-                control={
-                  <input
-                    id="noto-accent"
-                    type="color"
-                    value={settings.appearance.accentColor}
-                    onChange={(event) => setAccentColor(event.target.value)}
-                    className="border-default h-8 w-14 cursor-pointer rounded-md border bg-transparent"
-                  />
-                }
-              />
-              <SettingsRow
-                label="Reduced motion"
-                description="Noto already follows your system setting; this turns animation off regardless."
-                control={
-                  <Toggle
-                    hideLabel
-                    label="Reduced motion"
-                    checked={settings.appearance.reducedMotion}
-                    onChange={(checked) =>
-                      useSettingsStore.setState((state) => ({
-                        settings: {
-                          ...state.settings,
-                          appearance: { ...state.settings.appearance, reducedMotion: checked },
-                        },
-                      }))
-                    }
-                  />
-                }
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'appearance' ? <AppearanceSettings /> : null}
 
-          {category === 'editor' ? (
-            <>
-              <SettingsSection title="Typography" description="How the document itself is set.">
-                <SettingsRow
-                  label="Font"
-                  htmlFor="noto-font"
-                  control={
-                    <Select
-                      id="noto-font"
-                      fieldSize="sm"
-                      className="w-40"
-                      value={settings.editor.fontFamily}
-                      onChange={(event) =>
-                        updateEditor({ fontFamily: event.target.value as EditorFontFamily })
-                      }
-                    >
-                      <option value="sans">Sans (Inter)</option>
-                      <option value="serif">Serif (Source Serif)</option>
-                      <option value="mono">Mono (JetBrains Mono)</option>
-                    </Select>
-                  }
-                />
-                <SettingsRow
-                  label="Zoom"
-                  description="The size the document is presented at, not the size it is stored at."
-                  htmlFor="noto-zoom"
-                  control={
-                    <Select
-                      id="noto-zoom"
-                      fieldSize="sm"
-                      className="w-28"
-                      value={String(settings.editor.zoom)}
-                      onChange={(event) => updateEditor({ zoom: Number(event.target.value) })}
-                    >
-                      {ZOOM_LEVELS.map((level) => (
-                        <option key={level} value={level}>
-                          {Math.round(level * 100)}%
-                        </option>
-                      ))}
-                    </Select>
-                  }
-                />
-                <SettingsRow
-                  label="Line height"
-                  htmlFor="noto-line-height"
-                  control={
-                    <Input
-                      id="noto-line-height"
-                      type="number"
-                      step="0.05"
-                      min="1.2"
-                      max="2.2"
-                      fieldSize="sm"
-                      className="w-24"
-                      value={settings.editor.lineHeight}
-                      onChange={(event) =>
-                        updateEditor({ lineHeight: Number(event.target.value) || 1.6 })
-                      }
-                    />
-                  }
-                />
-              </SettingsSection>
+          {category === 'editor' ? <EditorSettings /> : null}
 
-              {/*
-               * Paper. Simple is what Noto opens with — a text file, no page
-               * — and everything here is for the document that is going to be
-               * printed instead. Choosing a size or a margin turns the page on
-               * by itself, the same way the toolbar's control does: nobody
-               * sets Letter and Narrow meaning to keep looking at a text file.
-               */}
-              <SettingsSection
-                title="Page layout"
-                description="Whether the document is a text file or a sheet of paper."
-              >
-                <SettingsRow
-                  label="Layout"
-                  description="Simple runs the text the width of the window, from the left edge."
-                  htmlFor="noto-page-mode"
-                  control={
-                    <Select
-                      id="noto-page-mode"
-                      fieldSize="sm"
-                      className="w-44"
-                      value={settings.editor.pageMode}
-                      onChange={(event) =>
-                        updateEditor({ pageMode: event.target.value as PageLayoutMode })
-                      }
-                    >
-                      <option value="simple">Simple text</option>
-                      <option value="page">Page layout</option>
-                    </Select>
-                  }
-                />
-                <SettingsRow
-                  label="Paper size"
-                  description="The sheet the page is drawn at, and printed on."
-                  htmlFor="noto-page-size"
-                  control={
-                    <Select
-                      id="noto-page-size"
-                      fieldSize="sm"
-                      className="w-44"
-                      value={settings.editor.pageSize}
-                      onChange={(event) =>
-                        updateEditor({
-                          pageMode: 'page',
-                          pageSize: event.target.value as PageSizeId,
-                        })
-                      }
-                    >
-                      {PAGE_SIZES.map((size) => (
-                        <option key={size.id} value={size.id}>
-                          {size.label} ({size.width} × {size.height} in)
-                        </option>
-                      ))}
-                    </Select>
-                  }
-                />
-                <SettingsRow
-                  label="Margins"
-                  description="The same named margins every office suite ships."
-                  htmlFor="noto-margins"
-                  control={
-                    <Select
-                      id="noto-margins"
-                      fieldSize="sm"
-                      className="w-44"
-                      value={settings.editor.marginPreset}
-                      onChange={(event) =>
-                        updateEditor({
-                          pageMode: 'page',
-                          marginPreset: event.target.value as MarginPresetId,
-                        })
-                      }
-                    >
-                      {MARGIN_PRESETS.map((preset) => (
-                        <option key={preset.id} value={preset.id}>
-                          {preset.label}
-                        </option>
-                      ))}
-                    </Select>
-                  }
-                />
-                {settings.editor.marginPreset === 'custom' ? (
-                  <SettingsRow label="Custom margins" description="In inches.">
-                    <MarginFields
-                      className="mt-2.5"
-                      value={settings.editor.customMargins}
-                      onChange={(customMargins) =>
-                        updateEditor({ pageMode: 'page', customMargins })
-                      }
-                    />
-                  </SettingsRow>
-                ) : null}
-              </SettingsSection>
+          {category === 'files' ? <FilesSettings /> : null}
 
-              <SettingsSection title="Writing" description="What the editor does while you type.">
-                <SettingsRow
-                  label="Word wrap"
-                  description="Off lets long lines run, and the block scrolls sideways."
-                  control={
-                    <Toggle
-                      hideLabel
-                      label="Word wrap"
-                      checked={settings.editor.wordWrap}
-                      onChange={(wordWrap) => updateEditor({ wordWrap })}
-                    />
-                  }
-                />
-                <SettingsRow
-                  label="Show characters"
-                  description="Draws spaces, tabs and paragraph marks."
-                  control={
-                    <Toggle
-                      hideLabel
-                      label="Show characters"
-                      checked={settings.editor.showInvisibles}
-                      onChange={(showInvisibles) => updateEditor({ showInvisibles })}
-                    />
-                  }
-                />
-                <SettingsRow
-                  label="Spell check"
-                  description="Uses the dictionaries your operating system already has."
-                  control={
-                    <Toggle
-                      hideLabel
-                      label="Spell check"
-                      checked={settings.editor.spellCheck}
-                      onChange={(spellCheck) => updateEditor({ spellCheck })}
-                    />
-                  }
-                />
-              </SettingsSection>
-            </>
-          ) : null}
+          {category === 'autosave' ? <AutosaveSettings /> : null}
 
-          {category === 'files' ? (
-            <SettingsSection
-              title="Files & Folders"
-              description="Where documents live, and how they leave."
-            >
-              <SettingsRow
-                label="Workspace"
-                description="Every document on this device belongs to this workspace."
-                control={<Badge tone="brand">{workspace?.name ?? 'Local'}</Badge>}
-              />
-              <SettingsRow
-                label="Folders"
-                description="Made in the sidebar with the + beside the workspace name. Drag a document onto a folder to move it, or pick its folder in the Info tab."
-              />
-              <SettingsRow
-                label="Import and export"
-                description="Text, Markdown, HTML and Noto JSON, read and written on this device."
-                control={
-                  <Button variant="secondary" size="sm" onClick={() => navigate('documents')}>
-                    Open Documents
-                  </Button>
-                }
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'memory' ? <MemorySettings /> : null}
 
-          {category === 'autosave' ? (
-            <SettingsSection
-              title="Auto Save"
-              description="Noto writes as you type. Nothing here turns that off."
-            >
-              <SettingsRow
-                label="Save delay"
-                description="How long Noto waits after the last keystroke before writing."
-                htmlFor="noto-autosave"
-                control={
-                  <Select
-                    id="noto-autosave"
-                    fieldSize="sm"
-                    className="w-40"
-                    value={String(settings.editor.autoSaveDelayMs)}
-                    onChange={(event) =>
-                      updateEditor({ autoSaveDelayMs: Number(event.target.value) })
-                    }
-                  >
-                    <option value="300">Immediately (300ms)</option>
-                    <option value={String(AUTOSAVE_DELAY_MS)}>Standard (600ms)</option>
-                    <option value="1500">Relaxed (1.5s)</option>
-                    <option value="3000">Slow (3s)</option>
-                  </Select>
-                }
-              />
-              <SettingsRow
-                label="Crash recovery"
-                description="Unsaved work is snapshotted outside the database, and offered back when Noto reopens."
-                control={<Badge tone="brand">Always on</Badge>}
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'clipboard' ? <ClipboardSettings /> : null}
 
-          {category === 'memory' ? (
-            <SettingsSection
-              title="Noto Memory"
-              description="What Noto keeps hold of, beyond your documents."
-            >
-              <SettingsRow
-                label="Capture"
-                description="Clipboard, screenshots and links are captured by a background service that is not built yet."
-                control={<Badge>Coming soon</Badge>}
-              />
-              <SettingsRow
-                label="Browse what is there"
-                control={
-                  <Button variant="secondary" size="sm" onClick={() => navigate('memory')}>
-                    Open Memory
-                  </Button>
-                }
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'shortcuts' ? <ShortcutsSettings /> : null}
 
-          {category === 'clipboard' ? (
-            <SettingsSection
-              title="Clipboard"
-              description="Clipboard history is part of Memory rather than a store of its own."
-            >
-              <SettingsRow
-                label="Watch the clipboard"
-                description="Requires the desktop background service."
-                control={<Badge>Coming soon</Badge>}
-              />
-              <SettingsRow
-                label="Quick Paste"
-                description="Search everything captured and paste it without leaving the keyboard."
-                control={<KeyHint keys={formatShortcut('CmdOrCtrl+Alt+V', platform)} />}
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'ai' ? <AiSettings /> : null}
 
-          {category === 'shortcuts' ? (
-            <SettingsSection
-              title="Keyboard shortcuts"
-              description="Every command in Noto, and the keys bound to it."
-            >
-              <div className="max-h-[480px] overflow-y-auto">
-                <ul className="divide-default divide-y">
-                  {CORE_COMMANDS.filter((command) => command.shortcut).map((command) => (
-                    <li
-                      key={command.id}
-                      className="flex items-center justify-between gap-4 px-5 py-2.5"
-                    >
-                      <span className="text-primary text-body-sm min-w-0 truncate">
-                        {command.title}
-                      </span>
-                      <KeyHint keys={formatShortcut(command.shortcut!, platform)} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </SettingsSection>
-          ) : null}
+          {category === 'privacy' ? <PrivacySettings /> : null}
 
-          {category === 'ai' ? (
-            <SettingsSection
-              title="AI Assistant"
-              description="Noto AI is a panel beside your writing, never a layer over it."
-            >
-              <SettingsRow
-                label="Model"
-                description="No model is connected, so nothing you write is sent anywhere."
-                control={<Badge tone="ai">Not connected</Badge>}
-              />
-              <SettingsRow
-                label="Where it appears"
-                description="In the workspace's context panel, and from the Ask AI button in Search."
-                control={<Badge>Panel only</Badge>}
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'sync' ? <SyncSettings /> : null}
 
-          {category === 'privacy' ? (
-            <SettingsSection
-              title="Privacy & Security"
-              description="What leaves this device, and what does not."
-            >
-              <SettingsRow
-                label="Where your documents are"
-                description="In this browser's storage on web, and in a SQLite file on desktop. Nowhere else."
-                control={<Badge tone="brand">On this device</Badge>}
-              />
-              <SettingsRow
-                label="Network"
-                description="Noto makes no network requests while sync is off."
-                control={<Badge tone="brand">{settings.syncEnabled ? 'Sync on' : 'Offline'}</Badge>}
-              />
-              <SettingsRow
-                label="Account security"
-                control={
-                  <Button variant="secondary" size="sm" onClick={() => navigate('account')}>
-                    Open Account
-                  </Button>
-                }
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'updates' ? <UpdatesSettings /> : null}
 
-          {category === 'sync' ? (
-            <SettingsSection
-              title="Sync & Backup"
-              description="Off by default. Noto is complete without it."
-            >
-              <SettingsRow
-                label="Sync across devices"
-                description="Queues local changes and sends them when a workspace is connected."
-                control={
-                  <Toggle
-                    hideLabel
-                    label="Sync across devices"
-                    checked={settings.syncEnabled}
-                    onChange={(enabled) => {
-                      setSyncEnabled(enabled);
-                      showToast(
-                        enabled
-                          ? 'Sync is on. Changes will queue until a workspace is connected.'
-                          : 'Sync is off. Everything stays on this device.',
-                      );
-                    }}
-                  />
-                }
-              />
-              <SettingsRow
-                label="Backup"
-                description="Export a document as Markdown or JSON from its menu, any time."
-                control={
-                  <Button variant="secondary" size="sm" onClick={() => navigate('documents')}>
-                    Export documents
-                  </Button>
-                }
-              />
-            </SettingsSection>
-          ) : null}
-
-          {category === 'updates' ? (
-            <SettingsSection
-              title="Updates"
-              description="How Noto finds out about new releases, and what it does about them."
-            >
-              <SettingsRow
-                label="Current version"
-                description={
-                  update.state === 'unsupported'
-                    ? (update.message ?? 'This build of Noto does not update itself.')
-                    : update.checkedAt
-                      ? `Last checked ${relativeTime(update.checkedAt).toLowerCase()}.`
-                      : 'Noto has not looked for a newer release yet this session.'
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    {isUpdateWaiting(update) ? (
-                      <Badge tone="brand" dot>
-                        {update.version} available
-                      </Badge>
-                    ) : (
-                      <Badge>{APP_VERSION}</Badge>
-                    )}
-                    <Button
-                      size="sm"
-                      loading={update.state === 'checking' || update.state === 'downloading'}
-                      onClick={() => void checkForUpdates({ manual: true })}
-                    >
-                      Check now
-                    </Button>
-                  </div>
-                }
-              />
-
-              {/* Only shown when there is something to press. A permanent
-                  "install" button with nothing to install is furniture. */}
-              {isUpdateWaiting(update) ? (
-                <SettingsRow
-                  label={`${APP_NAME} ${update.version}`}
-                  description={
-                    update.state === 'ready'
-                      ? 'Downloaded and waiting. Noto restarts to finish.'
-                      : 'Published and ready to download.'
-                  }
-                  control={
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leading={<DownloadIcon className="h-4 w-4" />}
-                      onClick={() => void installUpdate()}
-                    >
-                      {installLabel}
-                    </Button>
-                  }
-                />
-              ) : null}
-
-              <SettingsRow
-                label="Check for updates automatically"
-                description="Asks GitHub for the newest release every few hours. This is the only thing Noto sends over the network on its own — switch it off and it never looks unless you press Check now."
-                control={
-                  <Toggle
-                    hideLabel
-                    label="Check for updates automatically"
-                    checked={settings.updates.checkAutomatically}
-                    onChange={(checked) => updatePreferences({ checkAutomatically: checked })}
-                  />
-                }
-              />
-
-              <SettingsRow
-                label="Install updates automatically"
-                description={
-                  appliesOnRestart
-                    ? 'A new version is installed the next time you open Noto, without asking. Off, Noto tells you it is ready and waits for you.'
-                    : 'Noto in a browser cannot replace itself — reload the page to move to a new version. This is a desktop setting.'
-                }
-                control={
-                  <Toggle
-                    hideLabel
-                    label="Install updates automatically"
-                    disabled={!appliesOnRestart}
-                    checked={appliesOnRestart && settings.updates.automatic}
-                    onChange={(checked) => updatePreferences({ automatic: checked })}
-                  />
-                }
-              />
-
-              <SettingsRow
-                label="Release notes"
-                description="Every release, what changed in it, and the files it published."
-                control={
-                  <a
-                    href={RELEASES_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-brand-strong text-body-sm focus-visible:outline-brand inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                  >
-                    Open on GitHub
-                    <ExternalLinkIcon className="h-4 w-4" />
-                  </a>
-                }
-              />
-            </SettingsSection>
-          ) : null}
-
-          {category === 'about' ? (
-            <SettingsSection title={`About ${APP_NAME}`}>
-              <SettingsRow
-                label="Version"
-                description={
-                  isUpdateWaiting(update) ? `${update.version} has been released.` : undefined
-                }
-                control={
-                  <div className="flex items-center gap-2">
-                    <Badge>{APP_VERSION}</Badge>
-                    {isUpdateWaiting(update) ? (
-                      <Button size="sm" onClick={() => setCategory('updates')}>
-                        Update
-                      </Button>
-                    ) : null}
-                  </div>
-                }
-              />
-              <SettingsRow
-                label="What Noto is"
-                description="A local-first writing, document, memory and search workspace for desktop, web and mobile."
-              />
-              <SettingsRow
-                label="Storage"
-                description={`${(documents ?? []).length} documents, ${formatBytes(usedBytes)} on this device.`}
-                control={<DatabaseIcon className="text-tertiary h-5 w-5" />}
-              />
-              <SettingsRow
-                label="Capture"
-                description="Screenshots and clipboard capture arrive with the desktop background service."
-                control={<CameraIcon className="text-tertiary h-5 w-5" />}
-              />
-              <SettingsRow
-                label="Documents"
-                description="Everything you write is stored as structured content, not as HTML."
-                control={<DocumentsIcon className="text-tertiary h-5 w-5" />}
-              />
-            </SettingsSection>
-          ) : null}
+          {category === 'about' ? <AboutSettings setCategory={setCategory} /> : null}
 
           {/* Settings apply as they are changed, so this is the only footer the
               screen needs — and it asks before undoing anything. */}

@@ -1,122 +1,49 @@
-import { CORE_COMMANDS, formatShortcut, useSettingsStore } from '@noto/core';
-import {
-  MAX_TABLE_SIZE,
-  MIN_TABLE_SIZE,
-  applyLink,
-  insertImage,
-  insertTable,
-  removeLink,
-  runEditorAction,
-} from '@noto/editor';
+import { formatShortcut, useSettingsStore } from '@noto/core';
+import { runEditorAction } from '@noto/editor';
 import { type Editor, useFormatState } from '@noto/editor/react';
-import { type ComponentType, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
-import { Button } from '../components/Button';
-import { Dropdown, type DropdownItem } from '../components/Dropdown';
-import { Select } from '../components/Input';
-import { fieldClasses } from '../components/field-styles';
-import { ToolbarButton } from '../components/ToolbarButton';
+import { Button } from '../../components/Button';
+import { Dropdown, type DropdownItem } from '../../components/Dropdown';
+import { Select } from '../../components/Input';
+import { ToolbarButton } from '../../components/ToolbarButton';
 import {
-  AlignCenterIcon,
-  AlignJustifyIcon,
-  AlignLeftIcon,
-  AlignRightIcon,
-  BoldIcon,
-  BulletListIcon,
   CheckIcon,
-  ChecklistIcon,
   ChevronDownIcon,
   ClearFormattingIcon,
   CodeBlockIcon,
   CodeIcon,
   DividerIcon,
-  type IconProps,
   ImageIcon,
-  ItalicIcon,
   LinkIcon,
   MaximizeIcon,
   MinimizeIcon,
   MoreIcon,
-  OrderedListIcon,
   PilcrowIcon,
   PrinterIcon,
   QuoteIcon,
   RedoIcon,
   SearchIcon,
-  StrikethroughIcon,
   TableIcon,
-  UnderlineIcon,
   UndoIcon,
   WrapTextIcon,
-} from '../components/icons';
-import { cn } from '../utils/cn';
-import { PageLayoutMenu, PageMarginsPrompt } from './editor/PageLayoutMenu';
-import { detectShortcutPlatform } from './use-command-shortcuts';
-import type { FormattingPrompts } from './use-formatting-prompts';
-
-/**
- * The formatting controls for the document editor.
- *
- * Every button is a command id: the label and the shortcut hint come from the
- * registry in `@noto/core`, and the action from `@noto/editor`. Nothing about
- * what bold *is* lives here — this file decides only what the controls look
- * like and which order they come in.
- */
-
-const COMMANDS_BY_ID = new Map(CORE_COMMANDS.map((command) => [command.id, command]));
-
-interface Control {
-  id: string;
-  icon: ComponentType<IconProps>;
-}
-
-const MARK_CONTROLS: Control[] = [
-  { id: 'format.bold', icon: BoldIcon },
-  { id: 'format.italic', icon: ItalicIcon },
-  { id: 'format.underline', icon: UnderlineIcon },
-  { id: 'format.strike', icon: StrikethroughIcon },
-];
-
-const LIST_CONTROLS: Control[] = [
-  { id: 'format.bulletList', icon: BulletListIcon },
-  { id: 'format.orderedList', icon: OrderedListIcon },
-  { id: 'format.taskList', icon: ChecklistIcon },
-];
-
-/*
- * Alignment is split rather than shortened. Left and centre are what a writer
- * reaches for; right and justify are real but rare, so they wait in the
- * overflow menu instead of spending two slots on the bar.
- */
-const ALIGN_CONTROLS: Control[] = [
-  { id: 'format.alignLeft', icon: AlignLeftIcon },
-  { id: 'format.alignCenter', icon: AlignCenterIcon },
-];
-
-const OVERFLOW_ALIGN_CONTROLS: Control[] = [
-  { id: 'format.alignRight', icon: AlignRightIcon },
-  { id: 'format.alignJustify', icon: AlignJustifyIcon },
-];
-
-/** The block types the picker offers, in the order it lists them. */
-const BLOCK_TYPES = [
-  { id: 'format.paragraph', label: 'Paragraph' },
-  { id: 'format.heading1', label: 'Heading 1' },
-  { id: 'format.heading2', label: 'Heading 2' },
-  { id: 'format.heading3', label: 'Heading 3' },
-];
-
-const TABLE_CONTROLS = [
-  { id: 'table.addRowAfter', label: 'Row +' },
-  { id: 'table.addColumnAfter', label: 'Column +' },
-  { id: 'table.deleteRow', label: 'Delete row' },
-  { id: 'table.deleteColumn', label: 'Delete column' },
-  { id: 'table.toggleHeaderRow', label: 'Header row' },
-];
-
-/* The toolbar and its prompts share the design system's field styling at the
-   compact size: a 40px input here would push the controls out of line. */
-const FIELD_CLASSES = fieldClasses('sm');
+} from '../../components/icons';
+import { PageLayoutMenu, PageMarginsPrompt } from '../editor/PageLayoutMenu';
+import { detectShortcutPlatform } from '../use-command-shortcuts';
+import type { FormattingPrompts } from '../use-formatting-prompts';
+import { Separator } from './Separator';
+import {
+  ALIGN_CONTROLS,
+  BLOCK_TYPES,
+  COMMANDS_BY_ID,
+  type Control,
+  LIST_CONTROLS,
+  MARK_CONTROLS,
+  OVERFLOW_ALIGN_CONTROLS,
+  TABLE_CONTROLS,
+} from './controls';
+import { ImagePrompt, LinkPrompt, TablePrompt } from './prompts';
+import { useFullscreen } from './use-fullscreen';
 
 export interface EditorToolbarProps {
   editor: Editor | null;
@@ -448,253 +375,5 @@ export function EditorToolbar({ editor, prompts, onFind, onPrint, className }: E
         </div>
       ) : null}
     </div>
-  );
-}
-
-/**
- * Whether the window is showing the application full screen, and the switch.
- *
- * Read from the browser rather than remembered, because Escape and the F11 key
- * both leave full screen without going through the button — a flag kept here
- * would say "exit" over a window that is already back to its normal size.
- */
-function useFullscreen(): [boolean, () => void] {
-  const [fullscreen, setFullscreen] = useState(
-    () => typeof document !== 'undefined' && document.fullscreenElement !== null,
-  );
-
-  useEffect(() => {
-    const sync = () => setFullscreen(document.fullscreenElement !== null);
-
-    document.addEventListener('fullscreenchange', sync);
-    return () => document.removeEventListener('fullscreenchange', sync);
-  }, []);
-
-  const toggle = () => {
-    /* Refused when the gesture is not one the browser trusts; nothing to do
-       about that but leave the window as it is. */
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    else void document.documentElement.requestFullscreen().catch(() => {});
-  };
-
-  return [fullscreen, toggle];
-}
-
-function Separator() {
-  return <span className="bg-default mx-1.5 h-5 w-px shrink-0" aria-hidden="true" />;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Prompts                                                                    */
-/* -------------------------------------------------------------------------- */
-
-interface PromptProps {
-  editor: Editor | null;
-  onClose: () => void;
-}
-
-function PromptForm({
-  label,
-  onSubmit,
-  onClose,
-  children,
-}: {
-  label: string;
-  onSubmit: (event: FormEvent) => void;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <form
-      onSubmit={onSubmit}
-      // Escape closes the prompt wherever the caret is inside it, so a
-      // half-typed URL never traps the user in the form.
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        onClose();
-      }}
-      aria-label={label}
-      className="border-default bg-surface-secondary mb-3 flex flex-wrap items-center gap-2 rounded-md border p-3"
-    >
-      {children}
-    </form>
-  );
-}
-
-function LinkPrompt({ editor, href, onClose }: PromptProps & { href: string | null }) {
-  const [value, setValue] = useState(href ?? '');
-  const [rejected, setRejected] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => inputRef.current?.select(), []);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-
-    if (applyLink(editor, value)) {
-      onClose();
-      return;
-    }
-
-    // `applyLink` refuses anything that is not a safe, resolvable URL. Saying
-    // so beats silently doing nothing.
-    setRejected(true);
-  };
-
-  return (
-    <PromptForm label="Link" onSubmit={submit} onClose={onClose}>
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(event) => {
-          setValue(event.target.value);
-          setRejected(false);
-        }}
-        type="text"
-        inputMode="url"
-        placeholder="noto.app/docs"
-        aria-label="Link address"
-        aria-invalid={rejected}
-        className={cn(FIELD_CLASSES, 'min-w-0 flex-1')}
-      />
-      <Button size="sm" variant="primary" type="submit">
-        Apply
-      </Button>
-      {href ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            removeLink(editor);
-            onClose();
-          }}
-        >
-          Remove
-        </Button>
-      ) : null}
-      <Button size="sm" variant="ghost" onClick={onClose}>
-        Cancel
-      </Button>
-      {rejected ? (
-        <p className="text-danger w-full text-xs">
-          That is not a web, mail or telephone address Noto can link to.
-        </p>
-      ) : null}
-    </PromptForm>
-  );
-}
-
-function ImagePrompt({ editor, onClose }: PromptProps) {
-  const [src, setSrc] = useState('');
-  const [alt, setAlt] = useState('');
-  const [rejected, setRejected] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => inputRef.current?.focus(), []);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-
-    if (insertImage(editor, { src, alt })) {
-      onClose();
-      return;
-    }
-
-    setRejected(true);
-  };
-
-  return (
-    <PromptForm label="Insert image" onSubmit={submit} onClose={onClose}>
-      <input
-        ref={inputRef}
-        value={src}
-        onChange={(event) => {
-          setSrc(event.target.value);
-          setRejected(false);
-        }}
-        type="text"
-        inputMode="url"
-        placeholder="Image address"
-        aria-label="Image address"
-        aria-invalid={rejected}
-        className={cn(FIELD_CLASSES, 'min-w-0 flex-1')}
-      />
-      <input
-        value={alt}
-        onChange={(event) => setAlt(event.target.value)}
-        type="text"
-        placeholder="Description (optional)"
-        aria-label="Image description"
-        className={cn(FIELD_CLASSES, 'min-w-0 flex-1')}
-      />
-      <Button size="sm" variant="primary" type="submit">
-        Insert
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onClose}>
-        Cancel
-      </Button>
-      {rejected ? (
-        <p className="text-danger w-full text-xs">Noto could not read that as an image address.</p>
-      ) : null}
-    </PromptForm>
-  );
-}
-
-function TablePrompt({ editor, onClose }: PromptProps) {
-  const [rows, setRows] = useState(3);
-  const [cols, setCols] = useState(3);
-  const [withHeaderRow, setWithHeaderRow] = useState(true);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => inputRef.current?.select(), []);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    insertTable(editor, { rows, cols, withHeaderRow });
-    onClose();
-  };
-
-  return (
-    <PromptForm label="Insert table" onSubmit={submit} onClose={onClose}>
-      <label className="text-secondary flex items-center gap-1.5 text-sm">
-        Rows
-        <input
-          ref={inputRef}
-          value={rows}
-          onChange={(event) => setRows(Number(event.target.value))}
-          type="number"
-          min={MIN_TABLE_SIZE}
-          max={MAX_TABLE_SIZE}
-          className={cn(FIELD_CLASSES, 'w-16')}
-        />
-      </label>
-      <label className="text-secondary flex items-center gap-1.5 text-sm">
-        Columns
-        <input
-          value={cols}
-          onChange={(event) => setCols(Number(event.target.value))}
-          type="number"
-          min={MIN_TABLE_SIZE}
-          max={MAX_TABLE_SIZE}
-          className={cn(FIELD_CLASSES, 'w-16')}
-        />
-      </label>
-      <label className="text-secondary flex items-center gap-1.5 text-sm">
-        <input
-          checked={withHeaderRow}
-          onChange={(event) => setWithHeaderRow(event.target.checked)}
-          type="checkbox"
-          className="accent-brand h-4 w-4"
-        />
-        Header row
-      </label>
-      <Button size="sm" variant="primary" type="submit">
-        Insert
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onClose}>
-        Cancel
-      </Button>
-    </PromptForm>
   );
 }

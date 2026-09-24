@@ -8,96 +8,60 @@ import {
   zoomIn,
   zoomOut,
 } from '@noto/core';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button } from '../components/Button';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import { ErrorState } from '../components/ErrorState';
-import { LoadingState } from '../components/LoadingState';
-import { Skeleton } from '../components/Skeleton';
-import { ToastViewport } from '../components/Toast';
-import { showToast } from '../components/toast-store';
-import { AppHeader } from './AppHeader';
-import { MobileHeader } from './MobileHeader';
-import { MobileNav } from './MobileNav';
-import { NotoAppShell } from './NotoAppShell';
-import { Sidebar } from './Sidebar';
-import { HomeScreen } from './screens/HomeScreen';
-import { QuickNoteDock } from './dock/QuickNoteDock';
-import { readDockPlacement, setDockEnabled } from './dock/dock-placement';
-import { CommandPalette } from './overlays/CommandPalette';
-import { FloatingNoto } from './overlays/FloatingNoto';
-import { QuickNote } from './overlays/QuickNote';
-import { QuickPaste } from './overlays/QuickPaste';
-import { ShortcutsDialog } from './overlays/ShortcutsDialog';
-import { SmartSidebar } from './overlays/SmartSidebar';
-import { UpdateDialog } from './overlays/UpdateDialog';
-import { emitAppCommand, subscribeToAppCommands } from './app-commands';
-import { useNotoData } from './data-context';
-import { parseImportedFile } from './export';
+import { Button } from '../../components/Button';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { ErrorState } from '../../components/ErrorState';
+import { Skeleton } from '../../components/Skeleton';
+import { ToastViewport } from '../../components/Toast';
+import { showToast } from '../../components/toast-store';
+import { AppHeader } from '../AppHeader';
+import { MobileHeader } from '../MobileHeader';
+import { MobileNav } from '../MobileNav';
+import { NotoAppShell } from '../NotoAppShell';
+import { Sidebar } from '../Sidebar';
+import { HomeScreen } from '../screens/HomeScreen';
+import { QuickNoteDock } from '../dock/QuickNoteDock';
+import { readDockPlacement, setDockEnabled } from '../dock/dock-placement';
+import { CommandPalette } from '../overlays/CommandPalette';
+import { FloatingNoto } from '../overlays/FloatingNoto';
+import { QuickNote } from '../overlays/QuickNote';
+import { QuickPaste } from '../overlays/QuickPaste';
+import { ShortcutsDialog } from '../overlays/ShortcutsDialog';
+import { SmartSidebar } from '../overlays/SmartSidebar';
+import { UpdateDialog } from '../overlays/UpdateDialog';
+import { emitAppCommand, subscribeToAppCommands } from '../app-commands';
+import { useNotoData } from '../data-context';
+import { quickNoteTitle } from '../quick-note-draft';
+import { navigate } from '../router';
+import { AppCrash, ScreenError } from '../ScreenError';
+import { useAccount } from '../use-account';
+import { useRouteGuard } from '../use-route-guard';
+import { useSignOut } from '../use-sign-out';
+import { claimFirstLaunch } from '../welcome';
+import { useCommandShortcuts, detectShortcutPlatform } from '../use-command-shortcuts';
+import { usePersistQuickNoteDraft } from '../use-persist-quick-note-draft';
+import { useDocumentTabs } from '../use-document-tabs';
+import { useNotoActions } from '../use-noto-actions';
+import { useResponsiveSidebar } from '../use-responsive-sidebar';
+import { useRoute } from '../use-route';
+import { useUpdateWatcher, checkForUpdates } from '../updates';
+import { useViewport } from '../use-viewport';
 import {
-  documentForFile,
-  forgetRecentFile,
-  linkFile,
-  openFilesFromDisk,
-  readRecentFile,
-  recentFiles,
-  type OpenedFile,
-} from './local-file';
-import { quickNoteTitle } from './quick-note-draft';
-import { navigate } from './router';
-import { AppCrash, ScreenError } from './ScreenError';
-import { useAccount } from './use-account';
-import { useRouteGuard } from './use-route-guard';
-import { useSignOut } from './use-sign-out';
-import { claimFirstLaunch } from './welcome';
-import { useCommandShortcuts, detectShortcutPlatform } from './use-command-shortcuts';
-import { usePersistQuickNoteDraft } from './use-persist-quick-note-draft';
-import { useDocumentTabs } from './use-document-tabs';
-import { useNotoActions } from './use-noto-actions';
-import { useResponsiveSidebar } from './use-responsive-sidebar';
-import { useRoute } from './use-route';
-import { useUpdateWatcher, checkForUpdates } from './updates';
-import { useViewport } from './use-viewport';
+  AccountScreen,
+  DocumentsScreen,
+  LoginScreen,
+  MemoryScreen,
+  PlansScreen,
+  QuickNoteScreen,
+  SearchScreen,
+  SettingsScreen,
+  WorkspaceScreen,
+} from './lazy-screens';
+import { ScreenLoading, WindowLoading } from './loading-views';
+import { useDiskFiles } from './use-disk-files';
 
-/*
- * Every screen but Home is a chunk of its own.
- *
- * Home is what Noto opens on, so it is part of the shell; the workspace brings
- * the whole editor with it, and settings, memory, search and the account screen
- * are each a page most sessions never visit. Loading them on the click that
- * asks for them is the difference between a fast start and a bundle that grows
- * every time a screen is added.
- */
-const WorkspaceScreen = lazy(() =>
-  import('./screens/WorkspaceScreen').then((module) => ({ default: module.WorkspaceScreen })),
-);
-const DocumentsScreen = lazy(() =>
-  import('./screens/DocumentsScreen').then((module) => ({ default: module.DocumentsScreen })),
-);
-const QuickNoteScreen = lazy(() =>
-  import('./screens/QuickNoteScreen').then((module) => ({ default: module.QuickNoteScreen })),
-);
-const MemoryScreen = lazy(() =>
-  import('./screens/MemoryScreen').then((module) => ({ default: module.MemoryScreen })),
-);
-const SearchScreen = lazy(() =>
-  import('./screens/SearchScreen').then((module) => ({ default: module.SearchScreen })),
-);
-const SettingsScreen = lazy(() =>
-  import('./screens/SettingsScreen').then((module) => ({ default: module.SettingsScreen })),
-);
-const AccountScreen = lazy(() =>
-  import('./screens/AccountScreen').then((module) => ({ default: module.AccountScreen })),
-);
-const PlansScreen = lazy(() =>
-  import('./screens/PlansScreen').then((module) => ({ default: module.PlansScreen })),
-);
-const LoginScreen = lazy(() =>
-  import('./screens/LoginScreen').then((module) => ({ default: module.LoginScreen })),
-);
-
-/** Which overlay is up. Only one of the modal ones can be at a time. */
 interface Overlays {
   palette: boolean;
   quickNote: boolean;
@@ -222,120 +186,7 @@ function NotoWindow() {
     [actions],
   );
 
-  /*
-   * Open, the way Notepad means it: files off the disk, each into a document of
-   * its own, and the first of them in front. Each document remembers the file
-   * it came from, so Save writes back there rather than asking where.
-   *
-   * The documents are created through the same import path the Documents
-   * screen uses, so a file opened this way is an ordinary document from the
-   * moment it exists — searchable, synced, in the sidebar — with one extra fact
-   * about it kept on this machine.
-   */
-  /**
-   * Turns files that have been read into documents, and puts the first in front.
-   *
-   * Shared by Open and by Recent, because the two differ only in how the file
-   * was chosen: everything after the bytes arrive is the same, down to what is
-   * said about it.
-   */
-  const adoptFiles = useCallback(
-    async (opened: OpenedFile[]) => {
-      let first: string | null = null;
-
-      for (const { file, text } of opened) {
-        const id = await actions.importDocument(parseImportedFile(file.name, text));
-        if (!id) continue;
-
-        linkFile(id, file);
-        first ??= id;
-      }
-
-      if (!first) {
-        showToast('Noto could not open those files. Nothing was changed.', { tone: 'error' });
-        return;
-      }
-
-      actions.openDocument(first);
-      showToast(
-        opened.length === 1 ? `Opened ${opened[0]!.file.name}` : `Opened ${opened.length} files`,
-        { tone: 'success' },
-      );
-    },
-    [actions],
-  );
-
-  /**
-   * True while the workspace is still opening.
-   *
-   * Nothing can be made of a file until storage is open, and a picker shown
-   * before then ends with the user choosing a file that is quietly dropped. The
-   * window is short — a skeleton is on screen for it — but "I opened it and it
-   * vanished" is the worst way to learn that.
-   */
-  const notReadyYet = useCallback(() => {
-    if (status === 'ready') return false;
-
-    showToast('Noto is still opening your workspace. Try again in a moment.');
-    return true;
-  }, [status]);
-
-  const openFromDisk = useCallback(async () => {
-    if (notReadyYet()) return;
-
-    let opened: OpenedFile[] | null;
-    try {
-      opened = await openFilesFromDisk();
-    } catch (error) {
-      showToast(
-        error instanceof Error && error.message ? error.message : 'Noto could not open that file.',
-        { tone: 'error' },
-      );
-      return;
-    }
-
-    if (!opened || opened.length === 0) return;
-
-    await adoptFiles(opened);
-  }, [adoptFiles, notReadyYet]);
-
-  /*
-   * Recent: a file the user chose once, opened again without finding it twice.
-   *
-   * A file that is already a document here comes back as that document rather
-   * than as a second copy of itself — the tab, the edits and the history are
-   * the reason somebody is reaching for it. Only a file Noto has lost track of
-   * is read afresh, and one it cannot read at all leaves the list, because a
-   * menu entry that can only ever apologise is worse than no entry.
-   */
-  const openRecent = useCallback(
-    async (ref: string) => {
-      if (notReadyYet()) return;
-
-      const existing = documentForFile(ref);
-      if (existing && (documents ?? []).some((document) => document.id === existing)) {
-        actions.openDocument(existing);
-        return;
-      }
-
-      const file = recentFiles().find((entry) => entry.ref === ref);
-      if (!file) return;
-
-      try {
-        await adoptFiles([await readRecentFile(file)]);
-      } catch (error) {
-        forgetRecentFile(ref);
-        showToast(
-          error instanceof Error && error.message
-            ? error.message
-            : `Noto could not open ${file.name}.`,
-          { tone: 'error' },
-        );
-      }
-    },
-    [actions, adoptFiles, documents, notReadyYet],
-  );
-
+  const { openFromDisk, openRecent } = useDiskFiles(actions, status, documents);
   /*
    * Shell-level accelerators. Save and Save As are deliberately absent: the
    * editor binds them, because the editor is what holds the unsaved draft.
@@ -757,44 +608,5 @@ function NotoWindow() {
 
       <ToastViewport />
     </>
-  );
-}
-
-/**
- * What fills the window while the guard decides, on the routes that render
- * without the shell around them.
- *
- * Deliberately almost nothing. It is on screen for a frame or two — long
- * enough that the window is never blank, short enough that anything more
- * would be a flash of interface that then goes away.
- */
-function WindowLoading() {
-  return (
-    <div className="bg-background flex h-full items-center justify-center" aria-busy="true">
-      <span className="sr-only" role="status">
-        Checking your account
-      </span>
-    </div>
-  );
-}
-
-/**
- * What fills the pane while a screen's chunk is fetched.
- *
- * The shell is already on screen by then — sidebar, tabs and all — so this is
- * only ever the content area, and it holds the page's shape so nothing under
- * the pointer moves when the screen lands.
- */
-function ScreenLoading() {
-  return (
-    <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="mx-auto w-full px-5 py-6 sm:px-8 sm:py-8">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="mt-3 h-4 w-80" />
-        <div className="mt-8">
-          <LoadingState label="Opening" rows={5} />
-        </div>
-      </div>
-    </main>
   );
 }
