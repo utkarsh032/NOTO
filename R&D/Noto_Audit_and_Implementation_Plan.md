@@ -37,7 +37,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | 1 | Finish the local product | ✅ Done | 9 of 9 steps |
 | 2 | Backend foundation (`apps/api`) | 🟡 Built and tested, not deployed | 7 of 8 steps. Only the host (D1) and a staging deployment remain |
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
-| 4 | Sync | 🟡 In progress | Client side done (steps 3, 4, most of 7); server side waits for Phases 2–3 |
+| 4 | Sync | 🟡 In progress | Steps 1–5 and 7 built; server tests await a run against Postgres; step 6 waits for Phase 3 |
 | 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
 | 6 | Desktop power features | ❌ Not started | |
 | 7 | Paid product | ❌ Not started | Needs D5 (payment provider) |
@@ -100,17 +100,17 @@ Phase 2 "done when" (everything working against staging, with tests) is **not me
 
 ### Phase 4 — Sync 🟡
 
-Built on branch `feat/phase-4-sync` (worktree `Noto-phase4`), rebased on Phase 2. The client half is done and tested; the server half needs `apps/api` (Phase 2), and the UI wiring needs the API client (Phase 3).
+Built on branch `feat/phase-4-sync` (worktree `Noto-phase4`), rebased on Phase 2. Client and server are both built. The server's Postgres suite is written but has **not yet run against a database** (no local test URL yet; CI runs it). The UI wiring (step 6) needs the Phase 3 API client.
 
 | Step | Status | Commit | What was done |
 | --- | --- | --- | --- |
-| 1. Server tables and triggers | ❌ | — | Waits for Phase 2 on `dev`. Migrations start at `0008_workspaces.sql`. |
-| 2. `sync` controller: push, pull, claim | ❌ | — | Waits for Phase 2. The rules to match are fixed by `InMemorySyncServer` (`packages/sync/src/testing/`). |
+| 1. Server tables and triggers | 🟡 | `c75b000` | Migrations 0008–0012: `workspaces`, `workspace_members`, `folders`, `documents`, `files` (metadata), `memory_items`, `change_log`, `sync_state`. Versions bumped by trigger; an AFTER trigger logs every write with the acting device. RLS through `is_member` / `can_edit`; `noto_api` cannot write versions or the log. Hosted `document_versions` stay with Phase 7. Awaiting a Postgres run. |
+| 2. `sync` controller: push, pull, claim | 🟡 | `c75b000` | `POST /v1/sync/push` (one version-checked upsert per change; stale ones answered with the server copy; ids held elsewhere refused), `POST /v1/sync/pull` (cursor, latest change per entity, own changes skipped, paged, full resync), `GET /v1/sync/state`, `GET /v1/workspaces`, `POST /v1/workspaces/:id/claim`. Verified account on its own, unrevoked device. Push body up to 8 MB. Same rules as `InMemorySyncServer`. Awaiting a Postgres run. |
 | 3. Client engine | ✅ | `a5a1149` | `CloudSyncEngine` drains the persisted outbox and pulls by cursor; passes on start, reconnect, 2 s after an edit and every 30 s; backoff 1 s → 5 min with jitter; idle / syncing / offline / error. Local schema v3: `sync_base` (server version per entity) and `db.sync.applyRemote`, which stores server copies without queuing them and never overwrites a newer local edit. `createHttpSyncTransport` fits the Phase 3 API client. |
 | 4. Conflict rule | ✅ | `a5a1149` | A delete beats an edit; two different document bodies keep the local one live and the other in version history ("Edited on &lt;device&gt;"); otherwise last-writer-wins on `updatedAt`. |
-| 5. Claim on first sign-in | ❌ | — | Needs the `claim` route (step 2) and sign-in (Phase 3). |
+| 5. Claim on first sign-in | 🟡 | `c75b000` | `joinAccount`: the first device claims its workspace (id kept, everything queued, content saved before schema v2 included); a later device merges its notes into the account's workspace, ids kept (Backend_Plan open question 5). Asking the person first is the app's job, with Phase 3's sign-in. |
 | 6. Settings toggle, sidebar status | ❌ | — | Needs the Phase 3 API client to create a real engine. |
-| 7. Two-device tests | 🟡 | `a5a1149` | Two simulated devices on in-memory and SQLite against the reference server: offline edits, same-body conflict, delete vs edit, edit during a push, paging, restart, trimmed log, backoff and reconnect. Still to do: the same against a real API in CI. |
+| 7. Two-device tests | 🟡 | `a5a1149`, `c75b000` | Two simulated devices on in-memory and SQLite against the reference server (offline edits, same-body conflict, delete vs edit, edit during a push, paging, restart, trimmed log, backoff, reconnect) — passing. A Postgres suite runs two real engines through the HTTP routes, plus guards, tenancy, paging and privileges; CI runs it, but it has not run locally yet. |
 
 ### Bugs found and fixed along the way
 
