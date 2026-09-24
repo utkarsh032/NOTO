@@ -100,18 +100,18 @@ Phase 2 "done when" (everything working against staging, with tests) is **not me
 
 ### Phase 5 — Mobile parity 🟡
 
-On branch `feat/phase-5-mobile` (worktree `Noto-phase5`), rebased on `dev` at `57a3d47` and not yet merged. Each commit was checked with lint, typecheck and the unit tests. Nothing has been run on a real phone or on an iOS build yet.
+On branch `feat/phase-5-mobile` (worktree `Noto-phase5`), rebased on `dev` at `21c55ba` and not yet merged. Each commit was checked with lint, typecheck and the unit tests. Nothing has been run on a real phone or on an iOS build yet.
 
 | Step | Status | Commit | What was done / what is left |
 | --- | --- | --- | --- |
-| 1. Account on mobile, tokens in secure storage | 🟡 | `352a7c4` | Done: a `SessionStore` backed by `expo-secure-store` (Keychain / Keystore, this device only, excluded from Android backups), reached over the bridge; tokens never reach WebView localStorage. Left: providing `AccountContext` with Phase 3's `createApiClient`. |
+| 1. Account on mobile, tokens in secure storage | 🟡 | `19b752f` | Done: a `SessionStore` backed by `expo-secure-store` (Keychain / Keystore, this device only, excluded from Android backups), reached over the bridge; tokens never reach WebView localStorage. Left: providing `AccountContext` with Phase 3's `createApiClient`. |
 | 2. Sync on mobile | ❌ | — | Needs the Phase 4 engine. |
-| 3. iOS build | 🟡 | `da9a431` | Done: the interface is packaged into the iOS app as a folder reference and loaded from the app bundle; the iOS CI job builds the interface first. Left: signing and TestFlight (needs an Apple Developer team). |
-| 4. Share-in, deep links, shortcut, biometric lock | 🟡 | `2bba530` | Done: text and web links shared from other apps go to Memory; `noto://<screen>` links open that screen; Android launcher shortcut for Quick Note. Left: email verify/reset links (Phase 3), iOS quick actions, a widget, the biometric lock. |
+| 3. iOS build | 🟡 | `209fe51` | Done: the interface is packaged into the iOS app as a folder reference and loaded from the app bundle; the iOS CI job builds the interface first. Left: signing and TestFlight (needs an Apple Developer team). |
+| 4. Share-in, deep links, shortcut, biometric lock | 🟡 | `677c824`, `3b2a40e` | Done: text and web links shared from other apps go to Memory; `noto://<screen>` links open that screen; Android launcher shortcut for Quick Note; app lock with Face ID / fingerprint / passcode (Settings › Privacy & Security, on phones only), at launch and after 30 s in the background, app-switcher preview covered. Left: email verify/reset links (Phase 3), iOS quick actions, a widget. |
 | 5. Google Play and App Store | ❌ | — | Needs a Play Console account, an upload keystore and an Apple Developer team. |
-| 6. Smoke test in `mobile.yml` | ✅ | `22fa6e3` | Maestro flow on an API 34 emulator: a fresh install loads, gets past sign-in, opens screens that read from storage, and follows a `noto://` link. |
+| 6. Smoke test in `mobile.yml` | ✅ | `d2448e6` | Maestro flow on an API 34 emulator: a fresh install loads, gets past sign-in, opens screens that read from storage, and follows a `noto://` link. |
 
-Test counts added: 12 unit tests in `@noto/mobile-webview`, which now has a test runner.
+Test counts added: 12 unit tests in `@noto/mobile-webview` and 7 in `@noto/mobile`, which both now have a test runner.
 
 ### Bugs found and fixed along the way
 
