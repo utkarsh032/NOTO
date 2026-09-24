@@ -85,11 +85,11 @@ Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are
 - Keeping a Quick Note wiped text typed while the save was running (`602934b`).
 - Templates, imports and duplicates could open as an empty document (`2585664`).
 - SQLite saves used `INSERT OR REPLACE`, which with foreign keys on could cascade-delete a document's files (`27d5c4b`).
+- Export read the stored copy, so the last second of typing was missing from exported files (`1146c8a`).
 
 ### Known issues
 
 - Commit `5562963` also contains the deletion of `mock/versions.ts`, so that single commit does not build on its own; the next commit does.
-- Export used the stored copy, so the last second of typing was missing from exported files (fixed in `1146c8a`).
 - Desktop and mobile builds have not been checked by hand since these changes; only web was exercised end to end.
 
 ## 1. Executive summary
