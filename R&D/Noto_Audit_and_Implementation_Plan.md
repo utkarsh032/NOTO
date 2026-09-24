@@ -35,7 +35,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | --- | --- | --- | --- |
 | 0 | Stabilise and harden | ✅ Done | 8 of 8 steps |
 | 1 | Finish the local product | ✅ Done | 9 of 9 steps |
-| 2 | Backend foundation (`apps/api`) | ❌ Not started | Needs D1 (host) and a Postgres instance |
+| 2 | Backend foundation (`apps/api`) | 🟡 Built, not deployed | 6 of 8 steps. Postgres tests written but not yet run; host (D1) not chosen |
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
 | 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
 | 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
@@ -46,7 +46,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 
 In steps: **all 17 steps in Phases 0–1 are done**, which is **2 of the 10 phases**. Phases 2–5 are being worked on in separate sessions and git worktrees (`Noto-phase2` … `Noto-phase5`); they will record their own status here as they merge. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
 
-Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config).
+Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config). Phase 2 adds 24 unit tests, plus 50 Postgres tests (RLS, every route, the account import) that run only with `NOTO_TEST_DATABASE_URL` set. CI sets it; no machine has run them yet.
 
 ### Phase 0 — Stabilise and harden ✅
 
@@ -79,6 +79,25 @@ Not yet done from Phase 0's "done when": a manual check that a packaged desktop 
 
 Phase 1 "done when" check: the only fixtures left in `packages/ui/src/mock/` are `templates.ts`, `account.ts` and `plans.ts`. The last two belong to Phases 3 and 7. e2e covers Memory, versions, folders, tags, search, tabs, export and import.
 
+### Phase 2 — Backend foundation 🟡
+
+All in `5820801`, on top of Phase 1. Built to [`Backend_Node_Plan.md`](Backend_Node_Plan.md) phases 0–1.
+
+| Step | Status | What was done |
+| --- | --- | --- |
+| 1. `apps/api` skeleton | ✅ | Hono, Zod env (production refuses to start without Turnstile and Resend), `db/pool.ts` as the only `pg` import (lint rule), Kysely, the middleware chain from plan §7, `/healthz`, `/readyz`. Bundled by esbuild; the bundle was booted and answered. |
+| 2. Migrations and RLS | ✅ | Plain `.sql` 0001–0007, run by a checksummed runner that takes an advisory lock. `auth.uid()` became `current_user_id()`, read from a transaction-local `app.user_id`. `noto_api` has RLS plus column grants: `password_hash` can't be read, and email, verification and deletion can't be written. `noto_service` bypasses RLS and is used only for the server's own tables. `db:bootstrap`, `db:migrate`, `db:status`, `db:psql`. |
+| 3. Identity tables and tokens | ✅ | `users`, `sessions`, `email_tokens`; argon2id; 15-minute HS256 access tokens, checked against a live session on every request. Refresh tokens are rotating and stored only as hashes; presenting a rotated one again revokes every session and is logged. |
+| 4. Postgres adapters | ✅ | `packages/backend/src/postgres/` implements every port. New `IdentityPort` and `IdentityService` cover refresh, verification, reset, password and email change, and sessions. `AuthService` and `AccountService` are unchanged apart from passing new fields through. |
+| 5. Controllers, mail, Turnstile | ✅ | 11 auth routes; 11 account routes, including sessions list and revoke for the Account screen. The plan's avatar, entitlements, export and delete routes move to Phase 7 with R2 and billing. Resend over HTTP, or console mail in development. Turnstile moved to `shared/`. Sign-up with an address that already has an account gets the same answer as a new one. |
+| 6. Scheduled jobs | ✅ | `node-cron` sweeps `auth_attempts`, sessions, email tokens and the 180-day security log. `NOTO_RUN_JOBS=false` turns them off on extra instances. |
+| 7. Integration tests, CI | 🟡 | RLS suite, including both tests plan §13 requires: refresh-token reuse, and no caller leaking across a pooled connection. Route tests cover every endpoint, with 401 and cross-tenant 404 cases. `ci.yml` starts the runner's own PostgreSQL. **Not yet run:** there was no local superuser password. Run them with `NOTO_TEST_DATABASE_URL` (see `docs/development/database.md`) or let CI run them. |
+| 8. Host, staging database, staging URL | ❌ | Needs decision D1. Nothing is deployed. |
+
+Also for Phase 3: `db:import-supabase` (keeps ids, sets `password_hash` NULL, idempotent) and `db:send-reset-mails` (rate-limited, resumable) for the one-time account move (D7).
+
+Phase 2 "done when" (everything working against staging, with tests) is **not met** until steps 7 and 8 are.
+
 ### Bugs found and fixed along the way
 
 - A keyboard shortcut pressed as the workspace appeared ran a stale handler. This was the long-standing flaky "opens a file from disk" e2e test (`5562963`).
@@ -107,7 +126,7 @@ What is missing is almost everything **behind** the editor: the cloud backend is
 | Desktop (Electron) | 🟡 Partial | Dock, tray, shortcuts, files, auto-update work. Missing deep links, app menu, clipboard capture; IPC & CSP need hardening. |
 | Mobile (Expo + WebView) | 🟡 Partial | Android works offline. No account, no sync, no share-in; iOS not functional. |
 | Marketing website | ✅ Done | Live download page; add CSP, sitemap, robots.txt. |
-| Backend / identity | 🟡 Partial | Supabase phase-1 auth only. Node + Postgres rewrite (`apps/api`) not started. |
+| Backend / identity | 🟡 Partial | Supabase phase-1 auth in production. `apps/api` (Node + Postgres) is built but not deployed (see Implementation status). |
 | Sync | ❌ Missing | Interfaces and an in-memory queue only. No transport, no persisted queue, no conflict handling. |
 | Memory, Version history, Plans, AI | 🟠 Mock | Screens exist but read fixtures from `packages/ui/src/mock/`. |
 | CI/CD & release | ✅ Done | Strong pipeline. Signing, Play Store, TestFlight and beta update feed not switched on. |
