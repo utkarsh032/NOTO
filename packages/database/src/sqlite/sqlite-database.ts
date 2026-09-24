@@ -742,11 +742,28 @@ export class SqliteDatabase implements NotoDatabase {
     },
   };
 
-  async open(): Promise<void> {
-    await migrate(this.driver);
+  /**
+   * The migration in flight, shared by every caller.
+   *
+   * Two opens at once are real: React's StrictMode runs the effect that opens
+   * the store twice in development. Over one connection the two migrations
+   * interleave — the second joins the first's transaction and adds a column
+   * the first has just added — and a brand-new database fails to open at all.
+   */
+  private opening: Promise<void> | null = null;
+
+  open(): Promise<void> {
+    this.opening ??= migrate(this.driver).catch((cause: unknown) => {
+      // A failed open may be retried; only a successful one is remembered.
+      this.opening = null;
+      throw cause;
+    });
+
+    return this.opening;
   }
 
   async close(): Promise<void> {
+    this.opening = null;
     await this.driver.close();
   }
 

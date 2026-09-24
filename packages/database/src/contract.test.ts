@@ -445,6 +445,19 @@ describe.each(ENGINES)('NotoDatabase contract — %s', (_name, create) => {
   });
 });
 
+describe('opening a new SQLite database', () => {
+  it('migrates once when opened twice at the same time', async () => {
+    const driver = nodeSqliteDriver();
+    const db = new SqliteDatabase(driver);
+
+    await Promise.all([db.open(), db.open()]);
+
+    const workspace = createDefaultWorkspace();
+    await db.workspaces.put(workspace);
+    expect(await db.workspaces.list()).toHaveLength(1);
+  });
+});
+
 describe('upgrading from schema version 1', () => {
   it('migrates a SQLite database in place, keeping documents and indexing their tags', async () => {
     const driver = nodeSqliteDriver();
