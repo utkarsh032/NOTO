@@ -1,19 +1,25 @@
 import { APP_NAME } from '@noto/config';
+import { Paths } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import { printHtml, saveFile, type SaveFileRequest } from '../platform/actions';
+import { useAppLock } from '../platform/app-lock';
+import { useNativeIntake } from '../platform/intake';
+import { clearSession, loadSession, saveSession } from '../platform/session-store';
 import { executeSql, selectSql } from '../platform/sql-host';
 import { useThemeColors } from '../theme';
+import { LockScreen } from './LockScreen';
 
 /**
- * Noto on Android.
+ * Noto on Android and iOS.
  *
  * The interface is the `@noto/ui` application — the same one the web and
  * desktop builds render — packaged into the APK by
- * `plugins/with-android-webapp.cjs` and loaded from the asset folder. This
+ * `plugins/with-android-webapp.cjs`, or into the iOS bundle by
+ * `plugins/with-ios-webapp.cjs`, and loaded from there as a file. This
  * component is the shell around it: it answers the SQL the interface asks for
  * from the native SQLite connection, performs the two things a WebView cannot
  * do for itself, and turns the hardware back button into navigation.
@@ -24,8 +30,19 @@ import { useThemeColors } from '../theme';
  * second implementation. It is the first one.
  */
 
-/** Where the packaged interface lives once Gradle has assembled the APK. */
-const PACKAGED_URI = 'file:///android_asset/webapp/index.html';
+/**
+ * The folder the packaged interface lives in.
+ *
+ * On Android it is the APK's asset folder, which Gradle assembles and the
+ * WebView reads through a fixed URL. On iOS it is a folder inside the
+ * application bundle, whose path is only known at run time.
+ */
+const PACKAGED_FOLDER =
+  Platform.OS === 'ios'
+    ? `${Paths.bundle.uri.replace(/\/?$/, '/')}webapp/`
+    : 'file:///android_asset/webapp/';
+
+const PACKAGED_URI = `${PACKAGED_FOLDER}index.html`;
 
 /**
  * A running `@noto/mobile-webview` dev server, when one is being used.
@@ -80,6 +97,12 @@ async function handle(channel: string, payload: unknown): Promise<unknown> {
     }
     case 'file.save':
       return saveFile(payload as SaveFileRequest);
+    case 'session.load':
+      return loadSession();
+    case 'session.save':
+      return saveSession(payload);
+    case 'session.clear':
+      return clearSession();
     default:
       throw new Error(`Noto received a request on an unknown channel: ${channel}.`);
   }
@@ -108,6 +131,40 @@ export function NotoWebView() {
     [inject],
   );
 
+  const pokeIntake = useCallback(() => {
+    inject(`window.__noto&&window.__noto.event('intake',null);`);
+  }, [inject]);
+
+  const takeIntake = useNativeIntake(pokeIntake);
+  const lock = useAppLock();
+  const { describe: describeLock, setEnabled: setLockEnabled } = lock;
+
+  /**
+   * Channels answered from this component's own state rather than by `handle`:
+   * the intake it holds, and the app lock it enforces. `undefined` for any
+   * other channel.
+   */
+  const handleHere = useCallback(
+    (channel: string, payload: unknown): Promise<unknown> | undefined => {
+      switch (channel) {
+        case 'intake.take':
+          return Promise.resolve(takeIntake());
+        case 'lock.describe':
+          return describeLock();
+        case 'lock.set': {
+          const enabled = (payload as { enabled?: unknown } | null)?.enabled;
+          if (typeof enabled !== 'boolean') {
+            return Promise.reject(new Error('lock.set needs `enabled` as true or false.'));
+          }
+          return setLockEnabled(enabled);
+        }
+        default:
+          return undefined;
+      }
+    },
+    [describeLock, setLockEnabled, takeIntake],
+  );
+
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
       let request: BridgeRequest;
@@ -124,7 +181,8 @@ export function NotoWebView() {
           reply({
             id: request.id,
             ok: true,
-            result: await handle(request.channel, request.payload),
+            result: await (handleHere(request.channel, request.payload) ??
+              handle(request.channel, request.payload)),
           });
         } catch (cause) {
           reply({
@@ -135,7 +193,7 @@ export function NotoWebView() {
         }
       })();
     },
-    [reply],
+    [handleHere, reply],
   );
 
   /*
@@ -210,6 +268,9 @@ export function NotoWebView() {
          * over the network into this WebView.
          */
         originWhitelist={DEV_URI ? ['file://*', 'http://*', 'https://*'] : ['file://*']}
+        // iOS reads a file page only from the folder named here, so the
+        // interface can load its own scripts and nothing else in the bundle.
+        allowingReadAccessToURL={DEV_URI ? undefined : PACKAGED_FOLDER}
         allowFileAccess
         allowFileAccessFromFileURLs
         allowUniversalAccessFromFileURLs
@@ -224,12 +285,19 @@ export function NotoWebView() {
         // whole page underneath it reads as the document coming loose.
         overScrollMode="never"
         bounces={false}
+        // The insets are pushed into the page below, which pads for them
+        // itself. iOS adjusting the scroll view as well would pad twice.
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
         // Without hardware acceleration a long document scrolls visibly badly
         // on mid-range devices.
         androidLayerType="hardware"
         // Nothing in Noto is a link to somewhere else, so there is no second
         // window to open. A stray one would replace the whole interface.
         setSupportMultipleWindows={false}
+        // Behind the lock, the page is hidden from screen readers too.
+        importantForAccessibility={lock.locked ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={lock.locked}
         style={[styles.fill, { backgroundColor: colors.background }]}
       />
 
@@ -237,6 +305,10 @@ export function NotoWebView() {
         <View style={[styles.overlay, { backgroundColor: colors.background }]}>
           <ActivityIndicator color={colors.brand} />
         </View>
+      ) : null}
+
+      {lock.locked || lock.covered ? (
+        <LockScreen locked={lock.locked} onUnlock={() => void lock.unlock()} />
       ) : null}
     </View>
   );

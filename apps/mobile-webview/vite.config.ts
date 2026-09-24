@@ -3,17 +3,18 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
- * Builds the interface the Android application runs.
+ * Builds the interface the Android and iOS applications run.
  *
  * This is the same `@noto/ui` shell the web and desktop applications render;
  * only the platform seam underneath it differs, so the phone gets the whole
  * editor — tabs, find, history, formatting, the seven screens — rather than a
  * second, smaller Noto that has to be kept in step by hand.
  *
- * The output is copied into the Android project's asset folder at prebuild by
- * `apps/mobile/plugins/with-android-webapp.cjs` and loaded from
- * `file:///android_asset/webapp/index.html`, which is why `base` is relative:
- * absolute paths do not resolve under a `file://` origin.
+ * The output is copied into the native projects at prebuild — the Android
+ * asset folder by `apps/mobile/plugins/with-android-webapp.cjs`, the iOS
+ * application bundle by `with-ios-webapp.cjs` — and loaded from there as a
+ * `file://` page, which is why `base` is relative: absolute paths do not
+ * resolve under a `file://` origin.
  */
 /**
  * Emits the entry as a classic script.
@@ -58,7 +59,8 @@ export default defineConfig({
 
     // Android's WebView is updated through the Play Store rather than with the
     // system, so it is current on any device that can install Noto at all.
-    // ES2020 leaves room for the ones that are not.
+    // ES2020 leaves room for the ones that are not, and is well inside what
+    // WKWebView supports on the oldest iOS Expo still builds for.
     target: 'es2020',
 
     /*

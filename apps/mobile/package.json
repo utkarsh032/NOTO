@@ -10,7 +10,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@noto/config": "workspace:*",
@@ -20,8 +21,11 @@
     "@noto/types": "workspace:*",
     "expo": "~57.0.12",
     "expo-file-system": "~57.0.6",
+    "expo-linking": "~57.0.5",
+    "expo-local-authentication": "~57.0.3",
     "expo-print": "~57.0.1",
     "expo-router": "~57.0.12",
+    "expo-secure-store": "~57.0.4",
     "expo-sharing": "~57.0.16",
     "expo-splash-screen": "^57.0.8",
     "expo-sqlite": "~57.0.1",
@@ -37,6 +41,7 @@
     "@noto/tsconfig": "workspace:*",
     "@types/react": "^19.2.18",
     "eslint": "^9.39.5",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

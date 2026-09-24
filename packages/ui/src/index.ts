@@ -270,6 +270,13 @@ export {
   type ExternalLinkHandler,
 } from './app/external-link';
 export {
+  setAppLockControl,
+  useAppLock,
+  type AppLockControl,
+  type AppLockState,
+  type AppLockValue,
+} from './app/app-lock';
+export {
   checkForUpdates,
   dismissUpdate,
   installUpdate,
