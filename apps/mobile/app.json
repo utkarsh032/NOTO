@@ -61,7 +61,13 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Noto uses Face ID to unlock your notes when you turn on the lock."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

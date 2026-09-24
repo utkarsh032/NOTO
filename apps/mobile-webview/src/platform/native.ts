@@ -1,5 +1,11 @@
 import type { NotoDocument } from '@noto/types';
-import { documentToHtml, setDownloadHandler, setPrintHandler } from '@noto/ui';
+import {
+  documentToHtml,
+  setAppLockControl,
+  setDownloadHandler,
+  setPrintHandler,
+  type AppLockState,
+} from '@noto/ui';
 
 import { onNativeEvent, requestFromNative, type BridgeInsets } from './bridge';
 
@@ -54,6 +60,20 @@ export function installNativeHandlers(): () => void {
     setPrintHandler(null);
     setDownloadHandler(null);
   };
+}
+
+/**
+ * Gives Settings the switch for the app lock, which the native side enforces.
+ *
+ * Installed before the first render, not in an effect: a screen's effects run
+ * before its parent's, so Settings opened straight from a link would otherwise
+ * ask before there was anything to ask.
+ */
+export function installAppLockControl(): void {
+  setAppLockControl({
+    describe: () => requestFromNative<AppLockState>('lock.describe'),
+    setEnabled: (enabled) => requestFromNative<AppLockState>('lock.set', { enabled }),
+  });
 }
 
 /**

@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import { printHtml, saveFile, type SaveFileRequest } from '../platform/actions';
+import { useAppLock } from '../platform/app-lock';
 import { useNativeIntake } from '../platform/intake';
 import { clearSession, loadSession, saveSession } from '../platform/session-store';
 import { executeSql, selectSql } from '../platform/sql-host';
 import { useThemeColors } from '../theme';
+import { LockScreen } from './LockScreen';
 
 /**
  * Noto on Android and iOS.
@@ -134,6 +136,34 @@ export function NotoWebView() {
   }, [inject]);
 
   const takeIntake = useNativeIntake(pokeIntake);
+  const lock = useAppLock();
+  const { describe: describeLock, setEnabled: setLockEnabled } = lock;
+
+  /**
+   * Channels answered from this component's own state rather than by `handle`:
+   * the intake it holds, and the app lock it enforces. `undefined` for any
+   * other channel.
+   */
+  const handleHere = useCallback(
+    (channel: string, payload: unknown): Promise<unknown> | undefined => {
+      switch (channel) {
+        case 'intake.take':
+          return Promise.resolve(takeIntake());
+        case 'lock.describe':
+          return describeLock();
+        case 'lock.set': {
+          const enabled = (payload as { enabled?: unknown } | null)?.enabled;
+          if (typeof enabled !== 'boolean') {
+            return Promise.reject(new Error('lock.set needs `enabled` as true or false.'));
+          }
+          return setLockEnabled(enabled);
+        }
+        default:
+          return undefined;
+      }
+    },
+    [describeLock, setLockEnabled, takeIntake],
+  );
 
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -146,19 +176,13 @@ export function NotoWebView() {
         return;
       }
 
-      // Answered here rather than in `handle`, because what it hands over is
-      // held by this component.
-      if (request.channel === 'intake.take') {
-        reply({ id: request.id, ok: true, result: takeIntake() });
-        return;
-      }
-
       void (async () => {
         try {
           reply({
             id: request.id,
             ok: true,
-            result: await handle(request.channel, request.payload),
+            result: await (handleHere(request.channel, request.payload) ??
+              handle(request.channel, request.payload)),
           });
         } catch (cause) {
           reply({
@@ -169,7 +193,7 @@ export function NotoWebView() {
         }
       })();
     },
-    [reply, takeIntake],
+    [handleHere, reply],
   );
 
   /*
@@ -271,6 +295,9 @@ export function NotoWebView() {
         // Nothing in Noto is a link to somewhere else, so there is no second
         // window to open. A stray one would replace the whole interface.
         setSupportMultipleWindows={false}
+        // Behind the lock, the page is hidden from screen readers too.
+        importantForAccessibility={lock.locked ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={lock.locked}
         style={[styles.fill, { backgroundColor: colors.background }]}
       />
 
@@ -278,6 +305,10 @@ export function NotoWebView() {
         <View style={[styles.overlay, { backgroundColor: colors.background }]}>
           <ActivityIndicator color={colors.brand} />
         </View>
+      ) : null}
+
+      {lock.locked || lock.covered ? (
+        <LockScreen locked={lock.locked} onUnlock={() => void lock.unlock()} />
       ) : null}
     </View>
   );
