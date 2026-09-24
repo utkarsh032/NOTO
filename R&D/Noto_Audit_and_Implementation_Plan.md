@@ -39,7 +39,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
 | 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
 | 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
-| 6 | Desktop power features | ❌ Not started | |
+| 6 | Desktop power features | 🟡 In progress | 1 of 6 steps. Being built in worktree `Noto-phase6` |
 | 7 | Paid product | ❌ Not started | Needs D5 (payment provider) |
 | 8 | AI | ❌ Not started | Needs D4 (AI provider) |
 | 9 | Collaboration | ❌ Not started | |
@@ -98,6 +98,21 @@ Also for Phase 3: `db:import-supabase` (keeps ids, sets `password_hash` NULL, id
 
 Phase 2 "done when" (everything working against staging, with tests) is **not met** until step 8 is: the tests pass, but there is no staging deployment yet.
 
+### Phase 6 — Desktop power features 🟡
+
+Branch `feat/phase-6-desktop`, off `dev` at `21c55ba`. Needs only Phase 1.
+
+| Step | Status | Commit | What was done |
+| --- | --- | --- | --- |
+| 1. Menu, file associations, `noto://` | ✅ | `049d5ad` | Native application menu built from the command registry. Items send command ids just as the palette does, and the renderer keeps the keys. Editor commands can now run by id, from the menu and the palette. `.md`/`.markdown`/`.txt` files opened by the OS (command line, second launch, macOS `open-file`) are read and granted in main, queued, and made into documents once the workspace is open. `noto://<screen>` opens that screen. Packaging declares macOS document types and the URL scheme, and deb/rpm MIME types. Windows gets "Open with" entries and `noto://` in HKCU on Squirrel install, removed on uninstall. Smoke-tested in `electron-forge start`: a file on the command line, a second launch with another file, and a link. |
+| 2. Clipboard history | ❌ | | |
+| 3. Screenshot and region capture | ❌ | | |
+| 4. PIP / Companion, notifications | ❌ | | |
+| 5. Typed repository IPC (S2) | ❌ | | |
+| 6. Static update feed (R2) | ❌ | | |
+
+Not yet checked: the menu and the file associations in a packaged, installed build on each OS.
+
 ### Bugs found and fixed along the way
 
 - A keyboard shortcut pressed as the workspace appeared ran a stale handler. This was the long-standing flaky "opens a file from disk" e2e test (`5562963`).
@@ -105,6 +120,8 @@ Phase 2 "done when" (everything working against staging, with tests) is **not me
 - Templates, imports and duplicates could open as an empty document (`2585664`).
 - SQLite saves used `INSERT OR REPLACE`, which with foreign keys on could cascade-delete a document's files (`27d5c4b`).
 - Export read the stored copy, so the last second of typing was missing from exported files (`1146c8a`).
+- On desktop in development, a brand-new database never opened. StrictMode opened it twice, and the two migrations interleaved over the one connection (`049d5ad`).
+- Under the Vite dev server (web and desktop), the editor failed to mount with `localsInner` errors. The ProseMirror entry points were pre-bundled separately, each with its own `prosemirror-view` (`049d5ad`).
 
 ### Known issues
 
