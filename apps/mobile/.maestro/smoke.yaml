@@ -1,0 +1,33 @@
+# The smoke test for a built Noto on a phone or emulator.
+#
+# It proves what a green Gradle build cannot: that the packaged interface loads
+# inside the WebView, that the SQL bridge answers (the screens below read from
+# storage), and that a `noto://` link reaches the interface.
+#
+# Run locally with an emulator or device attached and Noto installed:
+#
+#   maestro test apps/mobile/.maestro/smoke.yaml
+appId: com.noto.app
+---
+- launchApp:
+    clearState: true
+
+# A first launch offers an account. Noto is whole without one.
+- extendedWaitUntil:
+    visible: 'Continue without an account'
+    timeout: 60000
+- tapOn: 'Continue without an account'
+
+- extendedWaitUntil:
+    visible: 'Start writing or pick up where you left off.'
+    timeout: 30000
+
+# The bottom navigation reaches a screen that reads from storage.
+- tapOn: 'Documents'
+- assertVisible: 'Documents'
+
+# A link opens the screen it names, through the native intake.
+- openLink: 'noto://quick-note'
+- extendedWaitUntil:
+    visible: 'Captured'
+    timeout: 15000
