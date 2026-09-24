@@ -38,7 +38,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | 2 | Backend foundation (`apps/api`) | 🟡 Built and tested, not deployed | 7 of 8 steps. Only the host (D1) and a staging deployment remain |
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
 | 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
-| 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
+| 5 | Mobile parity | 🟡 In progress | Parts of steps 1, 3, 4 and 6 done on `feat/phase-5-mobile`; the rest waits for Phases 3–4 and for store accounts |
 | 6 | Desktop power features | ❌ Not started | |
 | 7 | Paid product | ❌ Not started | Needs D5 (payment provider) |
 | 8 | AI | ❌ Not started | Needs D4 (AI provider) |
@@ -97,6 +97,21 @@ All in `5820801`, on top of Phase 1. Built to [`Backend_Node_Plan.md`](Backend_N
 Also for Phase 3: `db:import-supabase` (keeps ids, sets `password_hash` NULL, idempotent) and `db:send-reset-mails` (rate-limited, resumable) for the one-time account move (D7).
 
 Phase 2 "done when" (everything working against staging, with tests) is **not met** until step 8 is: the tests pass, but there is no staging deployment yet.
+
+### Phase 5 — Mobile parity 🟡
+
+On branch `feat/phase-5-mobile` (worktree `Noto-phase5`), rebased on `dev` at `57a3d47` and not yet merged. Each commit was checked with lint, typecheck and the unit tests. Nothing has been run on a real phone or on an iOS build yet.
+
+| Step | Status | Commit | What was done / what is left |
+| --- | --- | --- | --- |
+| 1. Account on mobile, tokens in secure storage | 🟡 | `352a7c4` | Done: a `SessionStore` backed by `expo-secure-store` (Keychain / Keystore, this device only, excluded from Android backups), reached over the bridge; tokens never reach WebView localStorage. Left: providing `AccountContext` with Phase 3's `createApiClient`. |
+| 2. Sync on mobile | ❌ | — | Needs the Phase 4 engine. |
+| 3. iOS build | 🟡 | `da9a431` | Done: the interface is packaged into the iOS app as a folder reference and loaded from the app bundle; the iOS CI job builds the interface first. Left: signing and TestFlight (needs an Apple Developer team). |
+| 4. Share-in, deep links, shortcut, biometric lock | 🟡 | `2bba530` | Done: text and web links shared from other apps go to Memory; `noto://<screen>` links open that screen; Android launcher shortcut for Quick Note. Left: email verify/reset links (Phase 3), iOS quick actions, a widget, the biometric lock. |
+| 5. Google Play and App Store | ❌ | — | Needs a Play Console account, an upload keystore and an Apple Developer team. |
+| 6. Smoke test in `mobile.yml` | ✅ | `22fa6e3` | Maestro flow on an API 34 emulator: a fresh install loads, gets past sign-in, opens screens that read from storage, and follows a `noto://` link. |
+
+Test counts added: 12 unit tests in `@noto/mobile-webview`, which now has a test runner.
 
 ### Bugs found and fixed along the way
 
