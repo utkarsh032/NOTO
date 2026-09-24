@@ -9,6 +9,7 @@ import type {
   NotoFile,
   OutboxEntry,
   SyncEntityKind,
+  SyncRecord,
   Workspace,
 } from '@noto/types';
 
@@ -26,6 +27,7 @@ import {
   normalizeSearchQuery,
 } from './query';
 import type {
+  ApplyRemoteOptions,
   DocumentRepository,
   FileRepository,
   FolderRepository,
@@ -33,11 +35,15 @@ import type {
   MemoryRepository,
   NotoDatabase,
   OutboxRepository,
+  SyncRepository,
   VersionRepository,
   WorkspaceRepository,
 } from './types';
 
 const outboxKey = (kind: SyncEntityKind, id: Id) => `${kind}:${id}`;
+
+/** A save made on this device, as opposed to one that came from the server. */
+const LOCAL = null;
 
 /**
  * An in-memory implementation of the storage contract.
@@ -55,17 +61,36 @@ export class InMemoryDatabase implements NotoDatabase {
   private readonly versionRows = new Map<Id, DocumentVersionRecord>();
   private readonly outboxRows = new Map<string, OutboxEntry>();
   private readonly stateRows = new Map<string, unknown>();
+  private readonly baseRows = new Map<string, number>();
   private outboxSeq = 0;
 
   /**
-   * Every local save goes through here: the version moves on by one and the
-   * outbox learns about it. Storage owns both, so no caller can forget either.
+   * Every save goes through here, and the entity's version moves on by one.
+   * A local save also tells the outbox; a save from the server records the
+   * base version instead. Storage owns all of it, so no caller can forget any.
    */
-  private save<T extends Entity>(kind: SyncEntityKind, rows: Map<Id, T>, entity: T): void {
+  private save<T extends Entity>(
+    kind: SyncEntityKind,
+    rows: Map<Id, T>,
+    entity: T,
+    remote: ApplyRemoteOptions | null = LOCAL,
+  ): boolean {
     const existing = rows.get(entity.id);
+    const key = outboxKey(kind, entity.id);
+
+    if (remote?.expectedVersion !== undefined) {
+      const current = existing === undefined ? null : (existing.version ?? 0);
+      if (current !== remote.expectedVersion) return false;
+    }
+
     rows.set(entity.id, { ...entity, version: (existing?.version ?? 0) + 1 });
 
-    const key = outboxKey(kind, entity.id);
+    if (remote) {
+      this.baseRows.set(key, remote.baseVersion);
+      if (remote.dequeue) this.outboxRows.delete(key);
+      return true;
+    }
+
     this.outboxSeq += 1;
     this.outboxRows.set(key, {
       entityKind: kind,
@@ -78,6 +103,27 @@ export class InMemoryDatabase implements NotoDatabase {
       seq: this.outboxSeq,
       queuedAt: new Date().toISOString(),
     });
+    return true;
+  }
+
+  private write(record: SyncRecord, remote: ApplyRemoteOptions | null = LOCAL): boolean {
+    switch (record.kind) {
+      case 'workspace':
+        return this.save('workspace', this.workspaceRows, record.entity, remote);
+      case 'folder':
+        return this.save('folder', this.folderRows, record.entity, remote);
+      case 'document':
+        return this.save(
+          'document',
+          this.documentRows,
+          { ...record.entity, contentHash: hashContent(record.entity.content) },
+          remote,
+        );
+      case 'file':
+        return this.save('file', this.fileRows, record.entity, remote);
+      case 'memory':
+        return this.save('memory', this.memoryRows, record.entity, remote);
+    }
   }
 
   readonly workspaces: WorkspaceRepository = {
@@ -90,7 +136,7 @@ export class InMemoryDatabase implements NotoDatabase {
     },
 
     put: async (workspace) => {
-      this.save('workspace', this.workspaceRows, workspace);
+      this.write({ kind: 'workspace', entity: workspace });
     },
 
     purge: async (id) => {
@@ -111,11 +157,11 @@ export class InMemoryDatabase implements NotoDatabase {
     },
 
     put: async (folder) => {
-      this.save('folder', this.folderRows, folder);
+      this.write({ kind: 'folder', entity: folder });
     },
 
     putMany: async (folders) => {
-      for (const folder of folders) this.save('folder', this.folderRows, folder);
+      for (const folder of folders) this.write({ kind: 'folder', entity: folder });
     },
 
     purge: async (id) => {
@@ -135,14 +181,11 @@ export class InMemoryDatabase implements NotoDatabase {
     },
 
     put: async (document) => {
-      this.save('document', this.documentRows, {
-        ...document,
-        contentHash: hashContent(document.content),
-      });
+      this.write({ kind: 'document', entity: document });
     },
 
     putMany: async (documents) => {
-      for (const document of documents) await this.documents.put(document);
+      for (const document of documents) this.write({ kind: 'document', entity: document });
     },
 
     purge: async (id) => {
@@ -178,7 +221,7 @@ export class InMemoryDatabase implements NotoDatabase {
     },
 
     put: async (file) => {
-      this.save('file', this.fileRows, file);
+      this.write({ kind: 'file', entity: file });
     },
 
     purge: async (id) => {
@@ -196,11 +239,11 @@ export class InMemoryDatabase implements NotoDatabase {
     },
 
     put: async (item) => {
-      this.save('memory', this.memoryRows, item);
+      this.write({ kind: 'memory', entity: item });
     },
 
     putMany: async (items) => {
-      for (const item of items) this.save('memory', this.memoryRows, item);
+      for (const item of items) this.write({ kind: 'memory', entity: item });
     },
 
     purge: async (id) => {
@@ -262,6 +305,16 @@ export class InMemoryDatabase implements NotoDatabase {
     },
   };
 
+  readonly sync: SyncRepository = {
+    baseVersion: async (kind, id) => this.baseRows.get(outboxKey(kind, id)) ?? 0,
+
+    setBaseVersion: async (kind, id, version) => {
+      this.baseRows.set(outboxKey(kind, id), version);
+    },
+
+    applyRemote: async (record, options) => this.write(structuredClone(record), options),
+  };
+
   readonly localState: LocalStateRepository = {
     get: async <T>(key: string) =>
       this.stateRows.has(key) ? (structuredClone(this.stateRows.get(key)) as T) : null,
@@ -294,6 +347,7 @@ export class InMemoryDatabase implements NotoDatabase {
     this.versionRows.clear();
     this.outboxRows.clear();
     this.stateRows.clear();
+    this.baseRows.clear();
   }
 
   private documentsIn(workspaceId: Id): NotoDocument[] {

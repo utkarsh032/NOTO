@@ -162,6 +162,21 @@ export const MIGRATIONS: Readonly<Record<number, readonly string[]>> = {
        updated_at TEXT NOT NULL
      )`,
   ],
+
+  /*
+   * Version 3 — sync (audit phase 4). The server version each entity was last
+   * seen at, which is what a push of a local change is made on. A table of its
+   * own rather than a column on five: it is sync's bookkeeping, and a device
+   * that never signs in never writes a row of it.
+   */
+  3: [
+    `CREATE TABLE IF NOT EXISTS sync_base (
+       entity_kind  TEXT NOT NULL,
+       entity_id    TEXT NOT NULL,
+       base_version INTEGER NOT NULL,
+       PRIMARY KEY (entity_kind, entity_id)
+     )`,
+  ],
 };
 
 /**
@@ -191,6 +206,7 @@ export async function migrate(driver: SqlDriver): Promise<void> {
 
 /** Table names in the order they must be cleared to respect foreign keys. */
 export const TABLES_IN_DELETE_ORDER = [
+  'sync_base',
   'outbox',
   'local_state',
   'document_versions',
