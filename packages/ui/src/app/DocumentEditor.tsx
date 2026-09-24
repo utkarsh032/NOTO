@@ -1,5 +1,6 @@
 import { clampZoom, useSettingsStore } from '@noto/core';
-import { setShowInvisibles, toEditorContent } from '@noto/editor';
+import { recordVersion } from '@noto/database';
+import { runEditorAction, setShowInvisibles, toEditorContent } from '@noto/editor';
 import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -8,14 +9,17 @@ import { Button } from '../components/Button';
 import { AlertIcon } from '../components/icons';
 import { showToast } from '../components/toast-store';
 import { cn } from '../utils/cn';
+import { formatDateTime } from '../utils/format';
 import { EditorToolbar } from './EditorToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
 import { subscribeToAppCommands } from './app-commands';
 import { useNotoData } from './data-context';
+import { notifyDataChanged } from './data-events';
 import { sheetStyle, usePageLayout, usePrintPageRule } from './editor/page-layout';
 import { saveDocumentToFile } from './local-file';
+import { registerPendingWrites } from './pending-writes';
 import { printDocument } from './print';
-import { type RecoverySnapshot, clearSnapshot, readSnapshot, writeSnapshot } from './recovery';
+import { type RecoverySnapshot, recoveryFor } from './recovery';
 import { useCommandShortcuts } from './use-command-shortcuts';
 import { useFormattingPrompts } from './use-formatting-prompts';
 
@@ -53,7 +57,7 @@ export function DocumentEditor({
   onRegisterFlush,
   onSaveStateChange,
 }: DocumentEditorProps) {
-  const { updateDocument } = useNotoData();
+  const { database, updateDocument } = useNotoData();
   const { autoSaveDelayMs, showInvisibles, wordWrap, zoom } = useSettingsStore(
     (state) => state.settings.editor,
   );
@@ -66,6 +70,9 @@ export function DocumentEditor({
   const mountedRef = useRef(true);
 
   const documentId = activeDocument.id;
+
+  // Always present by the time an editor mounts: the workspace is open.
+  const recovery = useMemo(() => (database ? recoveryFor(database) : null), [database]);
 
   /**
    * Writes whatever is queued, right now.
@@ -89,14 +96,14 @@ export function DocumentEditor({
     // it has unsaved work.
     return updateDocument(documentId, queued).then(() => {
       // Nothing left for a recovery snapshot to rescue once the write lands.
-      if (Object.keys(pendingRef.current).length === 0) clearSnapshot(documentId);
+      if (Object.keys(pendingRef.current).length === 0) void recovery?.clear(documentId);
       if (!mountedRef.current) return;
 
       // A keystroke landing mid-write queues more work. Reporting "Saved" here
       // would describe a document that is already out of date again.
       if (Object.keys(pendingRef.current).length === 0) setSaveState('saved');
     });
-  }, [documentId, updateDocument]);
+  }, [documentId, updateDocument, recovery]);
 
   const scheduleSave = useCallback(
     (patch: UpdateDocumentInput) => {
@@ -114,6 +121,9 @@ export function DocumentEditor({
     onRegisterFlush?.(() => void flush());
     return () => onRegisterFlush?.(null);
   }, [onRegisterFlush, flush]);
+
+  /* And export, which must read back what is on screen. */
+  useEffect(() => registerPendingWrites(flush), [flush]);
 
   /* The tab shows a dot for as long as there is unwritten work. */
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -164,24 +174,46 @@ export function DocumentEditor({
 
   /*
    * What was in the editor when the process last stopped, if that is newer than
-   * what reached storage. Read once, on mount, before anything is typed.
+   * what reached storage. Read once, on mount. Snapshots of this session's
+   * typing wait until the read is back, so they cannot be mistaken for the
+   * last session's — and an answer that arrives after typing has started is
+   * dropped for the same reason.
    */
-  const [recovered, setRecovered] = useState<RecoverySnapshot | null>(() =>
-    readSnapshot(activeDocument.id, activeDocument.updatedAt),
-  );
+  const [recovered, setRecovered] = useState<RecoverySnapshot | null>(null);
+  const recoveryReadRef = useRef(false);
+  const editedRef = useRef(false);
+  const openedUpdatedAtRef = useRef(activeDocument.updatedAt);
+
+  useEffect(() => {
+    if (!recovery) return;
+
+    let active = true;
+    void recovery.read(documentId, openedUpdatedAtRef.current).then((found) => {
+      if (!active) return;
+      recoveryReadRef.current = true;
+      if (!editedRef.current) setRecovered(found);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [recovery, documentId]);
 
   const contentRef = useRef<DocumentContent>(activeDocument.content);
   const titleRef = useRef(activeDocument.title);
 
   /** Records the live state, so a crash inside the debounce window survives. */
   const snapshot = useCallback(() => {
-    writeSnapshot({
+    editedRef.current = true;
+    if (!recovery || !recoveryReadRef.current) return;
+
+    recovery.write({
       documentId,
       title: titleRef.current,
       content: contentRef.current,
       savedAt: Date.now(),
     });
-  }, [documentId]);
+  }, [documentId, recovery]);
 
   /*
    * The title lives in local state so typing does not wait for a write. That
@@ -265,10 +297,57 @@ export function DocumentEditor({
     setRecovered(null);
   }, [recovered, editor, scheduleSave]);
 
+  /*
+   * Restoring a version, asked for by the Versions panel.
+   *
+   * Done here rather than there because this is where the unsaved keystrokes
+   * are. In order: write them, keep the document as it now is (so the restore
+   * can itself be undone), then put the old text into the live editor and
+   * save it. Nothing between the click and the restore is lost.
+   */
+  const restoreVersion = useCallback(
+    async (versionId: string) => {
+      if (!database || !editor) return;
+
+      const version = await database.versions.get(versionId);
+      if (!version || version.documentId !== documentId) return;
+
+      await flush();
+
+      const current = await database.documents.get(documentId);
+      if (current) {
+        await recordVersion(database, current, 'restore', {
+          summary: 'Before restoring an earlier version',
+        });
+      }
+
+      editor.commands.setContent(toEditorContent(version.content));
+      setTitle(version.title);
+      titleRef.current = version.title;
+      contentRef.current = version.content;
+      scheduleSave({ title: version.title, content: version.content });
+      await flush();
+
+      notifyDataChanged('versions');
+      showToast(`Restored the version from ${formatDateTime(version.createdAt)}`, {
+        tone: 'success',
+      });
+    },
+    [database, editor, documentId, flush, scheduleSave],
+  );
+
+  useEffect(
+    () =>
+      subscribeToAppCommands((commandId, argument) => {
+        if (commandId === 'document.restoreVersion' && argument) void restoreVersion(argument);
+      }),
+    [restoreVersion],
+  );
+
   const discardRecovery = useCallback(() => {
-    clearSnapshot(documentId);
+    void recovery?.clear(documentId);
     setRecovered(null);
-  }, [documentId]);
+  }, [documentId, recovery]);
 
   /* ---------------------------------------------------------------------- */
   /* Find                                                                   */
@@ -296,9 +375,22 @@ export function DocumentEditor({
    * failed says so, because somebody who pressed Save and heard nothing is
    * somebody who believes their work is on disk.
    */
+  /*
+   * Pressing Save is also a checkpoint: once the workspace copy is written,
+   * the document as it now stands is kept as a version.
+   */
+  const keepSavedVersion = useCallback(async () => {
+    if (!database) return;
+
+    const saved = await database.documents.get(documentId);
+    if (!saved) return;
+
+    if (await recordVersion(database, saved, 'manual')) notifyDataChanged('versions');
+  }, [database, documentId]);
+
   const saveToFile = useCallback(
     async (chooseLocation: boolean) => {
-      void flush();
+      void flush().then(keepSavedVersion);
 
       try {
         const saved = await saveDocumentToFile(
@@ -319,7 +411,7 @@ export function DocumentEditor({
         );
       }
     },
-    [documentId, flush],
+    [documentId, flush, keepSavedVersion],
   );
 
   /*
@@ -350,13 +442,24 @@ export function DocumentEditor({
    * run commands by id through the shell, and the shell forwards the ones it
    * has no handler of its own for — these belong to whichever editor is in
    * front, and this is the editor in front.
+   *
+   * Formatting arrives the same way from the desktop's application menu, where
+   * Bold is a menu item rather than a key ProseMirror saw. Link, image and
+   * table ask for something first, so they open the prompt the toolbar opens.
    */
+  const { handleCommand } = prompts;
   useEffect(
     () =>
       subscribeToAppCommands((commandId) => {
-        shortcutHandlers[commandId as keyof typeof shortcutHandlers]?.();
+        const handler = shortcutHandlers[commandId as keyof typeof shortcutHandlers];
+        if (handler) {
+          handler();
+          return;
+        }
+
+        if (!handleCommand(commandId)) runEditorAction(editor, commandId);
       }),
-    [shortcutHandlers],
+    [shortcutHandlers, handleCommand, editor],
   );
 
   /*

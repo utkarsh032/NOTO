@@ -144,3 +144,28 @@ export function buildFolderTree(
 
   return roots;
 }
+
+/** Soft-deletes a folder, like documents: the tombstone removes it elsewhere. */
+export function deleteFolder(folder: Folder, deps: FolderDeps = {}): Folder {
+  const timestamp = (deps.clock ?? systemClock).now();
+  return { ...folder, deletedAt: timestamp, updatedAt: timestamp };
+}
+
+/**
+ * The names from the root down to `folderId`, for "Workspace / Work / Plans".
+ * Empty for the root; stops at a missing parent or a cycle rather than looping.
+ */
+export function folderPath(folders: readonly Folder[], folderId: Id | null): string[] {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const names: string[] = [];
+  const visited = new Set<Id>();
+
+  let current = folderId === null ? undefined : byId.get(folderId);
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    names.unshift(current.name);
+    current = current.parentId === null ? undefined : byId.get(current.parentId);
+  }
+
+  return names;
+}

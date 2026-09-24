@@ -50,6 +50,8 @@ export {
 export { SyncStatus, type SyncStatusProps } from './components/SyncStatus';
 export { EmptyState, type EmptyStateProps } from './components/EmptyState';
 export { ErrorState, type ErrorStateProps } from './components/ErrorState';
+export { ErrorBoundary, type ErrorBoundaryProps } from './components/ErrorBoundary';
+export { isChunkLoadError } from './components/chunk-error';
 export { LoadingState, type LoadingStateProps } from './components/LoadingState';
 export { ToastViewport } from './components/Toast';
 export {
@@ -161,7 +163,16 @@ export { TabBar, type TabBarProps } from './app/TabBar';
 
 export { MemoryCard, type MemoryCardProps } from './app/memory/MemoryCard';
 export { MEMORY_KINDS, MEMORY_KIND_ORDER, type MemoryKindInfo } from './app/memory/memory-kinds';
-export { useMemory, type MemoryQuery, type MemoryValue } from './app/memory/use-memory';
+export {
+  useMemory,
+  useMemoryCapture,
+  type MemoryCapture,
+  type MemoryQuery,
+  type MemoryValue,
+} from './app/memory/use-memory';
+export { notifyDataChanged, useDataRevision, type DataTopic } from './app/data-events';
+export { writeDocumentUpdate } from './app/document-writes';
+export { useDocumentVersions, type DocumentVersions } from './app/versions/use-document-versions';
 export { Highlight, type HighlightProps } from './app/search/Highlight';
 export { SearchResultRow, type SearchResultRowProps } from './app/search/SearchResultRow';
 export {
@@ -225,7 +236,12 @@ export {
 
 /* ── Data and platform seam ────────────────────────────────────────────── */
 
-export { NotoDataContext, useNotoData, type NotoDataValue } from './app/data-context';
+export {
+  NotoDataContext,
+  useNotoData,
+  type DocumentInitial,
+  type NotoDataValue,
+} from './app/data-context';
 export { useNotoDataSource, type NotoDataSourceOptions } from './app/use-noto-data-source';
 export {
   emitAppCommand,
@@ -239,12 +255,27 @@ export {
 } from './app/use-command-shortcuts';
 export { useResponsiveSidebar } from './app/use-responsive-sidebar';
 export { useDocumentTabs, type DocumentTab, type DocumentTabs } from './app/use-document-tabs';
-export { printDocument, setPrintHandler, type PrintHandler } from './app/print';
+export {
+  canExportPdf,
+  exportPdf,
+  printDocument,
+  setPdfExportHandler,
+  setPrintHandler,
+  type PdfExportHandler,
+  type PrintHandler,
+} from './app/print';
 export {
   openExternalLink,
   setExternalLinkHandler,
   type ExternalLinkHandler,
 } from './app/external-link';
+export {
+  setAppLockControl,
+  useAppLock,
+  type AppLockControl,
+  type AppLockState,
+  type AppLockValue,
+} from './app/app-lock';
 export {
   checkForUpdates,
   dismissUpdate,
@@ -261,7 +292,8 @@ export {
   type UpdateState,
   type UpdateStatus,
 } from './app/updates';
-export { clearSnapshot, readSnapshot, writeSnapshot, type RecoverySnapshot } from './app/recovery';
+export { recoveryFor, type RecoverySnapshot, type RecoveryStore } from './app/recovery';
+export { usePersistQuickNoteDraft } from './app/use-persist-quick-note-draft';
 export {
   useFormattingPrompts,
   type FormattingPrompts,
@@ -293,6 +325,7 @@ export {
   linkedFile,
   mimeTypeFor,
   openFilesFromDisk,
+  receiveOpenedFiles,
   saveDocumentToFile,
   setLocalFileGateway,
   subscribeToLocalFiles,
@@ -310,7 +343,6 @@ export {
 /* ── Mock data, until the services behind it exist ─────────────────────── */
 
 export { WRITING_TEMPLATES, type TemplateId, type WritingTemplate } from './mock/templates';
-export { buildMemoryItems, memoryStorageBytes } from './mock/memory';
 export {
   CURRENCY_SYMBOL,
   PLANS,
@@ -324,5 +356,4 @@ export {
   type PlanId,
   type PlanPrice,
 } from './mock/plans';
-export { buildVersions } from './mock/versions';
 export { MOCK_DEVICES, MOCK_PLAN, MOCK_SECURITY, MOCK_SESSIONS, MOCK_USER } from './mock/account';

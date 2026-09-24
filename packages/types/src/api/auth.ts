@@ -77,6 +77,8 @@ export interface UserDto {
   locale: string;
   emailVerified: boolean;
   mfaEnabled: boolean;
+  /** When the password last changed. Only the Noto API reports it; older backends omit it. */
+  passwordChangedAt?: IsoDateTime | null;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
 }

@@ -45,7 +45,7 @@ describe('InMemoryDatabase', () => {
     const workspace = createDefaultWorkspace(deps);
     await db.workspaces.put(workspace);
 
-    expect(await db.workspaces.get(workspace.id)).toEqual(workspace);
+    expect(await db.workspaces.get(workspace.id)).toEqual({ ...workspace, version: 1 });
     expect(await db.workspaces.get('missing')).toBeNull();
   });
 

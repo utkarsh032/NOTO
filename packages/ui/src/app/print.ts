@@ -47,3 +47,35 @@ export async function printDocument(): Promise<void> {
     console.error('Noto could not print the document.', error);
   }
 }
+
+/**
+ * Writes the open document to a PDF file, where the platform can.
+ *
+ * The desktop can: Electron renders the same page the printer would get, with
+ * the same print stylesheet, straight to a file. A browser cannot write a PDF
+ * without a print dialog, so where no handler is installed PDF export is the
+ * print dialog, whose destination list offers "Save as PDF".
+ */
+export type PdfExportHandler = (suggestedName: string) => Promise<'saved' | 'cancelled'>;
+
+let pdfHandler: PdfExportHandler | null = null;
+
+export function setPdfExportHandler(next: PdfExportHandler | null): void {
+  pdfHandler = next;
+}
+
+export function canExportPdf(): boolean {
+  return pdfHandler !== null;
+}
+
+/** Resolves `'saved'`, `'cancelled'`, or `'failed'` — never throws. */
+export async function exportPdf(suggestedName: string): Promise<'saved' | 'cancelled' | 'failed'> {
+  if (!pdfHandler) return 'failed';
+
+  try {
+    return await pdfHandler(suggestedName);
+  } catch (error) {
+    console.error('Noto could not write the PDF.', error);
+    return 'failed';
+  }
+}

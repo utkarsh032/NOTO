@@ -8,7 +8,8 @@ import { formatDateTime, relativeTime } from '../../utils/format';
 
 export interface SessionRowProps {
   session: Session;
-  onSignOut(): void;
+  /** Omitted until the service can do it: no button is better than a dead one. */
+  onSignOut?: () => void;
 }
 
 const GLYPH = {
@@ -54,9 +55,11 @@ export function SessionRow({ session, onSignOut }: SessionRowProps) {
         {relativeTime(session.lastActiveAt)}
       </p>
 
-      <Button size="sm" variant="ghost" onClick={onSignOut} disabled={session.isCurrent}>
-        Sign out
-      </Button>
+      {onSignOut ? (
+        <Button size="sm" variant="ghost" onClick={onSignOut} disabled={session.isCurrent}>
+          Sign out
+        </Button>
+      ) : null}
     </li>
   );
 }

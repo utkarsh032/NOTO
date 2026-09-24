@@ -7,21 +7,17 @@ import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { showToast } from '../../components/toast-store';
 import {
-  AppleIcon,
   ArrowRightIcon,
   BoltIcon,
   CloudOffIcon,
   ExternalLinkIcon,
   EyeIcon,
   EyeOffIcon,
-  GithubIcon,
-  GoogleIcon,
   LockIcon,
   MailIcon,
   SparklesIcon,
   type IconProps,
 } from '../../components/icons';
-import { cn } from '../../utils/cn';
 import { openExternalLink } from '../external-link';
 import { navigate, returnRouteFrom } from '../router';
 import { TurnstileWidget, type TurnstileHandle } from '../TurnstileWidget';
@@ -128,13 +124,12 @@ export function LoginScreen() {
             </p>
           ) : null}
 
-          <ProviderButtons />
-
-          <div className="my-6 flex items-center gap-3" aria-hidden="true">
-            <span className="bg-default h-px flex-1" />
-            <span className="text-tertiary text-caption">or continue with email</span>
-            <span className="bg-default h-px flex-1" />
-          </div>
+          {/*
+           * Google, Apple and GitHub sign-in return with OAuth in a later
+           * release. Until then their buttons are not drawn: a button that only
+           * apologises when pressed is worse than no button.
+           */}
+          <div className="mt-8" />
 
           {mode === 'sign-up' && !signUp && signUpUrl ? (
             <SignUpElsewhere url={signUpUrl} onBack={() => setMode('sign-in')} />
@@ -294,36 +289,6 @@ function SignUpElsewhere({ url, onBack }: { url: string; onBack: () => void }) {
       >
         I already have an account — sign in
       </button>
-    </div>
-  );
-}
-
-/** The three providers, given one row so none of them looks like the default. */
-function ProviderButtons() {
-  const providers = [
-    { id: 'google', label: 'Google', icon: <GoogleIcon className="h-4.5 w-4.5" /> },
-    { id: 'apple', label: 'Apple', icon: <AppleIcon className="h-4.5 w-4.5" /> },
-    { id: 'github', label: 'GitHub', icon: <GithubIcon className="h-4.5 w-4.5" /> },
-  ];
-
-  return (
-    <div className="mt-8 grid grid-cols-3 gap-3">
-      {providers.map((provider) => (
-        <button
-          key={provider.id}
-          type="button"
-          onClick={() => showToast(NOT_CONNECTED)}
-          aria-label={`Continue with ${provider.label}`}
-          className={cn(
-            'border-default bg-surface text-primary text-body-sm flex h-11 items-center justify-center gap-2 rounded-md border font-medium',
-            'hover:border-strong hover:bg-surface-secondary active:bg-surface-tertiary transition-colors',
-            'focus-visible:outline-brand focus-visible:outline-2 focus-visible:outline-offset-2',
-          )}
-        >
-          {provider.icon}
-          <span className="hidden sm:inline">{provider.label}</span>
-        </button>
-      ))}
     </div>
   );
 }
@@ -490,15 +455,7 @@ function CredentialsForm({
           <label htmlFor={passwordId} className="text-primary text-body-sm font-medium">
             Password
           </label>
-          {mode === 'sign-in' ? (
-            <button
-              type="button"
-              onClick={() => showToast(NOT_CONNECTED)}
-              className="text-brand-strong text-caption focus-visible:outline-brand rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-            >
-              Forgot password?
-            </button>
-          ) : null}
+          {/* "Forgot password?" returns with password reset in the new account service. */}
         </div>
 
         <div className="relative mt-1.5">

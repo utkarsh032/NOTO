@@ -8,7 +8,6 @@ import {
   type SaveDialogOptions,
   app,
   dialog,
-  ipcMain,
 } from 'electron';
 
 import {
@@ -18,6 +17,7 @@ import {
   type SavedFileReport,
   type WriteReport,
 } from '../shared/channels';
+import { handleTrusted } from './security';
 
 /**
  * Files on the user's disk, for the sandboxed renderer.
@@ -92,8 +92,13 @@ async function loadGrants(): Promise<Set<string>> {
   return grants;
 }
 
-/** Records that a dialog handed out this path, so a later write to it is allowed. */
-async function grant(filePath: string): Promise<void> {
+/**
+ * Records that the user chose this path, so a later read or write of it is allowed.
+ *
+ * A dialog is one way to choose; the operating system opening a file with Noto
+ * is the other (`launch.ts`).
+ */
+export async function grant(filePath: string): Promise<void> {
   const current = await loadGrants();
 
   // Re-added at the end, so a file chosen again counts as recent.
@@ -135,7 +140,7 @@ function suggestedFileName(value: unknown): string {
 }
 
 export function registerFileHandlers(): void {
-  ipcMain.handle(FILE_CHANNELS.open, async (event): Promise<OpenedFileReport[] | null> => {
+  handleTrusted(FILE_CHANNELS.open, async (event): Promise<OpenedFileReport[] | null> => {
     const owner = windowFor(event.sender);
     const options: OpenDialogOptions = {
       title: 'Open',
@@ -163,7 +168,7 @@ export function registerFileHandlers(): void {
     return files;
   });
 
-  ipcMain.handle(
+  handleTrusted(
     FILE_CHANNELS.saveAs,
     async (event, suggested: unknown): Promise<SavedFileReport | null> => {
       const owner = windowFor(event.sender);
@@ -195,7 +200,7 @@ export function registerFileHandlers(): void {
    * Reopening from Recent. The same grant list guards it as guards a write:
    * the renderer may ask for a file the user once chose, and for nothing else.
    */
-  ipcMain.handle(FILE_CHANNELS.read, async (_event, target: unknown): Promise<ReadReport> => {
+  handleTrusted(FILE_CHANNELS.read, async (_event, target: unknown): Promise<ReadReport> => {
     if (typeof target !== 'string') {
       return { text: null, reason: 'Noto could not read that file.' };
     }
@@ -225,7 +230,7 @@ export function registerFileHandlers(): void {
     }
   });
 
-  ipcMain.handle(
+  handleTrusted(
     FILE_CHANNELS.write,
     async (_event, target: unknown, contents: unknown): Promise<WriteReport> => {
       if (typeof target !== 'string' || typeof contents !== 'string') {

@@ -1,6 +1,13 @@
 # Noto — Backend Plan
 
-**Status:** proposal, nothing built yet.
+> **Superseded for the "how" (23 September 2026).** Noto's backend is moving
+> from Supabase to Node + Hono on plain PostgreSQL, with no Docker. The plan of
+> record is [`Backend_Node_Plan.md`](Backend_Node_Plan.md); the build order is in
+> [`Noto_Audit_and_Implementation_Plan.md`](Noto_Audit_and_Implementation_Plan.md).
+> This document is kept for its **data model** — tables, sync semantics and
+> the open questions — which the Node plan reuses.
+
+**Status:** phase 1 (identity) built on Supabase; the rest superseded, see above.
 **Scope:** the cloud half of Noto — accounts, sync, files, plans, AI.
 **Companion documents:** [`R&D/PRD.md`](PRD.md) §13–16,
 [`docs/architecture/overview.md`](../docs/architecture/overview.md),

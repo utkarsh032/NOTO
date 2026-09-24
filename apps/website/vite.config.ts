@@ -4,12 +4,38 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+import { securityHeaders } from '../../tooling/vite/security-headers.mts';
+
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
   version: string;
 };
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    securityHeaders({
+      csp: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'font-src': ["'self'", 'data:'],
+        // The download page asks GitHub which release is newest.
+        'connect-src': ["'self'", 'https://api.github.com'],
+        'object-src': ["'none'"],
+        'base-uri': ["'none'"],
+        'form-action': ["'self'"],
+        'frame-ancestors': ["'none'"],
+        'upgrade-insecure-requests': [],
+      },
+      extra: [
+        '# Vite fingerprints these filenames, so they can be cached indefinitely.',
+        '/assets/*',
+        '  Cache-Control: public, max-age=31536000, immutable',
+      ].join('\n'),
+    }),
+  ],
 
   define: {
     // Taken from the manifest rather than an environment variable, so the

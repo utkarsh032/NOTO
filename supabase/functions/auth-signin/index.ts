@@ -8,7 +8,7 @@ import {
 import { err } from '@noto/core';
 
 import { anonClient, serviceClient } from '../_shared/context.ts';
-import { corsHeaders, readJson, respond } from '../_shared/http.ts';
+import { clientIp, corsHeaders, readJson, respond } from '../_shared/http.ts';
 
 /**
  * `auth-signin` — email and password, exchanged for a session.
@@ -55,5 +55,7 @@ Deno.serve(async (request: Request) => {
     rateLimit: new SupabaseRateLimitAdapter(service),
   });
 
-  return respond(await auth.signIn(await readJson(request)), origin);
+  // The address feeds the per-IP limit, which catches one password tried
+  // against many accounts — the per-email limit cannot see that.
+  return respond(await auth.signIn(await readJson(request), { ip: clientIp(request) }), origin);
 });

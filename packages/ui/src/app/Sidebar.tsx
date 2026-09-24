@@ -7,7 +7,6 @@ import notoWordmark from '../assets/noto-wordmark.png';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { KeyHint } from '../components/KeyHint';
-import { Skeleton } from '../components/Skeleton';
 import { SyncStatus } from '../components/SyncStatus';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ClockIcon, PinIcon, PlusIcon, SearchIcon } from '../components/icons';
@@ -16,6 +15,7 @@ import { cn } from '../utils/cn';
 import { NavItem } from './NavItem';
 import { UserMenu } from './UserMenu';
 import { SidebarDocumentList } from './SidebarDocumentList';
+import { SidebarFolders } from './folders/SidebarFolders';
 import { SidebarToggle } from './SidebarToggle';
 import { SidebarUpdateButton, SidebarVersion } from './SidebarUpdate';
 import { useNotoData } from './data-context';
@@ -312,39 +312,15 @@ export function Sidebar({
         ) : null}
 
         <section aria-labelledby="noto-documents-heading">
-          {/* Read against the list it labels, this says which workspace these are. */}
-          <h2
-            id="noto-documents-heading"
-            className="text-tertiary text-caption truncate px-2.5 pb-1 tracking-wide uppercase"
-          >
-            {workspace?.name ?? 'Documents'}
-          </h2>
-
-          {documents === undefined ? (
-            /* A skeleton in the shape of the list, rather than a spinner in a
-               sidebar-sized hole. */
-            <ul className="flex flex-col gap-1" aria-hidden="true">
-              {Array.from({ length: 5 }, (_, index) => (
-                <li key={index} className="px-2.5 py-2">
-                  <Skeleton className="h-3.5 w-3/4" />
-                  <Skeleton className="mt-1.5 h-3 w-1/2" />
-                </li>
-              ))}
-            </ul>
-          ) : documents.length === 0 ? (
-            <p className="text-tertiary text-caption px-2.5 py-3">
-              No documents yet. Start one and it will appear here.
-            </p>
-          ) : (
-            <SidebarDocumentList
-              documents={documents}
-              activeId={activeDocument?.id ?? null}
-              label="All documents"
-              onOpen={actions.openDocument}
-              onRename={(id, title) => void updateDocument(id, { title })}
-              onDelete={operations.remove}
-            />
-          )}
+          <SidebarFolders
+            heading={workspace?.name ?? 'Documents'}
+            headingId="noto-documents-heading"
+            documents={documents}
+            activeId={activeDocument?.id ?? null}
+            onOpen={actions.openDocument}
+            onRename={(id, title) => void updateDocument(id, { title })}
+            onDelete={operations.remove}
+          />
         </section>
 
         {/*

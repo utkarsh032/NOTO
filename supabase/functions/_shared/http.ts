@@ -62,8 +62,29 @@ const ALLOWED_ORIGINS = [
  */
 const LOCAL_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/;
 
+/**
+ * Whether this is a local stack, where a localhost page is the developer.
+ *
+ * In production a localhost origin is not the developer: it is whatever else is
+ * listening on the visitor's machine, and it has no business calling an
+ * account API with their session. So the grant follows the deployment — the
+ * local stack's own URL, or an explicit opt-in for a preview project.
+ */
+function isLocalStack(): boolean {
+  if (Deno.env.get('NOTO_ALLOW_LOCALHOST_ORIGINS') === 'true') return true;
+
+  try {
+    const host = new URL(Deno.env.get('SUPABASE_URL') ?? '').hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === 'kong';
+  } catch {
+    return false;
+  }
+}
+
+const ALLOW_LOCAL_ORIGINS = isLocalStack();
+
 function isAllowed(origin: string): boolean {
-  return ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin);
+  return ALLOWED_ORIGINS.includes(origin) || (ALLOW_LOCAL_ORIGINS && LOCAL_ORIGIN.test(origin));
 }
 
 export function corsHeaders(origin: string | null): Record<string, string> {
@@ -178,11 +199,16 @@ export function deviceId(request: Request): string | null {
 /**
  * The caller's address, as the edge saw it.
  *
- * `x-forwarded-for` is a list; the first entry is the client and the rest are
- * proxies. Taken from the header the platform sets, never from the body — a
- * rate limit a client can rename itself out of is not a rate limit.
+ * `CF-Connecting-IP` first: Supabase's edge sits behind Cloudflare, which sets
+ * that header itself and overwrites any value a client sends. `x-forwarded-for`
+ * is the fallback; it is a list whose first entry is the client. Taken from
+ * headers the platform sets, never from the body — a rate limit a client can
+ * rename itself out of is not a rate limit.
  */
 export function clientIp(request: Request): string | undefined {
+  const connecting = request.headers.get('cf-connecting-ip')?.trim();
+  if (connecting) return connecting;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const first = forwarded?.split(',')[0]?.trim();
 

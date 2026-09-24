@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./postgres": "./src/postgres/index.ts",
+    "./shared": "./src/shared/index.ts",
     "./supabase": "./src/supabase/index.ts",
     "./testing": "./src/testing/index.ts"
   },
@@ -19,6 +21,7 @@
     "@noto/core": "workspace:*",
     "@noto/types": "workspace:*",
     "@supabase/supabase-js": "^2.112.3",
+    "kysely": "^0.28.17",
     "zod": "^4.4.3"
   },
   "devDependencies": {

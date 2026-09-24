@@ -22,9 +22,9 @@ Continue  Download in the background
       Applied on the next restart
 ```
 
-Noto uses Electron's built-in `autoUpdater` through
-[`update-electron-app`](https://github.com/electron/update-electron-app),
-pointed at `update.electronjs.org` — the free service Electron operates for
+Noto uses Electron's built-in `autoUpdater` directly (see
+`apps/desktop/src/main/updater.ts`), pointed at `update.electronjs.org` — the
+free service Electron operates for
 public GitHub repositories that publish their builds to GitHub Releases.
 
 **There is no Noto update server, and there should not be one yet.** A custom

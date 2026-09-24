@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { IconButton } from '../../components/IconButton';
 import { SearchInput } from '../../components/SearchInput';
+import { useProgressiveList } from '../../components/use-progressive-list';
 import { Tabs } from '../../components/Tabs';
 import { showToast } from '../../components/toast-store';
 import { CopyIcon, ExternalLinkIcon, SparklesIcon } from '../../components/icons';
@@ -65,7 +66,11 @@ export function SearchScreen({ query: routeQuery, onAskAI }: SearchScreenProps) 
   );
 
   const top = scope === 'all' ? results.top : [];
-  const rest = scope === 'all' ? visible.slice(top.length) : visible;
+  const rest = useMemo(
+    () => (scope === 'all' ? visible.slice(top.length) : visible),
+    [scope, visible, top.length],
+  );
+  const restShown = useProgressiveList(rest);
 
   const openHit = (hitId: string) => {
     const hit = results.hits.find((candidate) => candidate.id === hitId);
@@ -159,7 +164,7 @@ export function SearchScreen({ query: routeQuery, onAskAI }: SearchScreenProps) 
         ) : visible.length === 0 ? (
           <EmptyState
             title={`No results for “${query}”`}
-            description="Check the spelling, or try a single distinctive word — Noto matches text exactly."
+            description="Check the spelling, or try fewer words — Noto matches the start of words, and text inside them."
             illustration={<SearchIllustration />}
             className="border-default bg-surface rounded-xl border py-16"
           />
@@ -199,7 +204,7 @@ export function SearchScreen({ query: routeQuery, onAskAI }: SearchScreenProps) 
                     : SCOPES.find((entry) => entry.value === scope)?.label}
                 </h2>
                 <div className="flex flex-col gap-2">
-                  {rest.map((hit) => (
+                  {restShown.visible.map((hit) => (
                     <SearchResultRow
                       key={hit.id}
                       hit={hit}
@@ -208,6 +213,7 @@ export function SearchScreen({ query: routeQuery, onAskAI }: SearchScreenProps) 
                       actions={<HitActions hit={hit} />}
                     />
                   ))}
+                  {restShown.sentinel}
                 </div>
               </section>
             ) : null}

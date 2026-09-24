@@ -16,4 +16,11 @@ export interface TabsState {
   activeId: Id | null;
   /** Most recently opened first, whether or not still open. */
   recentIds: Id[];
+  /**
+   * Open tabs pinned to the front. A subset of `openIds`, which always lists
+   * them first. Optional because releases before it did not write it.
+   */
+  pinnedIds?: Id[];
+  /** Tabs closed this session and the last, most recent first, for Reopen. */
+  closedIds?: Id[];
 }

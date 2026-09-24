@@ -3,10 +3,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   DOCK_CHANNELS,
   FILE_CHANNELS,
+  LAUNCH_CHANNELS,
   SHELL_CHANNELS,
   SQL_CHANNELS,
   UPDATER_CHANNELS,
   type DockPlacementReport,
+  type LaunchReport,
   type OpenedFileReport,
   type ReadReport,
   type SavedFileReport,
@@ -32,6 +34,10 @@ const notoSql = {
 const notoShell = {
   print: (): Promise<{ printed: boolean; reason?: string }> =>
     ipcRenderer.invoke(SHELL_CHANNELS.print) as Promise<{ printed: boolean; reason?: string }>,
+
+  /** Asks where to save, then writes the page as a PDF. */
+  printToPdf: (suggestedName: string): Promise<'saved' | 'cancelled'> =>
+    ipcRenderer.invoke(SHELL_CHANNELS.printToPdf, suggestedName) as Promise<'saved' | 'cancelled'>,
 
   /**
    * Commands raised outside the window — a global accelerator, a tray menu.
@@ -136,14 +142,31 @@ const notoUpdates = {
   },
 };
 
+/**
+ * What the operating system asked Noto to open. `onAvailable` says only that
+ * something is waiting; `take` hands it over, once. See `main/launch.ts`.
+ */
+const notoLaunch = {
+  take: (): Promise<LaunchReport> =>
+    ipcRenderer.invoke(LAUNCH_CHANNELS.take) as Promise<LaunchReport>,
+
+  onAvailable: (listener: () => void): (() => void) => {
+    const handler = () => listener();
+    ipcRenderer.on(LAUNCH_CHANNELS.available, handler);
+    return () => ipcRenderer.off(LAUNCH_CHANNELS.available, handler);
+  },
+};
+
 contextBridge.exposeInMainWorld('notoSql', notoSql);
 contextBridge.exposeInMainWorld('notoShell', notoShell);
 contextBridge.exposeInMainWorld('notoFiles', notoFiles);
 contextBridge.exposeInMainWorld('notoDock', notoDock);
 contextBridge.exposeInMainWorld('notoUpdates', notoUpdates);
+contextBridge.exposeInMainWorld('notoLaunch', notoLaunch);
 
 export type NotoSqlBridge = typeof notoSql;
 export type NotoShellBridge = typeof notoShell;
 export type NotoFilesBridge = typeof notoFiles;
 export type NotoDockBridge = typeof notoDock;
 export type NotoUpdatesBridge = typeof notoUpdates;
+export type NotoLaunchBridge = typeof notoLaunch;

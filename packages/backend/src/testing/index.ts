@@ -6,6 +6,7 @@ import type {
   AuthSignUpDto,
   DeviceDto,
   DeviceRegistrationDto,
+  SessionDto,
   SettingsDto,
   UserDto,
 } from '@noto/types/api';
@@ -14,8 +15,11 @@ import type {
   AuditPort,
   AuthPort,
   BackendPorts,
+  CallerIdentity,
+  IdentityPort,
   TurnstilePort,
   DevicePort,
+  ProfilePatch,
   ProfilePort,
   RateLimitPort,
   SettingsPort,
@@ -145,6 +149,12 @@ export class FakeDevicePort implements DevicePort {
   async upsert(userId: string, device: DeviceRegistrationDto): Promise<Result<DeviceDto>> {
     if (this.options.failUpsert) return err('storage_unavailable', 'No connection.');
 
+    // Mirrors the adapter: an id owned by somebody else is refused, not taken.
+    const existing = this.devices.get(device.id);
+    if (existing && existing.userId !== userId) {
+      return err('conflict', 'That device id is already in use.');
+    }
+
     const stored = {
       ...device,
       userId,
@@ -181,10 +191,7 @@ export class FakeProfilePort implements ProfilePort {
     return ok(profile);
   }
 
-  async update(
-    userId: string,
-    patch: { displayName?: string; avatarUrl?: string | null; locale?: string },
-  ): Promise<Result<UserDto>> {
+  async update(userId: string, patch: ProfilePatch): Promise<Result<UserDto>> {
     const profile = this.profiles.get(userId);
     if (!profile) return err('not_found', 'No such profile.');
 
@@ -298,4 +305,104 @@ export function createFakePorts(overrides: Partial<BackendPorts> = {}): BackendP
     turnstile: new FakeTurnstilePort(),
     ...overrides,
   };
+}
+
+/**
+ * `IdentityPort`, in memory. Tokens are plain strings the test hands in, so a
+ * test can say "this token verifies email for user-1" without mail or hashing.
+ */
+export class FakeIdentityPort implements IdentityPort {
+  readonly passwords = new Map<string, string>();
+  readonly emailTokens = new Map<
+    string,
+    { userId: string; kind: 'verify_email' | 'change_email' }
+  >();
+  readonly resetTokens = new Map<string, string>();
+  readonly sessions = new Map<string, { userId: string; revoked: boolean }>();
+  readonly resendRequests: string[] = [];
+  readonly emailChanges: { userId: string; newEmail: string }[] = [];
+  readonly passwordChanges: { userId: string; keepSessionId: string | null }[] = [];
+
+  async authenticate(token: string): Promise<Result<CallerIdentity | null>> {
+    const session = this.sessions.get(token);
+    if (!session || session.revoked) return ok(null);
+
+    return ok({ userId: session.userId, sessionId: token, deviceId: null });
+  }
+
+  async listSessions(userId: string): Promise<Result<SessionDto[]>> {
+    return ok(
+      [...this.sessions.entries()]
+        .filter(([, session]) => session.userId === userId && !session.revoked)
+        .map(([id]) => ({
+          id,
+          kind: 'web' as const,
+          client: 'Test browser',
+          location: null,
+          startedAt: '2026-01-01T00:00:00.000Z',
+          lastActiveAt: '2026-01-01T00:00:00.000Z',
+          isCurrent: false,
+        })),
+    );
+  }
+
+  async signOutSession(userId: string, sessionId: string): Promise<Result<void>> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId || session.revoked) {
+      return err('not_found', 'That session was not found.');
+    }
+
+    session.revoked = true;
+    return ok(undefined);
+  }
+
+  async signOutAll(userId: string): Promise<Result<void>> {
+    for (const session of this.sessions.values()) {
+      if (session.userId === userId) session.revoked = true;
+    }
+    return ok(undefined);
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<Result<boolean>> {
+    return ok(this.passwords.get(userId) === password);
+  }
+
+  async consumeEmailToken(
+    token: string,
+  ): Promise<Result<{ userId: string; kind: 'verify_email' | 'change_email' }>> {
+    const found = this.emailTokens.get(token);
+    if (!found) return err('not_found', 'That link has expired or has already been used.');
+
+    this.emailTokens.delete(token);
+    return ok(found);
+  }
+
+  async resendVerification(email: string): Promise<Result<void>> {
+    this.resendRequests.push(email);
+    return ok(undefined);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<Result<{ userId: string }>> {
+    const userId = this.resetTokens.get(token);
+    if (!userId) return err('not_found', 'That link has expired or has already been used.');
+
+    this.resetTokens.delete(token);
+    this.passwords.set(userId, newPassword);
+    return ok({ userId });
+  }
+
+  async changePassword(
+    userId: string,
+    newPassword: string,
+    keepSessionId: string | null,
+  ): Promise<Result<void>> {
+    this.passwords.set(userId, newPassword);
+    this.passwordChanges.push({ userId, keepSessionId });
+    return ok(undefined);
+  }
+
+  async requestEmailChange(userId: string, newEmail: string): Promise<Result<void>> {
+    this.emailChanges.push({ userId, newEmail });
+    return ok(undefined);
+  }
 }

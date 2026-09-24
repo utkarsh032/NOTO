@@ -1,7 +1,7 @@
 import type { Id } from '@noto/types';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { CloseIcon, DocumentIcon, DotIcon, PlusIcon } from '../components/icons';
+import { CloseIcon, DocumentIcon, DotIcon, PinIcon, PlusIcon } from '../components/icons';
 import { cn } from '../utils/cn';
 import type { DocumentTab } from './use-document-tabs';
 
@@ -10,7 +10,20 @@ export interface TabBarProps {
   onSelect(id: Id): void;
   onClose(id: Id): void;
   onNew(): void;
+  /** The tab menu's actions. Each is offered only when it is given. */
+  onTogglePin?(id: Id): void;
+  onDuplicate?(id: Id): void;
+  onMove?(id: Id, delta: -1 | 1): void;
+  onCloseOthers?(id: Id): void;
+  onReopenClosed?(): void;
+  canReopen?: boolean;
   className?: string;
+}
+
+interface MenuState {
+  id: Id;
+  x: number;
+  y: number;
 }
 
 /**
@@ -46,7 +59,10 @@ export interface TabBarProps {
  * most wanted. The header drops its own New while the strip is showing, so
  * there is one of them on screen and never two.
  */
-export function TabBar({ tabs, onSelect, onClose, onNew, className }: TabBarProps) {
+export function TabBar(props: TabBarProps) {
+  const { tabs, onSelect, onClose, onNew, className } = props;
+  const [menu, setMenu] = useState<MenuState | null>(null);
+
   if (tabs.length === 0) return null;
 
   return (
@@ -81,6 +97,7 @@ export function TabBar({ tabs, onSelect, onClose, onNew, className }: TabBarProp
             divided={!tab.isActive && !tabs[index + 1]?.isActive && index < tabs.length - 1}
             onSelect={onSelect}
             onClose={onClose}
+            onMenu={(x, y) => setMenu({ id: tab.id, x, y })}
           />
         ))}
       </div>
@@ -96,6 +113,115 @@ export function TabBar({ tabs, onSelect, onClose, onNew, className }: TabBarProp
       >
         <PlusIcon className="h-4 w-4" />
       </button>
+
+      {menu ? <TabMenu {...props} menu={menu} onDismiss={() => setMenu(null)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * The tab's own menu, on a right click — or Shift+F10 and the Menu key, which
+ * the browser reports as the same event, so the keyboard reaches it too.
+ */
+function TabMenu({
+  tabs,
+  menu,
+  onDismiss,
+  onClose,
+  onTogglePin,
+  onDuplicate,
+  onMove,
+  onCloseOthers,
+  onReopenClosed,
+  canReopen,
+}: TabBarProps & { menu: MenuState; onDismiss(): void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const index = tabs.findIndex((tab) => tab.id === menu.id);
+  const tab = tabs[index];
+
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus();
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!ref.current?.contains(event.target as Node)) onDismiss();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [onDismiss]);
+
+  if (!tab) return null;
+
+  const neighbourLeft = tabs[index - 1];
+  const neighbourRight = tabs[index + 1];
+
+  const items: { label: string; run: () => void; disabled?: boolean }[] = [
+    ...(onTogglePin
+      ? [{ label: tab.isPinned ? 'Unpin tab' : 'Pin tab', run: () => onTogglePin(tab.id) }]
+      : []),
+    ...(onDuplicate ? [{ label: 'Duplicate', run: () => onDuplicate(tab.id) }] : []),
+    ...(onMove
+      ? [
+          {
+            label: 'Move left',
+            run: () => onMove(tab.id, -1),
+            disabled: !neighbourLeft || neighbourLeft.isPinned !== tab.isPinned,
+          },
+          {
+            label: 'Move right',
+            run: () => onMove(tab.id, 1),
+            disabled: !neighbourRight || neighbourRight.isPinned !== tab.isPinned,
+          },
+        ]
+      : []),
+    { label: 'Close', run: () => onClose(tab.id) },
+    ...(onCloseOthers
+      ? [{ label: 'Close others', run: () => onCloseOthers(tab.id), disabled: tabs.length < 2 }]
+      : []),
+    ...(onReopenClosed
+      ? [{ label: 'Reopen closed tab', run: onReopenClosed, disabled: !canReopen }]
+      : []),
+  ];
+
+  const focusStep = (step: 1 | -1) => {
+    const entries = [
+      ...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? []),
+    ];
+    const at = entries.indexOf(document.activeElement as HTMLElement);
+    entries[(at + step + entries.length) % entries.length]?.focus();
+  };
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={`Tab: ${tab.title || 'Untitled'}`}
+      style={{ left: menu.x, top: menu.y }}
+      className="border-default bg-surface fixed z-50 min-w-44 rounded-lg border py-1 shadow-lg"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onDismiss();
+        } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          focusStep(event.key === 'ArrowDown' ? 1 : -1);
+        }
+      }}
+    >
+      {items.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          role="menuitem"
+          disabled={item.disabled}
+          onClick={() => {
+            onDismiss();
+            item.run();
+          }}
+          className="text-primary text-body-sm hover:bg-surface-secondary focus-visible:bg-surface-secondary block w-full px-3 py-1.5 text-left outline-none disabled:opacity-40"
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -106,9 +232,11 @@ interface TabProps {
   divided: boolean;
   onSelect(id: Id): void;
   onClose(id: Id): void;
+  /** Opens the tab's menu at a point on screen. */
+  onMenu(x: number, y: number): void;
 }
 
-function Tab({ tab, divided, onSelect, onClose }: TabProps) {
+function Tab({ tab, divided, onSelect, onClose, onMenu }: TabProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   /* A tab activated by keyboard, or restored at launch, may be off-screen. */
@@ -127,6 +255,12 @@ function Tab({ tab, divided, onSelect, onClose }: TabProps) {
       ref={ref}
       role="tab"
       aria-selected={tab.isActive}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        // A keyboard-opened menu has no pointer position; use the tab's corner.
+        const box = event.currentTarget.getBoundingClientRect();
+        onMenu(event.clientX || box.left + 8, event.clientY || box.bottom);
+      }}
       className={cn(
         'group/tab relative flex w-44 min-w-32 items-center gap-1.5 overflow-hidden rounded-t-lg border-x border-t pr-1 pl-2.5 transition-colors',
         /*
@@ -150,10 +284,17 @@ function Tab({ tab, divided, onSelect, onClose }: TabProps) {
         <span className="bg-brand absolute inset-x-0 top-0 h-0.5" aria-hidden="true" />
       ) : null}
 
-      <DocumentIcon
-        className={cn('h-4 w-4 shrink-0', tab.isActive ? 'text-brand' : 'text-tertiary')}
-        aria-hidden="true"
-      />
+      {tab.isPinned ? (
+        <PinIcon
+          className={cn('h-3.5 w-3.5 shrink-0', tab.isActive ? 'text-brand' : 'text-tertiary')}
+          aria-label="Pinned"
+        />
+      ) : (
+        <DocumentIcon
+          className={cn('h-4 w-4 shrink-0', tab.isActive ? 'text-brand' : 'text-tertiary')}
+          aria-hidden="true"
+        />
+      )}
 
       <button
         type="button"

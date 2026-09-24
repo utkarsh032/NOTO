@@ -28,8 +28,10 @@ export async function printHtml(html: string): Promise<null> {
 
 export interface SaveFileRequest {
   fileName: string;
+  /** Text, or — when `encoding` is `'base64'` — the bytes of a binary format such as DOCX. */
   contents: string;
   mimeType: string;
+  encoding?: 'utf8' | 'base64';
 }
 
 /**
@@ -41,7 +43,12 @@ export interface SaveFileRequest {
  * application. A dismissed sheet is a decision, not a failure, and
  * `shareAsync` resolves either way.
  */
-export async function saveFile({ fileName, contents, mimeType }: SaveFileRequest): Promise<null> {
+export async function saveFile({
+  fileName,
+  contents,
+  mimeType,
+  encoding = 'utf8',
+}: SaveFileRequest): Promise<null> {
   /*
    * The name is built from a slugified document title on the other side, so it
    * is already safe. It is checked again here because this is where a name
@@ -57,7 +64,12 @@ export async function saveFile({ fileName, contents, mimeType }: SaveFileRequest
 
   const file = new File(directory, fileName);
   file.create({ overwrite: true, intermediates: true });
-  file.write(contents);
+  // Bytes cross the bridge as base64, because the bridge carries JSON.
+  file.write(
+    encoding === 'base64'
+      ? Uint8Array.from(atob(contents), (char) => char.charCodeAt(0))
+      : contents,
+  );
 
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: fileName });

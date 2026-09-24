@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-import { showToast } from '../../components/toast-store';
 import {
   CameraIcon,
   ClipboardIcon,
@@ -12,6 +11,8 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { cn } from '../../utils/cn';
+import { captureClipboard } from '../memory/capture-clipboard';
+import { useMemoryCapture } from '../memory/use-memory';
 import { navigate } from '../router';
 
 export interface SmartSidebarProps {
@@ -27,15 +28,16 @@ interface Entry {
   id: string;
   label: string;
   icon: (props: IconProps) => React.ReactElement;
-  onSelect(handlers: SmartSidebarProps): void;
+  onSelect(handlers: SmartSidebarProps & { captureClipboard(): void }): void;
 }
 
 /**
  * The seven things worth reaching without leaving what you are doing.
  *
- * Capture is listed and says what it needs, rather than being hidden: the rail
- * is meant to be learned by position, and an entry that appears later would
- * move everything under it.
+ * Capture saves the clipboard into Memory today, and gains screen capture
+ * with the desktop service. It keeps its place either way: the rail is meant
+ * to be learned by position, and an entry that appears later would move
+ * everything under it.
  */
 const ENTRIES: Entry[] = [
   { id: 'search', label: 'Search', icon: SearchIcon, onSelect: (props) => props.onSearch() },
@@ -54,7 +56,9 @@ const ENTRIES: Entry[] = [
     id: 'capture',
     label: 'Capture',
     icon: CameraIcon,
-    onSelect: () => showToast('Screen capture arrives with the desktop background service.'),
+    // What is on the clipboard, into Memory: a link if it is one URL, the
+    // text otherwise. Screen capture joins it with the desktop service.
+    onSelect: (props) => props.captureClipboard(),
   },
   { id: 'ai', label: 'AI', icon: SparklesIcon, onSelect: (props) => props.onAskAI() },
   {
@@ -81,6 +85,8 @@ const ENTRIES: Entry[] = [
 export function SmartSidebar(props: SmartSidebarProps) {
   const railRef = useRef<HTMLElement>(null);
   const { open, onClose } = props;
+  const capture = useMemoryCapture();
+  const handlers = { ...props, captureClipboard: () => void captureClipboard(capture) };
 
   /* Reaching past the rail for what is behind it is a way of being done with
      it, the same as it is for the dock's panel. */
@@ -116,7 +122,7 @@ export function SmartSidebar(props: SmartSidebarProps) {
           <button
             key={entry.id}
             type="button"
-            onClick={() => entry.onSelect(props)}
+            onClick={() => entry.onSelect(handlers)}
             className={cn(
               'flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-lg transition-colors',
               'text-tertiary hover:bg-surface-secondary hover:text-primary',

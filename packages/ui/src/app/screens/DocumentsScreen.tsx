@@ -35,7 +35,9 @@ import { useDocumentOperations } from '../documents/use-document-operations';
 import { ExportDialog } from '../overlays/ExportDialog';
 import { ImportDialog } from '../overlays/ImportDialog';
 import { bundleDocuments } from '../export';
+import { useProgressiveList } from '../../components/use-progressive-list';
 import { useNotoData } from '../data-context';
+import { useFolders } from '../folders/use-folders';
 import { useNotoActions } from '../use-noto-actions';
 
 type DocumentsTab = 'all' | 'documents' | 'folders' | 'recent' | 'starred' | 'trash';
@@ -104,6 +106,12 @@ export function DocumentsScreen() {
 
   const isLoading = documents === undefined;
   const isTrash = tab === 'trash';
+  const shown = useProgressiveList(rows);
+  const folders = useFolders();
+
+  /* Where a document lives, as the Folder column and the cards say it. */
+  const locationOf = (document: NotoDocument) =>
+    folders.pathOf(document.folderId).join(' / ') || (workspace?.name ?? '—');
 
   const menuFor = (document: NotoDocument) => (
     <DocumentMenu
@@ -271,15 +279,16 @@ export function DocumentsScreen() {
         />
       ) : view === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((document) => (
+          {shown.visible.map((document) => (
             <DocumentCard
               key={document.id}
               document={document}
-              location={workspace?.name}
+              location={locationOf(document)}
               onOpen={() => operations.open(document.id)}
               actions={isTrash ? undefined : menuFor(document)}
             />
           ))}
+          {shown.sentinel}
         </div>
       ) : (
         <div className="border-default bg-surface overflow-hidden rounded-xl border shadow-sm">
@@ -309,7 +318,7 @@ export function DocumentsScreen() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((document) => (
+              {shown.visible.map((document) => (
                 <tr
                   key={document.id}
                   className="group/doc border-default hover:bg-surface-secondary border-b transition-colors last:border-b-0"
@@ -335,7 +344,7 @@ export function DocumentsScreen() {
                     Document
                   </td>
                   <td className="text-tertiary text-caption hidden truncate px-4 py-2.5 md:table-cell">
-                    {workspace?.name ?? '—'}
+                    {locationOf(document)}
                   </td>
                   <td className="text-tertiary text-caption px-4 py-2.5">
                     {timestampLabel(isTrash ? (document.deletedAt ?? '') : document.updatedAt)}
@@ -372,6 +381,11 @@ export function DocumentsScreen() {
                   </td>
                 </tr>
               ))}
+              {shown.sentinel ? (
+                <tr aria-hidden="true">
+                  <td colSpan={6}>{shown.sentinel}</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

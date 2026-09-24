@@ -1,0 +1,49 @@
+{
+  "name": "@noto/api",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Noto's server: accounts and, later, sync. Node + Hono + PostgreSQL.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "build": "node scripts/build.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:bootstrap": "tsx --env-file-if-exists=.env db/bootstrap.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env db/migrate.ts up",
+    "db:status": "tsx --env-file-if-exists=.env db/migrate.ts status",
+    "db:psql": "tsx --env-file-if-exists=.env db/psql.ts",
+    "db:import-supabase": "tsx --env-file-if-exists=.env db/import-supabase.ts",
+    "db:send-reset-mails": "tsx --env-file-if-exists=.env db/send-reset-mails.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.17",
+    "@node-rs/argon2": "^2.0.2",
+    "@noto/backend": "workspace:*",
+    "@noto/config": "workspace:*",
+    "@noto/core": "workspace:*",
+    "@noto/types": "workspace:*",
+    "hono": "^4.13.7",
+    "jose": "^6.2.10",
+    "kysely": "^0.28.17",
+    "node-cron": "^4.2.1",
+    "pg": "^8.23.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@noto/database": "workspace:*",
+    "@noto/eslint-config": "workspace:*",
+    "@noto/sync": "workspace:*",
+    "@noto/tsconfig": "workspace:*",
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.15.6",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.39.5",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

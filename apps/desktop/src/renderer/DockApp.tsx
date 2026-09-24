@@ -1,9 +1,10 @@
-import { contentFromPlainText } from '@noto/core';
+import { createMemoryItem } from '@noto/core';
 import {
   DockHandle,
   DockPanel,
   NotoDataContext,
-  quickNoteTitle,
+  notifyDataChanged,
+  usePersistQuickNoteDraft,
   useNotoDataSource,
   type DockSide,
 } from '@noto/ui';
@@ -32,6 +33,7 @@ import { openDesktopDatabase } from './platform/database';
 export function DockApp() {
   const open = useCallback(() => openDesktopDatabase(), []);
   const data = useNotoDataSource({ open });
+  usePersistQuickNoteDraft(data.database);
 
   const [side, setSide] = useState<DockSide>('right');
   const [expanded, setExpanded] = useState(false);
@@ -109,14 +111,23 @@ export function DockApp() {
     [data.documents],
   );
 
+  /*
+   * Kept in Memory, as a quick note — the same thing Save does in the floating
+   * window and on the Quick Notes page. The application window hears about it
+   * through `notifyDataChanged` and lists it without a reload.
+   */
   const save = async (text: string) => {
-    const id = await data.createDocument();
-    if (!id) return;
+    if (!data.database || !data.workspace) return;
 
-    await data.updateDocument(id, {
-      title: quickNoteTitle(text),
-      content: contentFromPlainText(text),
-    });
+    await data.database.memory.put(
+      createMemoryItem({
+        workspaceId: data.workspace.id,
+        kind: 'note',
+        content: text,
+        source: 'Quick Note dock',
+      }),
+    );
+    notifyDataChanged('memory');
   };
 
   return (

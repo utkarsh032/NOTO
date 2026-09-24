@@ -123,11 +123,17 @@ Noto/
 └── .github/        Workflows, issue and pull request templates
 ```
 
-## A note on the plan document
+## The server database
 
-[`R&D/Build&Release.md`](../../R&D/Build&Release.md) specifies Angular and
-Capacitor. The repository is built with **React + Vite**, **Electron Forge** and
-**Expo / React Native** instead. The release architecture in that document —
-GitHub Actions, tag-driven releases, GitHub Releases, Cloudflare Workers,
-Electron's update service — is implemented as written; only the UI framework
-differs.
+The apps need no server: they are local-first. Only `apps/api`, the Node +
+PostgreSQL backend, needs a database, and it is a native PostgreSQL install —
+no Docker. See [database.md](database.md).
+
+## A note on the plan documents
+
+[`R&D/Build&Release.md`](../../R&D/Build&Release.md) first specified Angular and
+Capacitor, and [`R&D/Backend_Plan.md`](../../R&D/Backend_Plan.md) Supabase. The
+repository is built with **React + Vite**, **Electron Forge** and **Expo / React
+Native**, and the backend is moving to **Node + PostgreSQL**
+([`R&D/Backend_Node_Plan.md`](../../R&D/Backend_Node_Plan.md)). Both documents
+now say so at the top.

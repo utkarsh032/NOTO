@@ -17,8 +17,9 @@ import { relativeTime } from '../../utils/format';
 
 export interface DeviceCardProps {
   device: Device;
-  onSignOut(): void;
-  onRemove(): void;
+  /** Omitted until the service can do it: no menu is better than a dead one. */
+  onSignOut?: () => void;
+  onRemove?: () => void;
 }
 
 /**
@@ -92,37 +93,39 @@ export function DeviceCard({ device, onSignOut, onRemove }: DeviceCardProps) {
         </p>
       </div>
 
-      <Dropdown
-        label={`Actions for ${device.name}`}
-        items={[
-          {
-            id: 'sign-out',
-            label: 'Sign out of this device',
-            icon: <LogOutIcon className="h-4 w-4" />,
-            disabled: device.isCurrent,
-            onSelect: onSignOut,
-          },
-          {
-            id: 'remove',
-            label: 'Remove device',
-            icon: <TrashIcon className="h-4 w-4" />,
-            danger: true,
-            disabled: device.isCurrent,
-            separated: true,
-            onSelect: onRemove,
-          },
-        ]}
-        trigger={(props) => (
-          <button
-            type="button"
-            {...props}
-            aria-label={`Actions for ${device.name}`}
-            className="text-tertiary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2"
-          >
-            <MoreIcon className="h-5 w-5" />
-          </button>
-        )}
-      />
+      {onSignOut || onRemove ? (
+        <Dropdown
+          label={`Actions for ${device.name}`}
+          items={[
+            {
+              id: 'sign-out',
+              label: 'Sign out of this device',
+              icon: <LogOutIcon className="h-4 w-4" />,
+              disabled: device.isCurrent,
+              onSelect: () => onSignOut?.(),
+            },
+            {
+              id: 'remove',
+              label: 'Remove device',
+              icon: <TrashIcon className="h-4 w-4" />,
+              danger: true,
+              disabled: device.isCurrent,
+              separated: true,
+              onSelect: () => onRemove?.(),
+            },
+          ]}
+          trigger={(props) => (
+            <button
+              type="button"
+              {...props}
+              aria-label={`Actions for ${device.name}`}
+              className="text-tertiary hover:bg-surface-secondary hover:text-primary focus-visible:outline-brand flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2"
+            >
+              <MoreIcon className="h-5 w-5" />
+            </button>
+          )}
+        />
+      ) : null}
     </li>
   );
 }

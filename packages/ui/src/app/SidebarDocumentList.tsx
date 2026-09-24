@@ -2,7 +2,9 @@ import type { Id, NotoDocument } from '@noto/types';
 import { useEffect, useRef, useState } from 'react';
 
 import { DocumentIcon, PencilIcon, PinIcon, TrashIcon } from '../components/icons';
+import { useProgressiveList } from '../components/use-progressive-list';
 import { cn } from '../utils/cn';
+import { DOCUMENT_DRAG_TYPE } from './folders/drag-types';
 
 export interface SidebarDocumentListProps {
   documents: NotoDocument[];
@@ -37,10 +39,12 @@ export function SidebarDocumentList({
   showPin = false,
 }: SidebarDocumentListProps) {
   const [renamingId, setRenamingId] = useState<Id | null>(null);
+  // Drawn a batch at a time: a workspace of thousands is not a sidebar of thousands.
+  const { visible, sentinel } = useProgressiveList(documents, { batch: 100 });
 
   return (
     <ul className="flex flex-col gap-0.5" aria-label={label}>
-      {documents.map((document) => {
+      {visible.map((document) => {
         const isActive = document.id === activeId;
 
         if (renamingId === document.id) {
@@ -64,6 +68,12 @@ export function SidebarDocumentList({
               type="button"
               onClick={() => onOpen(document.id)}
               onDoubleClick={() => setRenamingId(document.id)}
+              draggable
+              onDragStart={(event) => {
+                // Dropped on a folder, or on the workspace heading, it moves there.
+                event.dataTransfer.setData(DOCUMENT_DRAG_TYPE, document.id);
+                event.dataTransfer.effectAllowed = 'move';
+              }}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'flex w-full items-start gap-2.5 rounded-md py-2 pr-9 pl-2.5 text-left transition-colors',
@@ -122,6 +132,7 @@ export function SidebarDocumentList({
           </li>
         );
       })}
+      {sentinel ? <li aria-hidden="true">{sentinel}</li> : null}
     </ul>
   );
 }
@@ -130,6 +141,8 @@ interface RenameRowProps {
   title: string;
   onCommit(title: string): void;
   onCancel(): void;
+  /** What is being renamed, for the field's accessible name. Defaults to the title. */
+  label?: string;
 }
 
 /**
@@ -140,7 +153,7 @@ interface RenameRowProps {
  * losing a rename to a stray click would be its own small betrayal. Escape is
  * the way out that keeps the old name.
  */
-function RenameRow({ title, onCommit, onCancel }: RenameRowProps) {
+export function RenameRow({ title, onCommit, onCancel, label }: RenameRowProps) {
   const [value, setValue] = useState(title);
   const ref = useRef<HTMLInputElement>(null);
   const committedRef = useRef(false);
@@ -174,7 +187,7 @@ function RenameRow({ title, onCommit, onCancel }: RenameRowProps) {
           onCancel();
         }
       }}
-      aria-label={`Rename ${title}`}
+      aria-label={label ?? `Rename ${title}`}
       className="border-brand bg-surface text-primary text-body-sm focus-visible:outline-brand w-full rounded-md border px-2 py-1.5 font-medium focus-visible:outline-2 focus-visible:-outline-offset-2"
     />
   );

@@ -10,6 +10,8 @@ export interface DocumentTab {
   /** Has edits the editor has not written to storage yet. */
   isDirty: boolean;
   isActive: boolean;
+  /** Pinned to the front of the row, and kept by Close All. */
+  isPinned: boolean;
 }
 
 export interface DocumentTabs {
@@ -24,6 +26,14 @@ export interface DocumentTabs {
   /** Creates a document and opens it in a new tab. */
   create(): Promise<void>;
   setDirty(id: Id, dirty: boolean): void;
+  togglePin(id: Id): void;
+  moveBy(id: Id, delta: -1 | 1): void;
+  /** Reopens the most recently closed tab. Resolves `false` when there is none. */
+  reopenClosed(): boolean;
+  /** Copies a document — body, tags and folder — and opens the copy beside it. */
+  duplicate(id: Id): Promise<Id | null>;
+  /** Whether anything has been closed that Reopen could bring back. */
+  canReopen: boolean;
 }
 
 /**
@@ -46,6 +56,8 @@ export function useDocumentTabs(): DocumentTabs {
   const activeId = useTabsStore((state) => state.activeId);
   const recentIds = useTabsStore((state) => state.recentIds);
   const dirtyIds = useTabsStore((state) => state.dirtyIds);
+  const pinnedIds = useTabsStore((state) => state.pinnedIds);
+  const closedIds = useTabsStore((state) => state.closedIds);
   const hydrated = useTabsStore((state) => state.hydrated);
 
   const openTab = useTabsStore((state) => state.open);
@@ -53,6 +65,9 @@ export function useDocumentTabs(): DocumentTabs {
   const closeAllTabs = useTabsStore((state) => state.closeAll);
   const pruneTabs = useTabsStore((state) => state.prune);
   const setDirty = useTabsStore((state) => state.setDirty);
+  const togglePin = useTabsStore((state) => state.togglePin);
+  const moveBy = useTabsStore((state) => state.moveBy);
+  const reopenClosedTab = useTabsStore((state) => state.reopenClosed);
 
   /*
    * Deleting a document elsewhere has to take its tab with it. Waits for the
@@ -110,10 +125,11 @@ export function useDocumentTabs(): DocumentTabs {
             title: document.title,
             isDirty: dirtyIds.includes(id),
             isActive: id === activeId,
+            isPinned: pinnedIds.includes(id),
           };
         })
         .filter((tab): tab is DocumentTab => tab !== null),
-    [openIds, byId, dirtyIds, activeId],
+    [openIds, byId, dirtyIds, activeId, pinnedIds],
   );
 
   /* Recents exist to reopen things, so anything already open is not offered. */
@@ -131,6 +147,31 @@ export function useDocumentTabs(): DocumentTabs {
     if (id) openTab(id);
   }, [createDocument, openTab]);
 
+  const duplicate = useCallback(
+    async (id: Id) => {
+      const original = byId.get(id);
+      if (!original) return null;
+
+      const copyId = await createDocument({
+        title: `${original.title || 'Untitled'} (copy)`,
+        content: original.content,
+        tags: original.tags,
+        folderId: original.folderId,
+      });
+      if (!copyId) return null;
+
+      openTab(copyId, { after: id });
+
+      return copyId;
+    },
+    [byId, createDocument, openTab],
+  );
+
+  const reopenClosed = useCallback(() => reopenClosedTab() !== null, [reopenClosedTab]);
+
+  // Only documents that still exist can come back; prune keeps the list honest.
+  const canReopen = closedIds.some((id) => byId.has(id));
+
   return useMemo(
     () => ({
       tabs,
@@ -141,7 +182,26 @@ export function useDocumentTabs(): DocumentTabs {
       closeAll: closeAllTabs,
       create,
       setDirty,
+      togglePin,
+      moveBy,
+      reopenClosed,
+      duplicate,
+      canReopen,
     }),
-    [tabs, recent, dirtyIds, openTab, closeTab, closeAllTabs, create, setDirty],
+    [
+      tabs,
+      recent,
+      dirtyIds,
+      openTab,
+      closeTab,
+      closeAllTabs,
+      create,
+      setDirty,
+      togglePin,
+      moveBy,
+      reopenClosed,
+      duplicate,
+      canReopen,
+    ],
   );
 }

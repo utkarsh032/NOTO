@@ -1,9 +1,37 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
+/**
+ * The origins the renderer may call, written into the CSP in `index.html`.
+ *
+ * Without a `connect-src`, the policy fell back to `default-src 'self'` — and a
+ * packaged renderer's `file://` document has an opaque origin, so every call to
+ * the backend was blocked. The cloud's origins are known at build time, so
+ * they are named exactly, rather than opening the policy to all of `https:`.
+ */
+function connectSrc(mode: string): Plugin {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const origins = [env.VITE_NOTO_API_URL, env.VITE_SUPABASE_URL]
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => {
+      try {
+        const origin = new URL(value).origin;
+        // Supabase's realtime client speaks WebSocket to the same host.
+        return [origin, origin.replace(/^http/, 'ws')];
+      } catch {
+        return [];
+      }
+    });
+
+  return {
+    name: 'noto-connect-src',
+    transformIndexHtml: (html) => html.replace('%NOTO_CONNECT_SRC%', origins.join(' ')),
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), tailwindcss(), connectSrc(mode)],
   build: {
     /*
      * A packaged renderer is loaded over `file://`, where the document has an
@@ -38,6 +66,17 @@ export default defineConfig({
       '@tiptap/core',
       '@tiptap/react',
       '@tiptap/starter-kit',
+      // Everything else the editor reaches ProseMirror through. Discovered late, each
+      // would be bundled on its own with a private copy of prosemirror-view, and the
+      // editor then fails to mount on decorations from the "other" copy.
+      '@tiptap/extension-image',
+      '@tiptap/extension-list',
+      '@tiptap/extension-table',
+      '@tiptap/extension-text-align',
+      '@tiptap/pm/model',
+      '@tiptap/pm/state',
+      '@tiptap/pm/view',
+      'prosemirror-search',
     ],
   },
-});
+}));

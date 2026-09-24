@@ -13,6 +13,36 @@ const APP_BUNDLE_ID = 'com.noto.app';
 // they resolve it relative to the process directory rather than to this file.
 const LINUX_ICON = 'assets/icon.png';
 
+/*
+ * What Noto opens, told to each operating system in its own terms. The list of
+ * extensions is `ASSOCIATED_EXTENSIONS` in `src/main/launch-arguments.ts`, and
+ * Windows, which has no manifest for this, is `src/main/os-integration.ts`.
+ *
+ * Noto is offered as *an* application for these files ("Alternate" on macOS),
+ * never made the default: taking `.txt` from the system's own editor is a
+ * decision for the user.
+ */
+const LINK_SCHEME = 'noto';
+
+const LINUX_MIME_TYPES = ['text/markdown', 'text/plain', 'x-scheme-handler/noto'] as const;
+
+const MAC_DOCUMENT_TYPES = [
+  {
+    CFBundleTypeName: 'Markdown document',
+    CFBundleTypeRole: 'Editor',
+    LSHandlerRank: 'Alternate',
+    LSItemContentTypes: ['net.daringfireball.markdown'],
+    CFBundleTypeExtensions: ['md', 'markdown'],
+  },
+  {
+    CFBundleTypeName: 'Plain text document',
+    CFBundleTypeRole: 'Editor',
+    LSHandlerRank: 'Alternate',
+    LSItemContentTypes: ['public.plain-text'],
+    CFBundleTypeExtensions: ['txt'],
+  },
+];
+
 // Signing is opt-in and driven entirely by the environment, so an ordinary
 // development build needs no certificates and no configuration. The release
 // workflow sets NOTO_SIGN=true and provides the credentials as secrets; see
@@ -58,6 +88,11 @@ const config: ForgeConfig = {
     // copied alongside it instead, because `main.ts` reads it at runtime to
     // give the window an icon on Linux.
     extraResource: [LINUX_ICON],
+
+    // macOS reads both from Info.plist: `noto://` links, and the files Noto
+    // appears under in Finder's "Open With".
+    protocols: [{ name: 'Noto link', schemes: [LINK_SCHEME] }],
+    extendInfo: { CFBundleDocumentTypes: MAC_DOCUMENT_TYPES },
 
     // Gatekeeper rejects an unsigned application, and notarization is what
     // stops macOS warning the user on first launch.
@@ -140,6 +175,7 @@ const config: ForgeConfig = {
         bin: 'noto',
         categories: ['Utility'],
         icon: LINUX_ICON,
+        mimeType: [...LINUX_MIME_TYPES],
       },
     }),
     new MakerRpm({
@@ -149,6 +185,7 @@ const config: ForgeConfig = {
         bin: 'noto',
         categories: ['Utility'],
         icon: LINUX_ICON,
+        mimeType: [...LINUX_MIME_TYPES],
       },
     }),
   ],

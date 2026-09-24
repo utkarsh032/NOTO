@@ -823,7 +823,7 @@ Changes should become available across connected devices.
 
 Initial technology:
 
-**Supabase Realtime**
+**Noto API realtime channel (WebSocket or server-sent events on `apps/api`)**
 
 Future complex rich-text synchronization:
 
@@ -1302,7 +1302,7 @@ The components should share the same visual language while allowing platform-spe
 | ---------------- | --------------------------------------------- |
 | Web UI           | React                                         |
 | Desktop UI       | React                                         |
-| Mobile UI        | React Native                                  |
+| Mobile UI        | Expo / React Native shell rendering the shared React UI in a WebView |
 | Language         | TypeScript                                    |
 | Web Build        | Vite                                          |
 | Mobile Tooling   | Expo                                          |
@@ -1310,7 +1310,7 @@ The components should share the same visual language while allowing platform-spe
 | Styling          | Tailwind CSS                                  |
 | Design System    | Custom Noto Design System                     |
 | State Management | Zustand / appropriate lightweight state layer |
-| Monorepo         | Nx                                            |
+| Monorepo         | pnpm workspaces + Turborepo                   |
 
 ---
 
@@ -1367,17 +1367,21 @@ But we do not need to build a large custom backend at the beginning.
 
 Initial backend:
 
-### Supabase
+### Node + PostgreSQL (`apps/api`)
 
 ```text
-Supabase
+apps/api (Node 20+, Hono)
 │
-├── PostgreSQL
-├── Authentication
-├── Storage
-├── Realtime
-└── Edge Functions
+├── PostgreSQL (native install, no Docker)
+├── Authentication (argon2id, JWT access + rotating refresh tokens)
+├── Cloudflare R2 (files)
+├── Realtime (WebSocket / SSE)
+└── Scheduled jobs (node-cron)
 ```
+
+> Updated 23 September 2026. The first cloud release ran on Supabase; it is
+> being replaced by a Node + PostgreSQL backend. `R&D/Backend_Node_Plan.md` is
+> the plan of record and `R&D/Backend_Plan.md` keeps the data model.
 
 ---
 
@@ -1437,7 +1441,7 @@ PostgreSQL
    ↓
 Metadata
 
-Supabase Storage
+Cloudflare R2
    ↓
 Binary files
 ```
@@ -1670,7 +1674,7 @@ Not every feature needs identical behavior everywhere.
 
 Set up:
 
-- Nx monorepo
+- pnpm + Turborepo monorepo
 - React
 - TypeScript
 - Web
@@ -1767,7 +1771,7 @@ Goal:
 
 Add:
 
-- Supabase
+- Noto API (Node + Hono) on PostgreSQL
 - Authentication
 - PostgreSQL
 - Storage
@@ -1855,11 +1859,11 @@ Goal:
                                │
                              Sync
                                │
-                           Supabase
+                     Noto API (Node + Hono)
                                │
                 ┌──────────────┼──────────────┐
                 │              │              │
-            PostgreSQL      Storage        Realtime
+            PostgreSQL    Cloudflare R2     Realtime
                 │
              pgvector
                 │
@@ -1882,7 +1886,7 @@ Goal:
 
 ### Mobile
 
-**React Native + Expo + TypeScript**
+**Expo + React Native + TypeScript** (the shared React UI in a WebView)
 
 ### Shared
 
@@ -1898,15 +1902,15 @@ Goal:
 
 ### Cloud/backend
 
-**Supabase + PostgreSQL**
+**Node (Hono) + PostgreSQL**
 
 ### File storage
 
-**Supabase Storage**
+**Cloudflare R2**
 
 ### Realtime
 
-**Supabase Realtime**
+**Noto API realtime (WebSocket / SSE); Yjs for co-editing later**
 
 ### Search
 
@@ -1922,7 +1926,7 @@ Goal:
 
 ### Monorepo
 
-**Nx**
+**pnpm workspaces + Turborepo**
 
 ### Styling
 

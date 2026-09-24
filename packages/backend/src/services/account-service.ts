@@ -9,7 +9,13 @@ import type {
 } from '@noto/types/api';
 
 import { validate } from '../helpers/validation.ts';
-import type { AuditPort, DevicePort, ProfilePort, SettingsPort } from '../ports/index.ts';
+import type {
+  AuditPort,
+  DevicePort,
+  ProfilePatch,
+  ProfilePort,
+  SettingsPort,
+} from '../ports/index.ts';
 import { deviceRegistrationSchema, settingsPatchSchema } from '../schemas/index.ts';
 
 /**
@@ -34,10 +40,7 @@ export class AccountService {
     return this.ports.profiles.get(userId);
   }
 
-  async updateProfile(
-    userId: string,
-    patch: { displayName?: string; avatarUrl?: string | null; locale?: string },
-  ): Promise<Result<UserDto>> {
+  async updateProfile(userId: string, patch: ProfilePatch): Promise<Result<UserDto>> {
     const displayName = patch.displayName?.trim();
 
     if (displayName !== undefined && (displayName.length === 0 || displayName.length > 80)) {

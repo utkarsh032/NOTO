@@ -1,22 +1,37 @@
 import type { SqlValue } from '@noto/database/sqlite';
-import { BrowserWindow, ipcMain, shell } from 'electron';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { BrowserWindow, dialog, shell } from 'electron';
 
 import { SHELL_CHANNELS, SQL_CHANNELS, UPDATER_CHANNELS } from '../shared/channels';
+import { handleTrusted } from './security';
+import { checkStatement } from './sql-policy';
 import { execute, select } from './sqlite';
 import { checkForUpdates, installUpdate, setUpdatePublisher } from './updater';
 
 /**
  * The renderer stays sandboxed and never touches the file system; it sends
  * statements, which the main process runs against the single open connection.
+ *
+ * Only Noto's own renderer may send them (`handleTrusted`), and a statement
+ * that could reach beyond the database — `ATTACH`, `VACUUM INTO`, an unknown
+ * pragma — is refused whoever sends it. See `security.ts`.
  */
 export function registerSqlHandlers(): void {
-  ipcMain.handle(SQL_CHANNELS.execute, (_event, sql: string, params: SqlValue[] = []) => {
-    execute(sql, params);
+  handleTrusted(SQL_CHANNELS.execute, (_event, sql: unknown, params: unknown = []) => {
+    const check = checkStatement(sql, params);
+    if (!check.ok) throw new Error(`Refused SQL: ${check.reason}.`);
+
+    execute(sql as string, params as SqlValue[]);
   });
 
-  ipcMain.handle(SQL_CHANNELS.select, (_event, sql: string, params: SqlValue[] = []) =>
-    select(sql, params),
-  );
+  handleTrusted(SQL_CHANNELS.select, (_event, sql: unknown, params: unknown = []) => {
+    const check = checkStatement(sql, params);
+    if (!check.ok) throw new Error(`Refused SQL: ${check.reason}.`);
+
+    return select(sql as string, params as SqlValue[]);
+  });
 }
 
 /**
@@ -33,7 +48,7 @@ export function registerSqlHandlers(): void {
  * that is not there beyond saying so.
  */
 export function registerShellHandlers(): void {
-  ipcMain.handle(
+  handleTrusted(
     SHELL_CHANNELS.print,
     (event) =>
       new Promise<{ printed: boolean; reason?: string }>((resolve) => {
@@ -42,6 +57,38 @@ export function registerShellHandlers(): void {
         );
       }),
   );
+
+  /*
+   * PDF export: the page the printer would get, written to a file.
+   *
+   * The same render as printing — the print stylesheet decides what is on the
+   * page — at A4 with the CSS page size honoured, so the page layout setting's
+   * margins come through. The name is the renderer's suggestion, reduced to a
+   * bare file name; where it goes is the user's choice in the save dialog.
+   */
+  handleTrusted(SHELL_CHANNELS.printToPdf, async (event, suggested: unknown) => {
+    const base = path.basename(typeof suggested === 'string' ? suggested : 'document.pdf');
+    const name = base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`;
+
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      defaultPath: name,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    };
+    const choice = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options);
+    if (choice.canceled || !choice.filePath) return 'cancelled';
+
+    const pdf = await event.sender.printToPDF({
+      pageSize: 'A4',
+      printBackground: false,
+      preferCSSPageSize: true,
+    });
+    await writeFile(choice.filePath, pdf);
+
+    return 'saved';
+  });
 
   /*
    * Opening a link outside Noto.
@@ -54,7 +101,7 @@ export function registerShellHandlers(): void {
    * asks for. A renderer is the side an injected script would be speaking
    * from, which is exactly why it does not get to make this decision.
    */
-  ipcMain.handle(SHELL_CHANNELS.openExternal, async (_event, target: unknown) => {
+  handleTrusted(SHELL_CHANNELS.openExternal, async (_event, target: unknown) => {
     if (typeof target !== 'string') return false;
 
     let url: URL;
@@ -91,9 +138,9 @@ export function registerUpdateHandlers(): void {
     }
   });
 
-  ipcMain.handle(UPDATER_CHANNELS.check, () => checkForUpdates());
+  handleTrusted(UPDATER_CHANNELS.check, () => checkForUpdates());
 
-  ipcMain.handle(UPDATER_CHANNELS.install, () => {
+  handleTrusted(UPDATER_CHANNELS.install, () => {
     installUpdate();
   });
 }

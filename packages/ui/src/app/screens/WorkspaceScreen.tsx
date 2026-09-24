@@ -16,6 +16,7 @@ import { EditorScrollArea } from '../EditorScrollArea';
 import { ContextPanel, type ContextTab } from '../editor/ContextPanel';
 import { EditorStatusBar } from '../editor/EditorStatusBar';
 import { useNotoData } from '../data-context';
+import { useFolders } from '../folders/use-folders';
 import { useLocalFile } from '../local-file';
 import { replaceRoute } from '../router';
 import { useDocumentTabs } from '../use-document-tabs';
@@ -49,6 +50,7 @@ export function WorkspaceScreen({
   onShortcuts,
 }: WorkspaceScreenProps) {
   const { activeDocument, workspace } = useNotoData();
+  const folders = useFolders();
   const tabs = useDocumentTabs();
   const actions = useNotoActions();
 
@@ -165,7 +167,10 @@ export function WorkspaceScreen({
           document={activeDocument}
           tab={panelTab}
           onTab={setPanelTab}
-          location={workspace?.name ?? 'This workspace'}
+          location={[
+            workspace?.name ?? 'This workspace',
+            ...folders.pathOf(activeDocument.folderId),
+          ].join(' / ')}
         />
       ) : null}
     </>

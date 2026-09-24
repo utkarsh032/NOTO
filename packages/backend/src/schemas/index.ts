@@ -43,19 +43,38 @@ const turnstileToken = z.string().min(1, { message: 'Bot check failed. Try again
  * Where a provider is allowed to send someone back to.
  *
  * An open redirect in an OAuth flow hands an attacker the authorization code,
- * so this is an allow-list of schemes rather than a URL check. `noto://` is the
- * desktop and mobile deep link; `http://localhost` is development only.
+ * so this is an allow-list of exact origins, compared after parsing. Any
+ * `https://` URL used to pass, which is an open redirect with extra steps, and
+ * a prefix test on `http://localhost` also passed `http://localhost.evil.test`.
+ *
+ * `noto://` is the desktop and mobile deep link. Localhost is the developer's
+ * own machine, on any port, by exact host name.
  */
+export const REDIRECT_ORIGINS: readonly string[] = [
+  'https://noto.app',
+  'https://www.noto.app',
+  'https://noto-web.utkarshraj525.workers.dev',
+];
+
+export function isAllowedRedirect(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol === 'noto:') return true;
+  if (url.protocol === 'https:') return REDIRECT_ORIGINS.includes(url.origin);
+  if (url.protocol === 'http:') return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+  return false;
+}
+
 export const redirectUrl = z
   .string()
   .url()
-  .refine(
-    (value) =>
-      value.startsWith('noto://') ||
-      value.startsWith('https://') ||
-      value.startsWith('http://localhost'),
-    { message: 'That redirect target is not allowed.' },
-  );
+  .refine(isAllowedRedirect, { message: 'That redirect target is not allowed.' });
 
 export const deviceRegistrationSchema = z.object({
   id: z.uuid(),
@@ -113,3 +132,40 @@ export const settingsPatchSchema = z.object({
   updates: z.record(z.string(), z.unknown()).optional(),
   syncEnabled: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// The Noto API's own identity routes (apps/api). GoTrue handled these before.
+// ---------------------------------------------------------------------------
+
+/** A mailed or refresh token: opaque, bounded, never parsed. */
+const opaqueToken = z.string().trim().min(16).max(512);
+
+export const refreshSchema = z.object({ refreshToken: opaqueToken });
+
+export const emailTokenSchema = z.object({ token: opaqueToken });
+
+export const emailOnlySchema = z.object({ email });
+
+export const passwordResetConfirmSchema = z.object({
+  token: opaqueToken,
+  newPassword: password,
+});
+
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(512),
+  newPassword: password,
+  signOutOtherDevices: z.boolean().default(true),
+});
+
+export const emailChangeSchema = z.object({
+  newEmail: email,
+  password: z.string().min(1).max(512),
+});
+
+export const profilePatchSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(80).optional(),
+    locale: z.string().trim().min(2).max(12).optional(),
+    marketingOptIn: z.boolean().optional(),
+  })
+  .strict();

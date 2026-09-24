@@ -5,6 +5,7 @@ import type {
   AuthSignUpDto,
   DeviceDto,
   DeviceRegistrationDto,
+  SessionDto,
   SettingsDto,
   UserDto,
 } from '@noto/types/api';
@@ -38,9 +39,17 @@ export interface AuthPort {
     password: string;
     displayName?: string;
     locale?: string;
+    marketingOptIn?: boolean;
   }): Promise<Result<AuthSignUpDto>>;
 
-  signIn(input: { email: string; password: string }): Promise<Result<AuthSessionDto>>;
+  signIn(input: {
+    email: string;
+    password: string;
+    /** The installation signing in. A server-side adapter binds the session to it. */
+    deviceId?: string;
+    /** Where the request came from, recorded on the session. Never used to decide anything. */
+    client?: ClientInfo;
+  }): Promise<Result<AuthSessionDto>>;
 
   signOut(): Promise<Result<void>>;
 
@@ -64,21 +73,31 @@ export interface AuthPort {
   }): Promise<Result<{ url: string }>>;
 }
 
-/** The `profiles` table. */
+/** The `profiles` table, or `users` on the Postgres backend. */
 export interface ProfilePort {
   get(userId: string): Promise<Result<UserDto>>;
-  update(
-    userId: string,
-    patch: { displayName?: string; avatarUrl?: string | null; locale?: string },
-  ): Promise<Result<UserDto>>;
+  update(userId: string, patch: ProfilePatch): Promise<Result<UserDto>>;
+}
+
+export interface ProfilePatch {
+  displayName?: string;
+  avatarUrl?: string | null;
+  locale?: string;
+  marketingOptIn?: boolean;
 }
 
 /** The `devices` table. */
 export interface DevicePort {
   list(userId: string): Promise<Result<DeviceDto[]>>;
-  /** Insert-or-update on the client-supplied id. */
+  /**
+   * Insert-or-update on the client-supplied id, scoped to its owner.
+   *
+   * Updates only a row that already belongs to `userId`. An id that belongs to
+   * a different user is refused with `conflict` and never reassigned.
+   */
   upsert(userId: string, device: DeviceRegistrationDto): Promise<Result<DeviceDto>>;
   touch(deviceId: string): Promise<Result<void>>;
+  /** Signs a device out. Where sessions are server-side, the device's sessions end with it. */
   revoke(userId: string, deviceId: string): Promise<Result<void>>;
 }
 
@@ -130,6 +149,87 @@ export interface TurnstilePort {
    * verifier is unreachable is exactly the moment an attacker waits for.
    */
   verify(token: string, remoteIp?: string): Promise<Result<boolean>>;
+}
+
+/** The request's origin, as the edge reported it. */
+export interface ClientInfo {
+  ip?: string;
+  userAgent?: string;
+}
+
+/** Who an access token belongs to, once it has been checked. */
+export interface CallerIdentity {
+  userId: string;
+  sessionId: string;
+  /** The installation the session was opened on, when the client said. */
+  deviceId: string | null;
+}
+
+/**
+ * Identity flows a server owns and a hosted provider used to.
+ *
+ * GoTrue did all of this out of sight. A server that owns identity has to say
+ * it out loud: checking an access token against a live session, the
+ * single-use tokens sent by mail, and ending sessions one at a time or all at
+ * once. Only the Postgres adapter implements it; no client ever holds one.
+ */
+export interface IdentityPort {
+  /**
+   * Checks an access token and that its session is still live.
+   *
+   * `null` for anything that is not a usable session — expired, revoked,
+   * forged or malformed. The caller answers 401 without saying which.
+   */
+  authenticate(accessToken: string): Promise<Result<CallerIdentity | null>>;
+
+  /** The user's live sessions, newest activity first. `isCurrent` is left false. */
+  listSessions(userId: string): Promise<Result<SessionDto[]>>;
+
+  /** Ends one of the user's sessions. `not_found` when it is not theirs. */
+  signOutSession(userId: string, sessionId: string): Promise<Result<void>>;
+
+  /** Ends every session the user has, on every device. */
+  signOutAll(userId: string): Promise<Result<void>>;
+
+  /** Whether `password` is the user's current password. */
+  verifyPassword(userId: string, password: string): Promise<Result<boolean>>;
+
+  /**
+   * Consumes a mailed token and applies it: marks the address verified, or
+   * moves the account to the new address.
+   *
+   * `not_found` for a token that is unknown, used or expired — one answer for
+   * all three, since the difference helps nobody but a guesser.
+   */
+  consumeEmailToken(
+    token: string,
+  ): Promise<Result<{ userId: string; kind: 'verify_email' | 'change_email' }>>;
+
+  /** Mails a fresh verification link if the address has an unverified account. */
+  resendVerification(email: string): Promise<Result<void>>;
+
+  /** Sets a new password from a reset token, and ends every session. */
+  resetPassword(token: string, newPassword: string): Promise<Result<{ userId: string }>>;
+
+  /**
+   * Sets a new password for a signed-in user.
+   *
+   * With `keepSessionId`, every other session ends and that one survives; with
+   * `null`, no session is touched.
+   */
+  changePassword(
+    userId: string,
+    newPassword: string,
+    keepSessionId: string | null,
+  ): Promise<Result<void>>;
+
+  /** Mails a confirmation link to the new address. The account moves only when it is followed. */
+  requestEmailChange(userId: string, newEmail: string): Promise<Result<void>>;
+}
+
+/** Transactional mail: verification, reset, and the notices that go with them. */
+export interface MailPort {
+  send(message: { to: string; subject: string; text: string; html: string }): Promise<Result<void>>;
 }
 
 /** Everything a service needs, assembled once at the composition root. */

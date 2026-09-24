@@ -216,6 +216,72 @@ jobs:
         if: ${{ always() }}
         run: rm -f "$RUNNER_TEMP/upload.keystore"
 
+      # The x86_64 APK runs on the CI emulator. It is uploaded on its own so
+      # the release, which collects `mobile-android`, never publishes it.
+      - name: Upload emulator APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-emulator
+          path: apps/mobile/android/app/build/outputs/apk/release/app-x86_64-release.apk
+          retention-days: 3
+          if-no-files-found: error
+
+  # Installs the built APK on an emulator and walks the Maestro smoke flow in
+  # `apps/mobile/.maestro`: the interface loads in the WebView, the SQL bridge
+  # answers, and a `noto://` link reaches the interface. A green Gradle build
+  # proves none of that.
+  android-smoke:
+    name: Android smoke test
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Download emulator APK
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-emulator
+          path: ${{ runner.temp }}/apk
+
+      # Hardware acceleration for the emulator; without it the boot alone
+      # outlasts the job.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the smoke flow
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r "${{ runner.temp }}/apk/app-x86_64-release.apk"
+            maestro test --format junit --output "${{ runner.temp }}/maestro.xml" apps/mobile/.maestro/smoke.yaml
+
+      - name: Upload smoke results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-smoke
+          path: |
+            ${{ runner.temp }}/maestro.xml
+            ~/.maestro/tests
+          retention-days: 7
+          if-no-files-found: ignore
+
   ios:
     name: iOS
     if: inputs.ios
@@ -238,6 +304,11 @@ jobs:
           else
             echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
+
+      # As on Android: `with-ios-webapp.cjs` copies the built interface into
+      # the application bundle during prebuild, and fails if it is not there.
+      - name: Build the interface
+        run: pnpm build --filter=@noto/mobile-webview...
 
       # Bounded and run from the package directory for the same reasons as the
       # Android step above.

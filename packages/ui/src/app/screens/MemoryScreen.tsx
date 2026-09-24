@@ -1,3 +1,4 @@
+import { contentFromPlainText, memoryStorageBytes } from '@noto/core';
 import type { MemoryItem, MemoryKind } from '@noto/types';
 import { useEffect, useMemo } from 'react';
 
@@ -7,9 +8,9 @@ import { Tabs } from '../../components/Tabs';
 import { showToast } from '../../components/toast-store';
 import { PinIcon } from '../../components/icons';
 import { SearchIllustration } from '../../components/illustrations';
-import { memoryStorageBytes } from '../../mock/memory';
 import { cn } from '../../utils/cn';
 import { formatBytes, isWithinDays } from '../../utils/format';
+import { useProgressiveList } from '../../components/use-progressive-list';
 import { PageContainer } from '../PageContainer';
 import { MemoryCard } from '../memory/MemoryCard';
 import { MEMORY_KINDS, MEMORY_KIND_ORDER } from '../memory/memory-kinds';
@@ -59,6 +60,7 @@ export function MemoryScreen({ kind }: MemoryScreenProps) {
   }, [routeKind, setQuery]);
 
   const active = memory.query.kind;
+  const shown = useProgressiveList(memory.results);
 
   const title =
     active === 'note'
@@ -241,35 +243,26 @@ export function MemoryScreen({ kind }: MemoryScreenProps) {
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-              {memory.results.map((item) => (
+              {shown.visible.map((item) => (
                 <MemoryCard
                   key={item.id}
                   item={item}
                   onCopy={() => copy(item)}
-                  onTogglePin={() => memory.togglePin(item)}
+                  onTogglePin={() => void memory.togglePin(item)}
                   onOpenInDocument={() =>
                     void actions
                       .importDocument({
                         title: item.title,
-                        content: {
-                          type: 'doc',
-                          content: item.content
-                            .split('\n')
-                            .map((line) =>
-                              line.trim() === ''
-                                ? { type: 'paragraph' }
-                                : { type: 'paragraph', content: [{ type: 'text', text: line }] },
-                            ),
-                        },
+                        content: contentFromPlainText(item.content),
                       })
                       .then(() => showToast('Saved as a document', { tone: 'success' }))
                   }
                   onDelete={() => {
-                    memory.remove(item.id);
-                    showToast('Removed from Memory');
+                    void memory.remove(item.id).then(() => showToast('Removed from Memory'));
                   }}
                 />
               ))}
+              {shown.sentinel}
             </div>
           </>
         )}

@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noto.app",
-      "buildNumber": "1004001"
+      "buildNumber": "1004001",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.noto.app",
@@ -38,9 +41,33 @@
         }
       ],
       "./plugins/with-android-webapp.cjs",
+      "./plugins/with-ios-webapp.cjs",
       "./plugins/with-android-release-signing.cjs",
       "./plugins/with-android-app-size.cjs",
-      "expo-sharing"
+      "./plugins/with-android-shortcuts.cjs",
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["text/plain"]
+          },
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1
+            }
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Noto uses Face ID to unlock your notes when you turn on the lock."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

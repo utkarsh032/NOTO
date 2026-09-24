@@ -1,5 +1,11 @@
 import type { NotoDocument } from '@noto/types';
-import { documentToHtml, setDownloadHandler, setPrintHandler } from '@noto/ui';
+import {
+  documentToHtml,
+  setAppLockControl,
+  setDownloadHandler,
+  setPrintHandler,
+  type AppLockState,
+} from '@noto/ui';
 
 import { onNativeEvent, requestFromNative, type BridgeInsets } from './bridge';
 
@@ -41,13 +47,33 @@ export function installNativeHandlers(): () => void {
   });
 
   setDownloadHandler(async ({ fileName, contents, mimeType }) => {
-    await requestFromNative<void>('file.save', { fileName, contents, mimeType });
+    // The bridge carries JSON, so a binary format (DOCX) travels as base64.
+    const payload =
+      typeof contents === 'string'
+        ? { fileName, contents, mimeType }
+        : { fileName, contents: toBase64(contents), mimeType, encoding: 'base64' as const };
+
+    await requestFromNative<void>('file.save', payload);
   });
 
   return () => {
     setPrintHandler(null);
     setDownloadHandler(null);
   };
+}
+
+/**
+ * Gives Settings the switch for the app lock, which the native side enforces.
+ *
+ * Installed before the first render, not in an effect: a screen's effects run
+ * before its parent's, so Settings opened straight from a link would otherwise
+ * ask before there was anything to ask.
+ */
+export function installAppLockControl(): void {
+  setAppLockControl({
+    describe: () => requestFromNative<AppLockState>('lock.describe'),
+    setEnabled: (enabled) => requestFromNative<AppLockState>('lock.set', { enabled }),
+  });
 }
 
 /**
@@ -68,4 +94,13 @@ export function installSafeAreaInsets(): () => void {
   };
 
   return onNativeEvent<BridgeInsets>('insets', apply);
+}
+
+/** Bytes as base64, in chunks so a large file does not overflow the argument list. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
 }

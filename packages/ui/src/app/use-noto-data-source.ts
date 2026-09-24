@@ -2,13 +2,13 @@ import {
   createDocument as buildDocument,
   deleteDocument as applyDelete,
   restoreDocument as applyRestore,
-  updateDocument as applyUpdate,
 } from '@noto/core';
 import type { NotoDatabase } from '@noto/database';
 import type { NotoDocument, UpdateDocumentInput, Workspace } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { NotoDataValue } from './data-context';
+import type { DocumentInitial, NotoDataValue } from './data-context';
+import { writeDocumentUpdate } from './document-writes';
 
 export interface NotoDataSourceOptions {
   /**
@@ -30,6 +30,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
   const [status, setStatus] = useState<NotoDataValue['status']>('loading');
   const [error, setError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [database, setDatabase] = useState<NotoDatabase | null>(null);
   const [documents, setDocuments] = useState<NotoDocument[] | undefined>(undefined);
   const [trashedDocuments, setTrashed] = useState<NotoDocument[] | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       .then(({ database, workspace: opened }) => {
         if (cancelled) return;
         databaseRef.current = database;
+        setDatabase(database);
         setWorkspace(opened);
         setStatus('ready');
       })
@@ -85,27 +87,27 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
     };
   }, [workspace, revision]);
 
-  const createDocument = useCallback(async () => {
-    const database = databaseRef.current;
-    if (!database || !workspace) return null;
+  const createDocument = useCallback(
+    async (initial: DocumentInitial = {}) => {
+      const database = databaseRef.current;
+      if (!database || !workspace) return null;
 
-    const document = buildDocument({ workspaceId: workspace.id });
-    await database.documents.put(document);
+      const document = buildDocument({ ...initial, workspaceId: workspace.id });
+      await database.documents.put(document);
 
-    setSelectedId(document.id);
-    setRevision((value) => value + 1);
+      setSelectedId(document.id);
+      setRevision((value) => value + 1);
 
-    return document.id;
-  }, [workspace]);
+      return document.id;
+    },
+    [workspace],
+  );
 
   const updateDocument = useCallback(async (id: string, patch: UpdateDocumentInput) => {
     const database = databaseRef.current;
     if (!database) return;
 
-    const existing = await database.documents.get(id);
-    if (!existing) return;
-
-    await database.documents.put(applyUpdate(existing, patch));
+    await writeDocumentUpdate(database, id, patch);
     setRevision((value) => value + 1);
   }, []);
 
@@ -165,6 +167,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       status,
       error,
       workspace,
+      database,
       documents,
       trashedDocuments,
       activeDocument,
@@ -179,6 +182,7 @@ export function useNotoDataSource({ open }: NotoDataSourceOptions): NotoDataValu
       status,
       error,
       workspace,
+      database,
       documents,
       trashedDocuments,
       activeDocument,

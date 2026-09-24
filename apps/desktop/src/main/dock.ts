@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { BrowserWindow, app, ipcMain, screen } from 'electron';
+import { BrowserWindow, app, screen } from 'electron';
 
 import { DOCK_CHANNELS, type DockPlacementReport } from '../shared/channels';
+import { handleTrusted } from './security';
 
 /**
  * The Quick Note dock.
@@ -469,30 +470,30 @@ function endDrag(): boolean {
 /* -------------------------------------------------------------------------- */
 
 function registerDockHandlers(): void {
-  ipcMain.handle(DOCK_CHANNELS.setExpanded, (_event, next: boolean) => {
+  handleTrusted(DOCK_CHANNELS.setExpanded, (_event, next: boolean) => {
     /* Growing into the panel is a request to type into it, which is exactly
        what `openDockPanel` does; shrinking is the one collapse path. */
     if (next === true) openDockPanel();
     else collapseDock();
   });
 
-  ipcMain.handle(DOCK_CHANNELS.setSide, (_event, side: DockSide) => {
+  handleTrusted(DOCK_CHANNELS.setSide, (_event, side: DockSide) => {
     state.side = side === 'left' ? 'left' : 'right';
     applyBounds();
     publishPlacement();
     writeState();
   });
 
-  ipcMain.handle(DOCK_CHANNELS.dragStart, () => startDrag());
+  handleTrusted(DOCK_CHANNELS.dragStart, () => startDrag());
   /* The answer is what the renderer tells a click from a drag by. */
-  ipcMain.handle(DOCK_CHANNELS.dragEnd, () => endDrag());
+  handleTrusted(DOCK_CHANNELS.dragEnd, () => endDrag());
 
-  ipcMain.handle(DOCK_CHANNELS.openApp, (_event, commandId?: string, argument?: string) => {
+  handleTrusted(DOCK_CHANNELS.openApp, (_event, commandId?: string, argument?: string) => {
     openApplication(commandId, argument);
     hideDock();
   });
 
-  ipcMain.handle(DOCK_CHANNELS.hide, () => {
+  handleTrusted(DOCK_CHANNELS.hide, () => {
     /* Dismissing the dock by hand turns the pin off; otherwise it would come
        straight back and look broken. */
     state.pinned = false;

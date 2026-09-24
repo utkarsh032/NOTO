@@ -1,4 +1,4 @@
-import { ok } from '@noto/core';
+import { err, ok } from '@noto/core';
 import type { Result } from '@noto/types';
 import type {
   AuthEventDto,
@@ -258,29 +258,58 @@ export class SupabaseDeviceAdapter implements DevicePort {
     return ok(data.map(toDeviceDto));
   }
 
+  /**
+   * Registers a device for its owner, and only for its owner.
+   *
+   * The id arrives from the client, and sign-in runs this with the service
+   * client, which RLS does not restrict. An `upsert` on the id alone therefore let
+   * anybody who knew or guessed another person's device id take that row over:
+   * move it to their own account and un-revoke it. So it is two statements, each
+   * of which is safe by itself:
+   *
+   * 1. update the row only where it already belongs to this user;
+   * 2. otherwise insert — and a primary-key collision now means the id belongs
+   *    to somebody else, which is refused rather than overwritten.
+   */
   async upsert(userId: string, device: DeviceRegistrationDto): Promise<Result<DeviceDto>> {
-    const { data, error } = await this.client
+    const fields = {
+      name: device.name,
+      platform: device.platform,
+      os_name: device.osName,
+      app_version: device.appVersion,
+      last_active_at: new Date().toISOString(),
+      // Signing in again on a revoked device un-revokes it: the person proved
+      // they own the account, which is what revocation was testing. Only ever
+      // for the device's own owner — the filter below is what makes that true.
+      revoked_at: null,
+    };
+
+    const updated = await this.client
       .from('devices')
-      .upsert(
-        {
-          id: device.id,
-          user_id: userId,
-          name: device.name,
-          platform: device.platform,
-          os_name: device.osName,
-          app_version: device.appVersion,
-          last_active_at: new Date().toISOString(),
-          // Signing in again on a revoked device un-revokes it: the person
-          // proved they own the account, which is what revocation was testing.
-          revoked_at: null,
-        },
-        { onConflict: 'id' },
-      )
+      .update(fields)
+      .eq('id', device.id)
+      .eq('user_id', userId)
+      .select(SupabaseDeviceAdapter.COLUMNS)
+      .maybeSingle<DeviceRow>();
+
+    if (updated.error) return fromProviderError(updated.error, 'Registering this device');
+    if (updated.data) return ok(toDeviceDto(updated.data));
+
+    const inserted = await this.client
+      .from('devices')
+      .insert({ id: device.id, user_id: userId, ...fields })
       .select(SupabaseDeviceAdapter.COLUMNS)
       .single<DeviceRow>();
 
-    if (error) return fromProviderError(error, 'Registering this device');
-    return ok(toDeviceDto(data));
+    if (inserted.error) {
+      if (inserted.error.code === '23505') {
+        return err('conflict', 'Registering this device: that device id is already in use.');
+      }
+
+      return fromProviderError(inserted.error, 'Registering this device');
+    }
+
+    return ok(toDeviceDto(inserted.data));
   }
 
   async touch(deviceId: string): Promise<Result<void>> {

@@ -47,8 +47,19 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
+      # apps/api's integration tests run against a real PostgreSQL: the one
+      # preinstalled on the runner, started as a service. No container — see
+      # docs/development/database.md. Each test file creates and drops its own
+      # database through this superuser URL.
+      - name: Start PostgreSQL
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -c "alter user postgres password 'postgres';"
+
+      - name: Unit and integration tests
         run: pnpm test
+        env:
+          NOTO_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
   build:
     name: Build

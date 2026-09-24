@@ -5,3 +5,4 @@ export * from './invisibles';
 export * from './keymap';
 export * from './search';
 export * from './urls';
+export * from './html-import';

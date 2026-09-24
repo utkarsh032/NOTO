@@ -9,6 +9,7 @@ import {
   ArrowRightIcon,
   ClipboardIcon,
   CloseIcon,
+  CheckIcon,
   DocumentIcon,
   GripIcon,
   MaximizeIcon,
@@ -37,7 +38,7 @@ export interface DockPanelProps {
   onClose(): void;
   /** Moves the dock to the other edge. */
   onFlipSide(): void;
-  /** Turns the current draft into a document. The panel clears it on success. */
+  /** Keeps the current draft as a quick note. The panel clears it on success. */
   onSave(text: string): Promise<void> | void;
   /** Brings the full application forward — a window on desktop, a route on the web. */
   onOpenNoto(): void;
@@ -133,7 +134,10 @@ export function DockPanel(props: DockPanelProps) {
     const value = draft.trim();
     if (value === '') return;
 
-    void Promise.resolve(onSave(value)).then(() => writeQuickNoteDraft(''));
+    // Cleared only if nothing new was typed while the save ran.
+    void Promise.resolve(onSave(value)).then(() => {
+      if (readQuickNoteDraft().trim() === value) writeQuickNoteDraft('');
+    });
   };
 
   const FlipGlyph = side === 'right' ? ArrowLeftIcon : ArrowRightIcon;
@@ -214,9 +218,9 @@ export function DockPanel(props: DockPanelProps) {
           className="w-full"
           disabled={draft.trim() === ''}
           onClick={save}
-          leading={<DocumentIcon className="h-4 w-4" />}
+          leading={<CheckIcon className="h-4 w-4" />}
         >
-          Save as document
+          Keep note
         </Button>
 
         <div className="mt-3 grid grid-cols-4 gap-1.5">

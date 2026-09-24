@@ -1,11 +1,21 @@
-import { normalizeSearchQuery } from '../query';
+import { hashContent } from '@noto/core';
+import type { Id, NotoDocument, SyncEntityKind, SyncOperation, SyncRecord } from '@noto/types';
+
+import { nextOutboxOperation, normalizeSearchQuery } from '../query';
 import type {
+  ApplyRemoteOptions,
   DocumentRepository,
   FileRepository,
   FolderRepository,
   ListDocumentsOptions,
+  ListMemoryOptions,
   ListOptions,
+  LocalStateRepository,
+  MemoryRepository,
   NotoDatabase,
+  OutboxRepository,
+  SyncRepository,
+  VersionRepository,
   WorkspaceRepository,
 } from '../types';
 import type { SqlDriver, SqlValue } from './driver';
@@ -13,28 +23,142 @@ import {
   type DocumentRow,
   type FileRow,
   type FolderRow,
+  type MemoryRow,
+  type OutboxRow,
+  type VersionRow,
   type WorkspaceRow,
   fromDocument,
   fromFile,
   fromFolder,
+  fromMemoryItem,
+  fromVersion,
   fromWorkspace,
   toDocument,
   toFile,
   toFolder,
+  toMemoryItem,
+  toOutboxEntry,
+  toVersion,
   toWorkspace,
 } from './rows';
 import { TABLES_IN_DELETE_ORDER, migrate } from './schema';
 
-const WORKSPACE_COLUMNS = 'id, name, owner_id, is_local, icon, created_at, updated_at, deleted_at';
-const FOLDER_COLUMNS =
-  'id, workspace_id, parent_id, name, position, color, icon, created_at, updated_at, deleted_at';
-const DOCUMENT_COLUMNS =
-  'id, workspace_id, folder_id, title, content, status, excerpt, word_count, is_favorite, tags, created_at, updated_at, deleted_at';
-const FILE_COLUMNS =
-  'id, workspace_id, document_id, name, mime_type, size, local_path, remote_url, checksum, created_at, updated_at, deleted_at';
+/*
+ * Column lists, in the order the `from*` mappers produce values. `version` is
+ * not among them: storage computes it, so it is appended by `saveEntity`.
+ */
+const WORKSPACE_FIELDS = [
+  'id',
+  'name',
+  'owner_id',
+  'is_local',
+  'icon',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+];
+const FOLDER_FIELDS = [
+  'id',
+  'workspace_id',
+  'parent_id',
+  'name',
+  'position',
+  'color',
+  'icon',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+];
+const DOCUMENT_FIELDS = [
+  'id',
+  'workspace_id',
+  'folder_id',
+  'title',
+  'content',
+  'status',
+  'excerpt',
+  'word_count',
+  'is_favorite',
+  'tags',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+];
+const FILE_FIELDS = [
+  'id',
+  'workspace_id',
+  'document_id',
+  'name',
+  'mime_type',
+  'size',
+  'local_path',
+  'remote_url',
+  'checksum',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+];
+const MEMORY_FIELDS = [
+  'id',
+  'workspace_id',
+  'kind',
+  'title',
+  'content',
+  'source',
+  'url',
+  'tags',
+  'is_pinned',
+  'size_bytes',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+];
+const VERSION_FIELDS = [
+  'id',
+  'document_id',
+  'workspace_id',
+  'title',
+  'content',
+  'word_count',
+  'content_hash',
+  'origin',
+  'summary',
+  'created_at',
+];
+
+const WORKSPACE_COLUMNS = [...WORKSPACE_FIELDS, 'version'].join(', ');
+const FOLDER_COLUMNS = [...FOLDER_FIELDS, 'version'].join(', ');
+const DOCUMENT_COLUMNS = [...DOCUMENT_FIELDS, 'version', 'content_hash'].join(', ');
+const FILE_COLUMNS = [...FILE_FIELDS, 'version'].join(', ');
+const MEMORY_COLUMNS = [...MEMORY_FIELDS, 'version'].join(', ');
+const VERSION_COLUMNS = VERSION_FIELDS.join(', ');
+
+/** A save made on this device, as opposed to one that came from the server. */
+const LOCAL = null;
+
+type EntityTable = 'workspaces' | 'folders' | 'documents' | 'files' | 'memory_items';
 
 function placeholders(count: number): string {
   return Array.from({ length: count }, () => '?').join(', ');
+}
+
+/**
+ * An upsert, not `INSERT OR REPLACE`.
+ *
+ * With foreign keys on, REPLACE resolves a conflict by deleting the old row
+ * first — and that delete cascades. Saving a document would quietly take its
+ * files, versions and tag index with it.
+ */
+function upsertSql(table: string, columns: readonly string[]): string {
+  const updates = columns
+    .filter((column) => column !== 'id')
+    .map((column) => `${column} = excluded.${column}`)
+    .join(', ');
+
+  return (
+    `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders(columns.length)})` +
+    ` ON CONFLICT(id) DO UPDATE SET ${updates}`
+  );
 }
 
 /** Appends `LIMIT`/`OFFSET` only when asked, so unbounded queries stay unbounded. */
@@ -64,6 +188,28 @@ function documentOrderClause(orderBy: ListDocumentsOptions['orderBy']): string {
   }
 }
 
+/** A LIKE pattern for a normalised needle, with its own wildcards escaped. */
+function likePattern(needle: string): string {
+  return `%${needle.replace(/[%_\\]/gu, (match) => `\\${match}`)}%`;
+}
+
+function memoryConditions(
+  workspaceId: Id,
+  options: ListMemoryOptions | undefined,
+): { where: string; params: SqlValue[] } {
+  const conditions = ['workspace_id = ?'];
+  const params: SqlValue[] = [workspaceId];
+
+  if (options?.kind !== undefined) {
+    conditions.push('kind = ?');
+    params.push(options.kind);
+  }
+  if (options?.pinnedOnly) conditions.push('is_pinned = 1');
+  if (!options?.includeDeleted) conditions.push('deleted_at IS NULL');
+
+  return { where: conditions.join(' AND '), params };
+}
+
 /**
  * SQLite-backed storage for the desktop and mobile applications.
  *
@@ -72,6 +218,151 @@ function documentOrderClause(orderBy: ListDocumentsOptions['orderBy']): string {
  */
 export class SqliteDatabase implements NotoDatabase {
   constructor(private readonly driver: SqlDriver) {}
+
+  /**
+   * Every save of a syncable entity: the row, its version, and either its
+   * outbox entry (a local save) or its base version (a save from the server),
+   * in one transaction so they cannot disagree.
+   */
+  private async saveEntity(
+    kind: SyncEntityKind,
+    table: EntityTable,
+    fields: readonly string[],
+    values: SqlValue[],
+    deleted: boolean,
+    remote: ApplyRemoteOptions | null,
+    extra: { columns: readonly string[]; values: SqlValue[] } = { columns: [], values: [] },
+  ): Promise<boolean> {
+    const id = values[0] as string;
+
+    return this.driver.transaction(async () => {
+      const [state] = await this.driver.select<{
+        version: number | null;
+        operation: SyncOperation | null;
+      }>(
+        `SELECT (SELECT version FROM ${table} WHERE id = ?) AS version,` +
+          ` (SELECT operation FROM outbox WHERE entity_kind = ? AND entity_id = ?) AS operation`,
+        [id, kind, id],
+      );
+
+      const previousVersion = state?.version ?? null;
+
+      if (remote?.expectedVersion !== undefined && previousVersion !== remote.expectedVersion) {
+        return false;
+      }
+
+      await this.driver.execute(upsertSql(table, [...fields, 'version', ...extra.columns]), [
+        ...values,
+        (previousVersion ?? 0) + 1,
+        ...extra.values,
+      ]);
+
+      if (remote) {
+        await this.setBase(kind, id, remote.baseVersion);
+        if (remote.dequeue) {
+          await this.driver.execute('DELETE FROM outbox WHERE entity_kind = ? AND entity_id = ?', [
+            kind,
+            id,
+          ]);
+        }
+        return true;
+      }
+
+      await this.driver.execute(
+        `INSERT INTO outbox (entity_kind, entity_id, operation, seq, queued_at)` +
+          ` VALUES (?, ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM outbox), ?)` +
+          ` ON CONFLICT(entity_kind, entity_id) DO UPDATE SET` +
+          ` operation = excluded.operation, seq = excluded.seq, queued_at = excluded.queued_at`,
+        [
+          kind,
+          id,
+          nextOutboxOperation(state?.operation ?? undefined, previousVersion !== null, deleted),
+          new Date().toISOString(),
+        ],
+      );
+      return true;
+    });
+  }
+
+  private async setBase(kind: SyncEntityKind, id: Id, version: number): Promise<void> {
+    await this.driver.execute(
+      'INSERT INTO sync_base (entity_kind, entity_id, base_version) VALUES (?, ?, ?)' +
+        ' ON CONFLICT(entity_kind, entity_id) DO UPDATE SET base_version = excluded.base_version',
+      [kind, id, version],
+    );
+  }
+
+  private write(record: SyncRecord, remote: ApplyRemoteOptions | null = LOCAL): Promise<boolean> {
+    switch (record.kind) {
+      case 'workspace':
+        return this.saveEntity(
+          'workspace',
+          'workspaces',
+          WORKSPACE_FIELDS,
+          fromWorkspace(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'folder':
+        return this.saveEntity(
+          'folder',
+          'folders',
+          FOLDER_FIELDS,
+          fromFolder(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'document':
+        return this.writeDocument(record.entity, remote);
+      case 'file':
+        return this.saveEntity(
+          'file',
+          'files',
+          FILE_FIELDS,
+          fromFile(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+      case 'memory':
+        return this.saveEntity(
+          'memory',
+          'memory_items',
+          MEMORY_FIELDS,
+          fromMemoryItem(record.entity),
+          record.entity.deletedAt !== null,
+          remote,
+        );
+    }
+  }
+
+  private writeDocument(
+    document: NotoDocument,
+    remote: ApplyRemoteOptions | null,
+  ): Promise<boolean> {
+    return this.driver.transaction(async () => {
+      const written = await this.saveEntity(
+        'document',
+        'documents',
+        DOCUMENT_FIELDS,
+        fromDocument(document),
+        document.deletedAt !== null,
+        remote,
+        { columns: ['content_hash'], values: [hashContent(document.content)] },
+      );
+      if (!written) return false;
+
+      // The tag index follows the row. Rebuilt rather than diffed: a
+      // document has a handful of tags, and rebuilding cannot drift.
+      await this.driver.execute('DELETE FROM document_tags WHERE document_id = ?', [document.id]);
+      for (const tag of new Set(document.tags)) {
+        await this.driver.execute('INSERT INTO document_tags (document_id, tag) VALUES (?, ?)', [
+          document.id,
+          tag,
+        ]);
+      }
+      return true;
+    });
+  }
 
   readonly workspaces: WorkspaceRepository = {
     get: async (id) => {
@@ -94,10 +385,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (workspace) => {
-      await this.driver.execute(
-        `INSERT OR REPLACE INTO workspaces (${WORKSPACE_COLUMNS}) VALUES (${placeholders(8)})`,
-        fromWorkspace(workspace),
-      );
+      await this.write({ kind: 'workspace', entity: workspace });
     },
 
     purge: async (id) => {
@@ -126,10 +414,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (folder) => {
-      await this.driver.execute(
-        `INSERT OR REPLACE INTO folders (${FOLDER_COLUMNS}) VALUES (${placeholders(10)})`,
-        fromFolder(folder),
-      );
+      await this.write({ kind: 'folder', entity: folder });
     },
 
     putMany: async (folders) => {
@@ -174,6 +459,10 @@ export class SqliteDatabase implements NotoDatabase {
       if (options?.favoritesOnly) {
         conditions.push('is_favorite = 1');
       }
+      if (options?.tag !== undefined) {
+        conditions.push('id IN (SELECT document_id FROM document_tags WHERE tag = ?)');
+        params.push(options.tag);
+      }
       if (!options?.includeDeleted) {
         conditions.push('deleted_at IS NULL');
       }
@@ -189,10 +478,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (document) => {
-      await this.driver.execute(
-        `INSERT OR REPLACE INTO documents (${DOCUMENT_COLUMNS}) VALUES (${placeholders(13)})`,
-        fromDocument(document),
-      );
+      await this.write({ kind: 'document', entity: document });
     },
 
     putMany: async (documents) => {
@@ -215,7 +501,7 @@ export class SqliteDatabase implements NotoDatabase {
 
       const page = paginationClause(options);
       // LIKE is case-insensitive for ASCII in SQLite; the wildcards are bound, not interpolated.
-      const pattern = `%${needle.replace(/[%_]/gu, (match) => `\\${match}`)}%`;
+      const pattern = likePattern(needle);
 
       const rows = await this.driver.select<DocumentRow>(
         `SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE workspace_id = ?` +
@@ -234,6 +520,15 @@ export class SqliteDatabase implements NotoDatabase {
       );
       return rows[0]?.count ?? 0;
     },
+
+    listTags: async (workspaceId) =>
+      this.driver.select<{ tag: string; count: number }>(
+        'SELECT t.tag AS tag, COUNT(*) AS count FROM document_tags t' +
+          ' JOIN documents d ON d.id = t.document_id' +
+          ' WHERE d.workspace_id = ? AND d.deleted_at IS NULL' +
+          ' GROUP BY t.tag ORDER BY count DESC, t.tag ASC',
+        [workspaceId],
+      ),
   };
 
   readonly files: FileRepository = {
@@ -257,10 +552,7 @@ export class SqliteDatabase implements NotoDatabase {
     },
 
     put: async (file) => {
-      await this.driver.execute(
-        `INSERT OR REPLACE INTO files (${FILE_COLUMNS}) VALUES (${placeholders(12)})`,
-        fromFile(file),
-      );
+      await this.write({ kind: 'file', entity: file });
     },
 
     purge: async (id) => {
@@ -268,11 +560,210 @@ export class SqliteDatabase implements NotoDatabase {
     },
   };
 
-  async open(): Promise<void> {
-    await migrate(this.driver);
+  readonly memory: MemoryRepository = {
+    get: async (id) => {
+      const rows = await this.driver.select<MemoryRow>(
+        `SELECT ${MEMORY_COLUMNS} FROM memory_items WHERE id = ?`,
+        [id],
+      );
+      const row = rows[0];
+      return row ? toMemoryItem(row) : null;
+    },
+
+    listByWorkspace: async (workspaceId, options) => {
+      const { where, params } = memoryConditions(workspaceId, options);
+      const page = paginationClause(options);
+      const rows = await this.driver.select<MemoryRow>(
+        `SELECT ${MEMORY_COLUMNS} FROM memory_items WHERE ${where}` +
+          ` ORDER BY updated_at DESC, id ASC${page.sql}`,
+        [...params, ...page.params],
+      );
+      return rows.map(toMemoryItem);
+    },
+
+    put: async (item) => {
+      await this.write({ kind: 'memory', entity: item });
+    },
+
+    putMany: async (items) => {
+      await this.driver.transaction(async () => {
+        for (const item of items) await this.memory.put(item);
+      });
+    },
+
+    purge: async (id) => {
+      await this.driver.execute('DELETE FROM memory_items WHERE id = ?', [id]);
+    },
+
+    search: async (workspaceId, query, options) => {
+      const needle = normalizeSearchQuery(query);
+      if (needle === '') return this.memory.listByWorkspace(workspaceId, options);
+
+      const { where, params } = memoryConditions(workspaceId, options);
+      const pattern = likePattern(needle);
+      const page = paginationClause(options);
+
+      const rows = await this.driver.select<MemoryRow>(
+        `SELECT ${MEMORY_COLUMNS} FROM memory_items WHERE ${where}` +
+          ` AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\'` +
+          ` OR source LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')` +
+          ` ORDER BY updated_at DESC, id ASC${page.sql}`,
+        [...params, pattern, pattern, pattern, pattern, ...page.params],
+      );
+      return rows.map(toMemoryItem);
+    },
+  };
+
+  readonly versions: VersionRepository = {
+    get: async (id) => {
+      const rows = await this.driver.select<VersionRow>(
+        `SELECT ${VERSION_COLUMNS} FROM document_versions WHERE id = ?`,
+        [id],
+      );
+      const row = rows[0];
+      return row ? toVersion(row) : null;
+    },
+
+    listByDocument: async (documentId, options) => {
+      const page = paginationClause(options?.limit === undefined ? {} : { limit: options.limit });
+      const rows = await this.driver.select<VersionRow>(
+        `SELECT ${VERSION_COLUMNS} FROM document_versions WHERE document_id = ?` +
+          ` ORDER BY created_at DESC, id DESC${page.sql}`,
+        [documentId, ...page.params],
+      );
+      return rows.map(toVersion);
+    },
+
+    add: async (version) => {
+      await this.driver.execute(
+        `INSERT INTO document_versions (${VERSION_COLUMNS}) VALUES (${placeholders(VERSION_FIELDS.length)})`,
+        fromVersion(version),
+      );
+    },
+
+    prune: async (documentId, keep) => {
+      await this.driver.execute(
+        'DELETE FROM document_versions WHERE document_id = ? AND id NOT IN' +
+          ' (SELECT id FROM document_versions WHERE document_id = ?' +
+          ' ORDER BY created_at DESC, id DESC LIMIT ?)',
+        [documentId, documentId, Math.max(0, keep)],
+      );
+    },
+
+    purgeByDocument: async (documentId) => {
+      await this.driver.execute('DELETE FROM document_versions WHERE document_id = ?', [
+        documentId,
+      ]);
+    },
+  };
+
+  readonly outbox: OutboxRepository = {
+    list: async (limit) => {
+      const page = paginationClause(limit === undefined ? {} : { limit });
+      const rows = await this.driver.select<OutboxRow>(
+        `SELECT entity_kind, entity_id, operation, seq, queued_at FROM outbox ORDER BY seq ASC${page.sql}`,
+        page.params,
+      );
+      return rows.map(toOutboxEntry);
+    },
+
+    count: async () => {
+      const rows = await this.driver.select<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM outbox',
+      );
+      return rows[0]?.count ?? 0;
+    },
+
+    acknowledge: async (entries) => {
+      await this.driver.transaction(async () => {
+        for (const entry of entries) {
+          await this.driver.execute(
+            'DELETE FROM outbox WHERE entity_kind = ? AND entity_id = ? AND seq = ?',
+            [entry.entityKind, entry.entityId, entry.seq],
+          );
+        }
+      });
+    },
+
+    clear: async () => {
+      await this.driver.execute('DELETE FROM outbox');
+    },
+  };
+
+  readonly sync: SyncRepository = {
+    baseVersion: async (kind, id) => {
+      const rows = await this.driver.select<{ base_version: number }>(
+        'SELECT base_version FROM sync_base WHERE entity_kind = ? AND entity_id = ?',
+        [kind, id],
+      );
+      return rows[0]?.base_version ?? 0;
+    },
+
+    setBaseVersion: (kind, id, version) => this.setBase(kind, id, version),
+
+    applyRemote: (record, options) => this.write(record, options),
+  };
+
+  readonly localState: LocalStateRepository = {
+    get: async <T>(key: string) => {
+      const rows = await this.driver.select<{ value: string }>(
+        'SELECT value FROM local_state WHERE key = ?',
+        [key],
+      );
+      const row = rows[0];
+      if (!row) return null;
+
+      try {
+        return JSON.parse(row.value) as T;
+      } catch {
+        return null;
+      }
+    },
+
+    set: async (key, value) => {
+      await this.driver.execute(
+        'INSERT INTO local_state (key, value, updated_at) VALUES (?, ?, ?)' +
+          ' ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        [key, JSON.stringify(value), new Date().toISOString()],
+      );
+    },
+
+    delete: async (key) => {
+      await this.driver.execute('DELETE FROM local_state WHERE key = ?', [key]);
+    },
+
+    keys: async (prefix) => {
+      // An exact prefix: LIKE would be case-insensitive here.
+      const rows = await this.driver.select<{ key: string }>(
+        'SELECT key FROM local_state WHERE substr(key, 1, ?) = ? ORDER BY key',
+        [prefix.length, prefix],
+      );
+      return rows.map((row) => row.key);
+    },
+  };
+
+  /**
+   * The migration in flight, shared by every caller.
+   *
+   * Two opens at once are real: React's StrictMode runs the effect that opens
+   * the store twice in development. Over one connection the two migrations
+   * interleave — the second joins the first's transaction and adds a column
+   * the first has just added — and a brand-new database fails to open at all.
+   */
+  private opening: Promise<void> | null = null;
+
+  open(): Promise<void> {
+    this.opening ??= migrate(this.driver).catch((cause: unknown) => {
+      // A failed open may be retried; only a successful one is remembered.
+      this.opening = null;
+      throw cause;
+    });
+
+    return this.opening;
   }
 
   async close(): Promise<void> {
+    this.opening = null;
     await this.driver.close();
   }
 

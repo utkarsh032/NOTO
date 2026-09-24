@@ -16,13 +16,21 @@ import {
 } from './dock';
 import { registerFileHandlers } from './files';
 import { registerShellHandlers, registerSqlHandlers, registerUpdateHandlers } from './ipc';
+import { queueCommandLine, queueFiles, queueLink, registerLaunchHandlers } from './launch';
+import { installApplicationMenu } from './menu';
+import { claimLinkScheme, handleSquirrelEvent } from './os-integration';
+import { installWindowGuards } from './security';
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts';
 import { closeConnection, openConnection } from './sqlite';
 import { initialiseUpdates } from './updater';
 
 // The Windows Squirrel installer launches the app to create shortcuts; quit
-// immediately in that case rather than flashing a window at the user.
-if (squirrelStartup) app.quit();
+// immediately in that case rather than flashing a window at the user. Noto's
+// own part — the "Open with" entries and `noto://` — is written first.
+if (squirrelStartup) {
+  handleSquirrelEvent(process.argv);
+  app.quit();
+}
 
 // Injected by @electron-forge/plugin-vite.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -60,6 +68,12 @@ let tray: Tray | null = null;
  * find the first one instead of starting a rival copy on the same database.
  */
 if (!app.requestSingleInstanceLock()) app.quit();
+
+/*
+ * Before any window exists: no window opens another, and none navigates away
+ * from Noto's own renderer. See `security.ts`.
+ */
+installWindowGuards();
 
 /* -------------------------------------------------------------------------- */
 /* Windows                                                                    */
@@ -278,7 +292,31 @@ function toggleDock(): void {
 /* Lifecycle                                                                  */
 /* -------------------------------------------------------------------------- */
 
-app.on('second-instance', () => openApplication());
+/*
+ * A second launch is usually a request: a file double-clicked in Explorer or a
+ * `noto://` link, handed to this copy on the other one's command line.
+ */
+app.on('second-instance', (_event, argv, workingDirectory) => {
+  queueCommandLine(argv, workingDirectory);
+  openApplication();
+});
+
+/*
+ * macOS says the same things with events instead, and can say them before the
+ * application is ready — a file double-clicked while Noto is closed arrives
+ * here first. Queued either way; the window is only touched once it can be.
+ */
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  void queueFiles([filePath]);
+  if (app.isReady()) openApplication();
+});
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  queueLink(url);
+  if (app.isReady()) openApplication();
+});
 
 void app.whenReady().then(() => {
   openConnection(app.getPath('userData'));
@@ -286,6 +324,11 @@ void app.whenReady().then(() => {
   registerShellHandlers();
   registerFileHandlers();
   registerUpdateHandlers();
+  registerLaunchHandlers(() => mainWindow);
+
+  // Whatever this launch was asked to open. The window takes it once it is up.
+  queueCommandLine(process.argv, process.cwd());
+  claimLinkScheme();
 
   initialiseDock({
     load: loadDockWindow,
@@ -299,10 +342,20 @@ void app.whenReady().then(() => {
   createTray();
   initialiseUpdates();
 
-  registerGlobalShortcuts({
+  const mainProcessCommands = {
     'app.quickNote': quickNote,
     'app.quickPaste': quickPaste,
     'app.toggleDock': toggleDock,
+  };
+
+  registerGlobalShortcuts(mainProcessCommands);
+
+  installApplicationMenu({
+    run: (commandId) => {
+      openApplication();
+      sendCommand(commandId);
+    },
+    overrides: mainProcessCommands,
   });
 
   // The dock was pinned when Noto last shut down; put it back out.
