@@ -1,6 +1,6 @@
 import { clampZoom, useSettingsStore } from '@noto/core';
 import { recordVersion } from '@noto/database';
-import { setShowInvisibles, toEditorContent } from '@noto/editor';
+import { runEditorAction, setShowInvisibles, toEditorContent } from '@noto/editor';
 import { NotoEditorContent, useNotoEditor } from '@noto/editor/react';
 import type { DocumentContent, NotoDocument, UpdateDocumentInput } from '@noto/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -442,13 +442,24 @@ export function DocumentEditor({
    * run commands by id through the shell, and the shell forwards the ones it
    * has no handler of its own for — these belong to whichever editor is in
    * front, and this is the editor in front.
+   *
+   * Formatting arrives the same way from the desktop's application menu, where
+   * Bold is a menu item rather than a key ProseMirror saw. Link, image and
+   * table ask for something first, so they open the prompt the toolbar opens.
    */
+  const { handleCommand } = prompts;
   useEffect(
     () =>
       subscribeToAppCommands((commandId) => {
-        shortcutHandlers[commandId as keyof typeof shortcutHandlers]?.();
+        const handler = shortcutHandlers[commandId as keyof typeof shortcutHandlers];
+        if (handler) {
+          handler();
+          return;
+        }
+
+        if (!handleCommand(commandId)) runEditorAction(editor, commandId);
       }),
-    [shortcutHandlers],
+    [shortcutHandlers, handleCommand, editor],
   );
 
   /*

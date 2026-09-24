@@ -162,3 +162,27 @@ export interface UpdateReport {
   /** Why it failed, or why this build cannot update itself. */
   message?: string | null;
 }
+
+/**
+ * What the operating system asked Noto to open: files with `.md` or `.txt`
+ * extensions double-clicked in Explorer or Finder, and `noto://` links.
+ *
+ * Both can arrive before there is a window to show them in — a file is often
+ * what started Noto — so the main process holds them and the renderer takes
+ * them, rather than the main process sending them and hoping somebody is
+ * listening yet. `available` only says "there is something to take"; `take`
+ * hands it over and empties the queue, so nothing is delivered twice however
+ * the two cross.
+ */
+export const LAUNCH_CHANNELS = {
+  /** Renderer → main: hand over whatever is waiting. */
+  take: 'noto:launch:take',
+  /** Main → renderer: something is waiting. */
+  available: 'noto:launch:available',
+} as const;
+
+/** Files already read and links not yet interpreted, oldest first. */
+export interface LaunchReport {
+  files: OpenedFileReport[];
+  links: string[];
+}

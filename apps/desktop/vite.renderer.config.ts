@@ -66,6 +66,17 @@ export default defineConfig(({ mode }) => ({
       '@tiptap/core',
       '@tiptap/react',
       '@tiptap/starter-kit',
+      // Everything else the editor reaches ProseMirror through. Discovered late, each
+      // would be bundled on its own with a private copy of prosemirror-view, and the
+      // editor then fails to mount on decorations from the "other" copy.
+      '@tiptap/extension-image',
+      '@tiptap/extension-list',
+      '@tiptap/extension-table',
+      '@tiptap/extension-text-align',
+      '@tiptap/pm/model',
+      '@tiptap/pm/state',
+      '@tiptap/pm/view',
+      'prosemirror-search',
     ],
   },
 }));

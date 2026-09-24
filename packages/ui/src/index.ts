@@ -318,6 +318,7 @@ export {
   linkedFile,
   mimeTypeFor,
   openFilesFromDisk,
+  receiveOpenedFiles,
   saveDocumentToFile,
   setLocalFileGateway,
   subscribeToLocalFiles,

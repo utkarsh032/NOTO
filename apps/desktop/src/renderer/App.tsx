@@ -14,6 +14,7 @@ import { useCallback, useEffect } from 'react';
 
 import { openDesktopDatabase } from './platform/database';
 import { desktopLocalFileGateway } from './platform/files';
+import { subscribeToLaunchRequests } from './platform/launch';
 import { desktopUpdateProvider, subscribeToUpdateStatus } from './platform/updates';
 import { useDesktopAccount } from './platform/use-desktop-account';
 
@@ -93,6 +94,13 @@ export function App() {
    * means they run exactly the code the palette and the menu run.
    */
   useEffect(() => window.notoShell.onCommand(emitAppCommand), []);
+
+  /*
+   * Files and links from the operating system: a `.md` double-clicked in
+   * Explorer, a `noto://` link clicked in a browser. They may be what started
+   * Noto, so what is already waiting is taken the moment this mounts.
+   */
+  useEffect(() => subscribeToLaunchRequests(), []);
 
   /*
    * Updating, likewise: the browser can only ask GitHub what the newest release

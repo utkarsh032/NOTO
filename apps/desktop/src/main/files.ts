@@ -92,8 +92,13 @@ async function loadGrants(): Promise<Set<string>> {
   return grants;
 }
 
-/** Records that a dialog handed out this path, so a later write to it is allowed. */
-async function grant(filePath: string): Promise<void> {
+/**
+ * Records that the user chose this path, so a later read or write of it is allowed.
+ *
+ * A dialog is one way to choose; the operating system opening a file with Noto
+ * is the other (`launch.ts`).
+ */
+export async function grant(filePath: string): Promise<void> {
   const current = await loadGrants();
 
   // Re-added at the end, so a file chosen again counts as recent.

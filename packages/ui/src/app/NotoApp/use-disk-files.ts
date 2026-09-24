@@ -1,5 +1,5 @@
 import type { NotoDocument } from '@noto/types';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { showToast } from '../../components/toast-store';
 import type { NotoDataValue } from '../data-context';
@@ -11,6 +11,8 @@ import {
   openFilesFromDisk,
   readRecentFile,
   recentFiles,
+  rememberRecentFile,
+  subscribeToOpenedFiles,
   type OpenedFile,
 } from '../local-file';
 import type { NotoActions } from '../use-noto-actions';
@@ -141,6 +143,21 @@ export function useDiskFiles(
     },
     [actions, adoptFiles, documents, notReadyYet],
   );
+
+  /*
+   * Files from outside: the operating system opened one with Noto, or a second
+   * launch was handed one. They are taken only once the workspace is open —
+   * until then the queue in `local-file/external.ts` holds them — so a file
+   * that started Noto is not lost to the skeleton that is on screen at first.
+   */
+  useEffect(() => {
+    if (status !== 'ready') return;
+
+    return subscribeToOpenedFiles((opened) => {
+      for (const { file } of opened) rememberRecentFile(file);
+      void adoptFiles(opened);
+    });
+  }, [adoptFiles, status]);
 
   return { openFromDisk, openRecent };
 }
