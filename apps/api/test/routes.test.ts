@@ -404,7 +404,8 @@ describe.skipIf(!hasDatabase)('the Noto API', () => {
         ['GET', '/v1/account/events'],
         ['POST', '/v1/account/email/change'],
       ] as const) {
-        expect((await call(method, path, { body: {} })).status, `${method} ${path}`).toBe(401);
+        const options = method === 'GET' ? {} : { body: {} };
+        expect((await call(method, path, options)).status, `${method} ${path}`).toBe(401);
       }
     });
 

@@ -17,7 +17,7 @@ pnpm db:migrate
 pnpm dev:api                             # http://localhost:8787
 ```
 
-Setup in detail: [`docs/development/database.md`](../../docs/development/database.md).
+Setup in detail: [`docs/development/database.md`](../../docs/development/database.md). Deploying: [`docs/deployment/api.md`](../../docs/deployment/api.md).
 
 ## Layout
 

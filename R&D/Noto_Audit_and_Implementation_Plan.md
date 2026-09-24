@@ -35,7 +35,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 | --- | --- | --- | --- |
 | 0 | Stabilise and harden | ✅ Done | 8 of 8 steps |
 | 1 | Finish the local product | ✅ Done | 9 of 9 steps |
-| 2 | Backend foundation (`apps/api`) | 🟡 Built, not deployed | 6 of 8 steps. Postgres tests written but not yet run; host (D1) not chosen |
+| 2 | Backend foundation (`apps/api`) | 🟡 Built and tested, not deployed | 7 of 8 steps. Only the host (D1) and a staging deployment remain |
 | 3 | Cutover from Supabase | ❌ Not started | Depends on Phase 2 |
 | 4 | Sync | ❌ Not started | Local outbox and version counters already exist (Phase 1.1) |
 | 5 | Mobile parity | ❌ Not started | Depends on Phases 3–4 |
@@ -46,7 +46,7 @@ _Last updated 24 September 2026. Branch `dev`, pushed. Each step was checked wit
 
 In steps: **all 17 steps in Phases 0–1 are done**, which is **2 of the 10 phases**. Phases 2–5 are being worked on in separate sessions and git worktrees (`Noto-phase2` … `Noto-phase5`); they will record their own status here as they merge. Phases 2–9 are the larger share of the remaining work, and most of them need a decision or an account first (see §7).
 
-Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config). Phase 2 adds 24 unit tests, plus 50 Postgres tests (RLS, every route, the account import) that run only with `NOTO_TEST_DATABASE_URL` set. CI sets it; no machine has run them yet.
+Test counts at this point: 318 unit tests (up from 199), 78 web e2e tests (up from 59; 2 skip in a build without cloud config). Phase 2 adds 24 unit tests, plus 50 Postgres tests (RLS, every route, the account import) that run when `NOTO_TEST_DATABASE_URL` is set. All 61 `apps/api` tests pass against PostgreSQL 18, and CI runs them too.
 
 ### Phase 0 — Stabilise and harden ✅
 
@@ -91,12 +91,12 @@ All in `5820801`, on top of Phase 1. Built to [`Backend_Node_Plan.md`](Backend_N
 | 4. Postgres adapters | ✅ | `packages/backend/src/postgres/` implements every port. New `IdentityPort` and `IdentityService` cover refresh, verification, reset, password and email change, and sessions. `AuthService` and `AccountService` are unchanged apart from passing new fields through. |
 | 5. Controllers, mail, Turnstile | ✅ | 11 auth routes; 11 account routes, including sessions list and revoke for the Account screen. The plan's avatar, entitlements, export and delete routes move to Phase 7 with R2 and billing. Resend over HTTP, or console mail in development. Turnstile moved to `shared/`. Sign-up with an address that already has an account gets the same answer as a new one. |
 | 6. Scheduled jobs | ✅ | `node-cron` sweeps `auth_attempts`, sessions, email tokens and the 180-day security log. `NOTO_RUN_JOBS=false` turns them off on extra instances. |
-| 7. Integration tests, CI | 🟡 | RLS suite, including both tests plan §13 requires: refresh-token reuse, and no caller leaking across a pooled connection. Route tests cover every endpoint, with 401 and cross-tenant 404 cases. `ci.yml` starts the runner's own PostgreSQL. **Not yet run:** there was no local superuser password. Run them with `NOTO_TEST_DATABASE_URL` (see `docs/development/database.md`) or let CI run them. |
-| 8. Host, staging database, staging URL | ❌ | Needs decision D1. Nothing is deployed. |
+| 7. Integration tests, CI | ✅ | RLS suite, including both tests plan §13 requires: refresh-token reuse, and no caller leaking across a pooled connection. Route tests cover every endpoint, with 401 and cross-tenant 404 cases. All 61 pass against PostgreSQL 18, three runs in a row, with every throwaway database dropped afterwards. `db:bootstrap` → `db:migrate` → the built server was also walked by hand: sign-up, mailed link, verify, sign-in, devices, security log. `ci.yml` starts the runner's own PostgreSQL for them. |
+| 8. Host, staging database, staging URL | 🟡 | Runbook ready in [`docs/deployment/api.md`](../docs/deployment/api.md): Render or a systemd VM, the environment, migrations as a pre-deploy step, `/readyz` as the health check, and a staging checklist. **Still needed:** decision D1, the host and database accounts, and the secrets. Nothing is deployed. |
 
 Also for Phase 3: `db:import-supabase` (keeps ids, sets `password_hash` NULL, idempotent) and `db:send-reset-mails` (rate-limited, resumable) for the one-time account move (D7).
 
-Phase 2 "done when" (everything working against staging, with tests) is **not met** until steps 7 and 8 are.
+Phase 2 "done when" (everything working against staging, with tests) is **not met** until step 8 is: the tests pass, but there is no staging deployment yet.
 
 ### Bugs found and fixed along the way
 
